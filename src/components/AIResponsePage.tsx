@@ -5,305 +5,444 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import "../styles/ai-response.css"
 
-interface Ingredient {
-  name: string
-  confidence: number
-  category: string
-}
-
-interface Recipe {
-  name: string
-  description: string
-  ingredients: string[]
-  instructions: string[]
-  cookingTime: string
-  difficulty: string
-  servings: number
+declare global {
+  interface Window {
+    gtag: (...args: any[]) => void
+    dataLayer: any[]
+  }
 }
 
 const AIResponsePage: React.FC = () => {
-  const [ingredients, setIngredients] = useState<Ingredient[]>([])
-  const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [showTutorial, setShowTutorial] = useState<string | null>(null)
+  const [inputType, setInputType] = useState<"image" | "ingredient_list">("image")
+  const [ingredientList, setIngredientList] = useState("")
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [results, setResults] = useState<any>(null)
+  const [analysisId, setAnalysisId] = useState("")
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   useEffect(() => {
-    // Simulate loading detected ingredients
-    setTimeout(() => {
-      setIngredients([
-        { name: "Tomatoes", confidence: 95, category: "Vegetables" },
-        { name: "Onions", confidence: 88, category: "Vegetables" },
-        { name: "Garlic", confidence: 92, category: "Aromatics" },
-        { name: "Olive Oil", confidence: 85, category: "Oils" },
-        { name: "Basil", confidence: 78, category: "Herbs" },
-        { name: "Mozzarella", confidence: 90, category: "Dairy" },
-      ])
+    // Initialize Google Analytics
+    const script1 = document.createElement("script")
+    script1.async = true
+    script1.src = "https://www.googletagmanager.com/gtag/js?id=G-TPT4ET0Y2Q"
+    document.head.appendChild(script1)
 
-      setRecipes([
-        {
-          name: "Caprese Salad",
-          description:
-            "A fresh and simple Italian salad featuring ripe tomatoes, creamy mozzarella, and aromatic basil.",
-          ingredients: [
-            "4 large ripe tomatoes, sliced",
-            "8 oz fresh mozzarella, sliced",
-            "1/4 cup fresh basil leaves",
-            "3 tbsp extra virgin olive oil",
-            "2 tbsp balsamic vinegar",
-            "Salt and pepper to taste",
-          ],
-          instructions: [
-            "Arrange alternating slices of tomatoes and mozzarella on a serving platter.",
-            "Tuck fresh basil leaves between the slices.",
-            "Drizzle with olive oil and balsamic vinegar.",
-            "Season with salt and pepper.",
-            "Let sit for 10 minutes before serving to allow flavors to meld.",
-          ],
-          cookingTime: "15 minutes",
-          difficulty: "Easy",
-          servings: 4,
-        },
-        {
-          name: "Pasta Pomodoro",
-          description: "Classic Italian pasta with a simple tomato sauce made from fresh ingredients.",
-          ingredients: [
-            "1 lb spaghetti or linguine",
-            "6 large ripe tomatoes, diced",
-            "4 cloves garlic, minced",
-            "1 medium onion, diced",
-            "1/4 cup olive oil",
-            "1/4 cup fresh basil, chopped",
-            "Salt and pepper to taste",
-            "Parmesan cheese for serving",
-          ],
-          instructions: [
-            "Cook pasta according to package directions until al dente.",
-            "Heat olive oil in a large pan over medium heat.",
-            "Sauté onions until translucent, about 5 minutes.",
-            "Add garlic and cook for 1 minute until fragrant.",
-            "Add diced tomatoes and cook for 10-15 minutes until sauce thickens.",
-            "Season with salt, pepper, and fresh basil.",
-            "Toss with cooked pasta and serve with Parmesan cheese.",
-          ],
-          cookingTime: "30 minutes",
-          difficulty: "Medium",
-          servings: 6,
-        },
-        {
-          name: "Bruschetta",
-          description: "Toasted bread topped with a fresh tomato and basil mixture, perfect as an appetizer.",
-          ingredients: [
-            "1 French baguette, sliced",
-            "4 ripe tomatoes, diced",
-            "3 cloves garlic, minced",
-            "1/4 cup fresh basil, chopped",
-            "3 tbsp olive oil",
-            "1 tbsp balsamic vinegar",
-            "Salt and pepper to taste",
-          ],
-          instructions: [
-            "Preheat oven to 400°F (200°C).",
-            "Brush bread slices with olive oil and toast until golden.",
-            "Mix diced tomatoes, garlic, basil, remaining olive oil, and balsamic vinegar.",
-            "Season the tomato mixture with salt and pepper.",
-            "Top each toasted bread slice with the tomato mixture.",
-            "Serve immediately while bread is still warm.",
-          ],
-          cookingTime: "20 minutes",
-          difficulty: "Easy",
-          servings: 8,
-        },
-      ])
+    const script2 = document.createElement("script")
+    script2.innerHTML = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-TPT4ET0Y2Q');
+    `
+    document.head.appendChild(script2)
 
-      setLoading(false)
-    }, 2000)
+    return () => {
+      document.head.removeChild(script1)
+      document.head.removeChild(script2)
+    }
   }, [])
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      setSelectedImage(file)
       const reader = new FileReader()
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string)
+      reader.onload = () => {
+        setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
     }
   }
 
-  const openTutorial = (recipeName: string) => {
-    setShowTutorial(recipeName)
-    // Track tutorial view
-    if (window.gtag) {
-      window.gtag("event", "tutorial_view", {
-        event_category: "engagement",
-        event_label: recipeName,
+  const uploadData = async () => {
+    if (inputType === "ingredient_list" && !ingredientList.trim()) {
+      alert("Please enter ingredients.")
+      return
+    }
+
+    if (inputType === "image" && !selectedImage) {
+      alert("Please select an image file.")
+      return
+    }
+
+    setIsLoading(true)
+    setResults(null)
+
+    const formData = new FormData()
+    formData.append("image_or_ingredient_list", inputType)
+
+    if (inputType === "ingredient_list") {
+      formData.append("ingredient_list", ingredientList)
+    } else {
+      formData.append("image", selectedImage!)
+    }
+
+    try {
+      const response = await fetch("https://ai-utu2.onrender.com/process", {
+        method: "POST",
+        body: formData,
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.error) {
+        setResults({ error: data.error })
+      } else {
+        setAnalysisId(data.analysis_id)
+        setResults(data)
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      setResults({ error: "An error occurred. Please try again." })
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="ai-response-container">
-        <div className="container mx-auto px-4">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p className="mt-4 text-gray-600">Analyzing your ingredients...</p>
-          </div>
-        </div>
-      </div>
-    )
+  const handleSuggestionClick = async (suggestion: string) => {
+    setIsLoading(true)
+
+    const formData = new FormData()
+    formData.append("food_analysis_id", analysisId)
+    formData.append("food_choice_index", suggestion)
+
+    try {
+      const response = await fetch("https://ai-utu2.onrender.com/instructions", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      setResults((prev) => ({
+        ...prev,
+        instructions: data.instructions,
+        selectedSuggestion: suggestion,
+      }))
+
+      fetchResources(suggestion)
+    } catch (error) {
+      console.error("Error fetching instructions:", error)
+      alert("Failed to fetch instructions. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchResources = async (suggestion: string) => {
+    const formData = new FormData()
+    formData.append("food_choice_index", suggestion)
+
+    try {
+      const response = await fetch("https://ai-utu2.onrender.com/resources", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      setResults((prev) => ({
+        ...prev,
+        resources: data,
+      }))
+
+      setTimeout(() => {
+        if (!sessionStorage.getItem("feedbackShown")) {
+          setShowFeedbackModal(true)
+        }
+      }, 20000)
+    } catch (error) {
+      console.error("Error fetching resources:", error)
+    }
+  }
+
+  const getYouTubeVideoId = (url: string) => {
+    if (!url) return null
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+    const match = url.match(regExp)
+    return match && match[2] && match[2].length === 11 ? match[2] : null
+  }
+
+  const submitFeedback = (feedbackType: string) => {
+    setShowFeedbackModal(false)
+    sessionStorage.setItem("feedbackShown", "true")
   }
 
   return (
-    <div className="ai-response-container">
-      <div className="container mx-auto px-4">
-        <Link to="/" className="back-button">
-          ← Back to Home
-        </Link>
-
-        <div className="response-header">
-          <h1 className="response-title">🥗 Ingredient Analysis Results</h1>
-          <p className="response-subtitle">
-            We've analyzed your ingredients and found some amazing recipes you can make!
-          </p>
-        </div>
-
-        {/* Upload Section */}
-        <div className="ingredients-section">
-          <h2 className="ingredients-title">📸 Upload New Image</h2>
-          <div className="mb-4">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-          </div>
-          {selectedImage && (
-            <div className="mt-4">
-              <img
-                src={selectedImage || "/placeholder.svg"}
-                alt="Uploaded ingredients"
-                className="max-w-full h-64 object-cover rounded-lg shadow-lg"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Detected Ingredients */}
-        <div className="ingredients-section">
-          <h2 className="ingredients-title">🔍 Detected Ingredients</h2>
-          <div className="ingredients-list">
-            {ingredients.map((ingredient, index) => (
-              <div key={index} className="ingredient-item">
-                <div className="font-semibold text-gray-800">{ingredient.name}</div>
-                <div className="text-sm text-gray-600">{ingredient.category}</div>
-                <div className="text-sm text-green-600 font-medium">{ingredient.confidence}% confidence</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recipe Suggestions */}
-        <div className="recipes-section">
-          <h2 className="recipes-title">👨‍🍳 Recommended Recipes</h2>
-          <div className="space-y-6">
-            {recipes.map((recipe, index) => (
-              <div key={index} className="recipe-card">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="recipe-name">{recipe.name}</h3>
-                    <div className="flex gap-4 text-sm text-gray-500 mb-2">
-                      <span>⏱️ {recipe.cookingTime}</span>
-                      <span>👥 {recipe.servings} servings</span>
-                      <span>📊 {recipe.difficulty}</span>
-                    </div>
-                  </div>
-                  <button onClick={() => openTutorial(recipe.name)} className="tutorial-button">
-                    📺 Watch Tutorial
-                  </button>
-                </div>
-
-                <p className="recipe-description">{recipe.description}</p>
-
-                <div className="recipe-ingredients">
-                  <h4>Ingredients:</h4>
-                  <ul>
-                    {recipe.ingredients.map((ingredient, idx) => (
-                      <li key={idx}>{ingredient}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="recipe-instructions">
-                  <h4>Instructions:</h4>
-                  <ol>
-                    {recipe.instructions.map((instruction, idx) => (
-                      <li key={idx}>{instruction}</li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Tutorial Modal */}
-        {showTutorial && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-2xl font-bold">Cooking Tutorial: {showTutorial}</h3>
-                <button onClick={() => setShowTutorial(null)} className="text-gray-500 hover:text-gray-700 text-2xl">
-                  ×
-                </button>
-              </div>
-
-              <div className="aspect-video bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">🎥</div>
-                  <p className="text-gray-600">Tutorial video would load here</p>
-                  <p className="text-sm text-gray-500 mt-2">Integration with YouTube API or video hosting service</p>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-bold mb-2">Step-by-step Guide:</h4>
-                  <ol className="list-decimal list-inside space-y-2 text-sm">
-                    {recipes
-                      .find((r) => r.name === showTutorial)
-                      ?.instructions.map((step, idx) => (
-                        <li key={idx}>{step}</li>
-                      ))}
-                  </ol>
-                </div>
-
-                <div>
-                  <h4 className="font-bold mb-2">Tips & Tricks:</h4>
-                  <ul className="list-disc list-inside space-y-2 text-sm text-gray-600">
-                    <li>Use the freshest ingredients for best flavor</li>
-                    <li>Taste and adjust seasoning as you cook</li>
-                    <li>Don't rush - let flavors develop naturally</li>
-                    <li>Prep all ingredients before you start cooking</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="text-center mt-8 space-x-4">
-          <Link to="/detect-food" className="cta-button bg-green-500 hover:bg-green-600">
-            📸 Try Food Detection
-          </Link>
-          <Link to="/meal-planner" className="cta-button bg-purple-500 hover:bg-purple-600">
-            📅 Plan Your Meals
+    <div className="min-h-screen detection-container">
+      {/* Switch Navigation */}
+      <div className="switch-nav p-4">
+        <div className="container mx-auto flex justify-center gap-4">
+          <button className="px-6 py-2 switch-button-active rounded-full font-semibold">Detect Ingredients</button>
+          <Link
+            to="/detect-food"
+            className="px-6 py-2 switch-button-inactive rounded-full font-semibold transition-colors"
+          >
+            Detect Food
           </Link>
         </div>
       </div>
+
+      <div className="container mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-8">
+            <Link to="/" className="text-red-500 hover:text-red-600 transition-colors">
+              ← Home
+            </Link>
+            <button className="text-red-500 hover:text-red-600 transition-colors">Sign Out</button>
+          </div>
+
+          <h1 className="text-4xl font-bold text-center mb-8 gradient-text">Ingredient Detection</h1>
+
+          {/* Input Type Selection */}
+          <div className="mb-8">
+            <label className="block text-lg font-semibold text-gray-800 mb-4">How would you like to start?</label>
+            <select
+              value={inputType}
+              onChange={(e) => setInputType(e.target.value as "image" | "ingredient_list")}
+              className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none text-lg"
+            >
+              <option value="image">Snap or Upload Ingredient Image</option>
+              <option value="ingredient_list">List Your Ingredients</option>
+            </select>
+          </div>
+
+          {/* Input Section */}
+          {inputType === "image" ? (
+            <div className="mb-8">
+              <label className="block text-lg font-semibold text-gray-800 mb-4">Share Your Food Image</label>
+              <div className="upload-area p-8 rounded-xl">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none"
+                />
+              </div>
+              {imagePreview && (
+                <div className="mt-4 flex justify-center">
+                  <img
+                    src={imagePreview || "/placeholder.svg"}
+                    alt="Image Preview"
+                    className="image-preview w-96 h-72 object-cover"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mb-8">
+              <label className="block text-lg font-semibold text-gray-800 mb-4">What ingredients do you have?</label>
+              <input
+                type="text"
+                value={ingredientList}
+                onChange={(e) => setIngredientList(e.target.value)}
+                placeholder="e.g., chicken, tomatoes, basil, olive oil"
+                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none text-lg"
+              />
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            onClick={uploadData}
+            disabled={isLoading}
+            className="submit-button disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full loading-spinner mr-3"></div>
+                Processing...
+              </div>
+            ) : (
+              "Discover Recipes"
+            )}
+          </button>
+
+          {/* Results Section */}
+          {results && (
+            <div className="mt-12 space-y-8">
+              {results.error ? (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">{results.error}</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Detected Ingredients */}
+                    <div className="results-card rounded-xl p-6">
+                      <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-red-200 pb-2">
+                        AI Detected Ingredient
+                      </h3>
+                      <ol className="ingredients-list space-y-2 text-gray-700">
+                        {results.response?.map((item: string, index: number) => (
+                          <li key={index} className="flex items-start">
+                            <span className="font-semibold text-red-500 mr-2">{index + 1}.</span>
+                            {item.trim()}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    {/* Recipe Suggestions */}
+                    <div className="results-card rounded-xl p-6">
+                      <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-red-200 pb-2">
+                        AI Recipe Suggestions
+                      </h3>
+                      <div className="flex flex-wrap gap-3">
+                        {results.food_suggestions?.map((suggestion: string, index: number) => (
+                          <button
+                            key={index}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="suggestion-button px-4 py-2 rounded-xl font-semibold"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cooking Instructions */}
+                  {results.instructions && (
+                    <div className="results-card rounded-xl p-6">
+                      <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-red-200 pb-2">
+                        Cooking Instructions
+                      </h3>
+                      <div
+                        className="instructions-content text-gray-700"
+                        dangerouslySetInnerHTML={{
+                          __html: results.instructions
+                            .replace(/\*\*(.*?)\*\*/g, "<br><strong>$1</strong><br>")
+                            .replace(/\*\s*(.*?)\s*\*/g, "<p>$1</p>")
+                            .replace(/(\d+\.)/g, "<br>$1"),
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Resources */}
+                  {results.resources && (
+                    <div className="resources-section resources-grid">
+                      {/* YouTube Resources */}
+                      <div className="resource-section">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-red-200 pb-2">
+                          YouTube Resources
+                        </h3>
+                        <h4 className="font-semibold text-gray-700 mb-4">Video Tutorials</h4>
+                        <div className="space-y-4">
+                          {results.resources.YoutubeSearch?.length > 0 ? (
+                            results.resources.YoutubeSearch.map((item: any, index: number) => {
+                              const videoId = getYouTubeVideoId(item.link)
+                              return videoId ? (
+                                <div key={index} className="youtube-embed relative pb-56 h-0 overflow-hidden">
+                                  <iframe
+                                    src={`https://www.youtube.com/embed/${videoId}`}
+                                    title={item.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    className="absolute top-0 left-0 w-full h-full"
+                                  />
+                                </div>
+                              ) : (
+                                <div key={index} className="bg-white p-4 rounded-lg shadow">
+                                  <a
+                                    href={item.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="resource-link text-red-500 hover:text-red-600 font-semibold"
+                                  >
+                                    {item.title}
+                                  </a>
+                                </div>
+                              )
+                            })
+                          ) : (
+                            <p className="text-gray-500">No video tutorials available.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Google Resources */}
+                      <div className="resource-section">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-red-200 pb-2">
+                          Google Resources
+                        </h3>
+                        <h4 className="font-semibold text-gray-700 mb-4">Recommended Articles</h4>
+                        <div className="space-y-4">
+                          {results.resources.GoogleSearch?.length > 0 ? (
+                            results.resources.GoogleSearch.map((item: any, index: number) => (
+                              <div key={index} className="bg-white p-4 rounded-lg shadow">
+                                <a
+                                  href={item.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="resource-link text-red-500 hover:text-red-600 font-semibold block mb-2"
+                                >
+                                  {item.title}
+                                </a>
+                                <p className="text-gray-600 text-sm">{item.description}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-gray-500">No articles available.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Share Button */}
+                  {results.instructions && (
+                    <div className="text-center">
+                      <button className="share-button text-white px-8 py-3 rounded-xl font-semibold">
+                        📤 Share This Recipe
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="feedback-modal">
+          <div className="feedback-content">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Enjoying the Recipe?</h3>
+              <button onClick={() => setShowFeedbackModal(false)} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-6">We'd love to hear your feedback to make our app even better!</p>
+
+            <div className="space-y-4">
+              <button onClick={() => submitFeedback("yes")} className="feedback-button feedback-button-primary">
+                Yes, I loved it!
+              </button>
+              <button onClick={() => submitFeedback("later")} className="feedback-button feedback-button-secondary">
+                Not now, maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

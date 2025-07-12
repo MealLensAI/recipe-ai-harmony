@@ -19,137 +19,97 @@ interface FoodItem {
   category: string
 }
 
+
 const DetectFoodPage: React.FC = () => {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [foodResults, setFoodResults] = useState<FoodItem[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [dragOver, setDragOver] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [inputType, setInputType] = useState<'image' | 'ingredient_list'>('image');
+  const [ingredientList, setIngredientList] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [results, setResults] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  const handleImageUpload = (file: File) => {
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string)
-        setError(null)
-      }
-      reader.readAsDataURL(file)
-    } else {
-      setError("Please select a valid image file.")
-    }
-  }
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageSelectFile(file);
+  };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      handleImageUpload(file)
-    }
-  }
+  // File select
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageSelectFile(file);
+  };
+  const handleImageSelectFile = (file: File) => {
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setDragOver(false)
+  // Trigger file input
+  const triggerFileInput = () => fileInputRef.current?.click();
 
-    const file = event.dataTransfer.files[0]
-    if (file) {
-      handleImageUpload(file)
-    }
-  }
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setDragOver(true)
-  }
-
-  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setDragOver(false)
-  }
-
-  const analyzeFood = async () => {
-    if (!selectedImage) {
-      setError("Please select an image first.")
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
+  // Submit to API
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+    setResults(null);
     try {
-      // Simulate API call to food detection service
-      await new Promise((resolve) => setTimeout(resolve, 3000))
-
-      // Mock results - in real app, this would come from your AI service
-      const mockResults: FoodItem[] = [
-        {
-          name: "Margherita Pizza",
-          confidence: 94,
-          description: "Classic Italian pizza with tomato sauce, mozzarella cheese, and fresh basil leaves.",
-          nutrition: {
-            calories: 266,
-            protein: 11,
-            carbs: 33,
-            fat: 10,
-            fiber: 2,
-          },
-          category: "Italian Cuisine",
-        },
-        {
-          name: "Fresh Basil",
-          confidence: 87,
-          description: "Fresh basil leaves used as a garnish, providing aromatic flavor and nutritional benefits.",
-          nutrition: {
-            calories: 1,
-            protein: 0.1,
-            carbs: 0.1,
-            fat: 0,
-            fiber: 0.1,
-          },
-          category: "Herbs",
-        },
-      ]
-
-      setFoodResults(mockResults)
-
-      // Track successful analysis
-      if (window.gtag) {
-        window.gtag("event", "food_analysis_complete", {
-          event_category: "ai_detection",
-          event_label: "success",
-        })
+      const formData = new FormData();
+      formData.append('image_or_ingredient_list', inputType);
+      if (inputType === 'ingredient_list') {
+        formData.append('ingredient_list', ingredientList);
+      } else {
+        if (!selectedImage) {
+          setError('Please select an image to upload.');
+          setIsLoading(false);
+          return;
+        }
+        formData.append('image', selectedImage);
       }
-    } catch (err) {
-      setError("Failed to analyze the image. Please try again.")
-      console.error("Food analysis error:", err)
+      const response = await fetch('https://ai-utu2.onrender.com/food_detect', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Failed to detect food.');
+      const data = await response.json();
+      setResults(data);
+    } catch (err: any) {
+      setError(err.message || 'Error detecting food.');
     } finally {
-      setLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click()
-  }
+  };
 
   return (
     <div className="detect-food-container">
       <div className="container mx-auto px-4">
-        <Link to="/" className="back-button">
-          ← Back to Home
-        </Link>
-
+        <Link to="/" className="back-button">← Back to Home</Link>
         <div className="detect-header">
           <h1 className="detect-title">📸 Food Detection AI</h1>
           <p className="detect-subtitle">
-            Upload a photo of any dish and our AI will identify it, providing detailed nutritional information and
-            insights about your food.
+            Upload a photo of any dish and our AI will identify it, providing detailed nutritional information and insights about your food.
           </p>
         </div>
 
         {/* Upload Section */}
-        <div className="upload-section">
+        <form className="upload-section" onSubmit={handleSubmit}>
           <div
-            className={`upload-area ${dragOver ? "dragover" : ""}`}
+            className={`upload-area ${dragOver ? 'dragover' : ''}`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -157,85 +117,68 @@ const DetectFoodPage: React.FC = () => {
           >
             <div className="upload-icon">📷</div>
             <div className="upload-text">
-              {selectedImage ? "Image selected! Click to change" : "Drop your food image here or click to browse"}
+              {imagePreview ? 'Image selected! Click to change' : 'Drop your food image here or click to browse'}
             </div>
             <div className="upload-subtext">Supports JPG, PNG, GIF up to 10MB</div>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="file-input" />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="file-input" />
           </div>
 
-          {selectedImage && (
+          {imagePreview && (
             <div className="image-preview">
-              <img src={selectedImage || "/placeholder.svg"} alt="Selected food" className="preview-image" />
-              <button onClick={analyzeFood} disabled={loading} className="analyze-button">
-                {loading ? "Analyzing..." : "🔍 Analyze Food"}
+              <img src={imagePreview || "/placeholder.svg"} alt="Selected food" className="preview-image" />
+              <button type="submit" disabled={isLoading} className="analyze-button">
+                {isLoading ? 'Analyzing...' : '🔍 Analyze Food'}
               </button>
             </div>
           )}
 
           {error && <div className="error-message">{error}</div>}
-        </div>
+        </form>
 
         {/* Results Section */}
-        {foodResults.length > 0 && (
+        {results && (
           <div className="results-section">
             <h2 className="results-title">🍽️ Detection Results</h2>
             <div className="space-y-6">
-              {foodResults.map((food, index) => (
-                <div key={index} className="food-item">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="food-name">{food.name}</h3>
-                      <div className="food-confidence">Confidence: {food.confidence}%</div>
-                      <div className="text-sm text-gray-500">Category: {food.category}</div>
-                    </div>
-                  </div>
-
-                  <p className="food-description">{food.description}</p>
-
-                  <div className="nutrition-info">
-                    <div className="nutrition-title">Nutritional Information (per 100g):</div>
-                    <div className="nutrition-grid">
-                      <div className="nutrition-item">
-                        <div className="nutrition-value">{food.nutrition.calories}</div>
-                        <div className="nutrition-label">Calories</div>
-                      </div>
-                      <div className="nutrition-item">
-                        <div className="nutrition-value">{food.nutrition.protein}g</div>
-                        <div className="nutrition-label">Protein</div>
-                      </div>
-                      <div className="nutrition-item">
-                        <div className="nutrition-value">{food.nutrition.carbs}g</div>
-                        <div className="nutrition-label">Carbs</div>
-                      </div>
-                      <div className="nutrition-item">
-                        <div className="nutrition-value">{food.nutrition.fat}g</div>
-                        <div className="nutrition-label">Fat</div>
-                      </div>
-                      <div className="nutrition-item">
-                        <div className="nutrition-value">{food.nutrition.fiber}g</div>
-                        <div className="nutrition-label">Fiber</div>
-                      </div>
-                    </div>
-                  </div>
+              {results.food_detected && results.food_detected.length > 0 && results.food_detected.map((food: string, idx: number) => (
+                <div key={idx} className="food-item">
+                  <h3 className="food-name">{food}</h3>
                 </div>
               ))}
+              {results.instructions && (
+                <div className="cooking-instructions">
+                  <h3>Cooking Instructions</h3>
+                  <div className="instructions-text" dangerouslySetInnerHTML={{ __html: results.instructions }} />
+                </div>
+              )}
+              {/* Youtube/Google resources if available */}
+              {(results.YoutubeSearch || results.GoogleSearch) && (
+                <div className="resource-section">
+                  <h3>Online Resources</h3>
+                  <div className="resources-grid">
+                    {results.YoutubeSearch && results.YoutubeSearch.map((yt: any, i: number) => (
+                      <a key={i} href={yt.url} target="_blank" rel="noopener" className="resource-link">{yt.title}</a>
+                    ))}
+                    {results.GoogleSearch && results.GoogleSearch.map((g: any, i: number) => (
+                      <a key={i} href={g.url} target="_blank" rel="noopener" className="resource-link">{g.title}</a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="text-center mt-8 space-x-4">
-          <Link to="/ai-response" className="cta-button bg-blue-500 hover:bg-blue-600">
-            🥗 Try Ingredient Detection
-          </Link>
-          <Link to="/meal-planner" className="cta-button bg-purple-500 hover:bg-purple-600">
-            📅 Plan Your Meals
-          </Link>
+          <Link to="/ai-response" className="cta-button bg-blue-500 hover:bg-blue-600">🥗 Try Ingredient Detection</Link>
+          <Link to="/" className="cta-button bg-purple-500 hover:bg-purple-600">🏠 Home</Link>
+          <Link to="/meal-planner" className="cta-button bg-orange-500 hover:bg-orange-600">📅 Plan Your Meals</Link>
         </div>
       </div>
 
       {/* Loading Overlay */}
-      {loading && (
+      {isLoading && (
         <div className="loading-overlay">
           <div className="loading-content">
             <div className="loading-spinner"></div>
@@ -245,7 +188,7 @@ const DetectFoodPage: React.FC = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default DetectFoodPage
+export default DetectFoodPage;

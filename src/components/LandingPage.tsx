@@ -1,41 +1,20 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
-import { initializeApp } from "firebase/app"
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, type User } from "firebase/auth"
-import { getAnalytics } from "firebase/analytics"
+import { useState, useEffect } from "react"
 import "../styles/landing-page.css"
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDfeNB97dUeCtbSBTqTa_oZLNFUoDRCpLg",
-  authDomain: "meallensai-e84bc.firebaseapp.com",
-  projectId: "meallensai-e84bc",
-  storageBucket: "meallensai-e84bc.firebasestorage.app",
-  messagingSenderId: "931517253636",
-  appId: "1:931517253636:web:344608943b23698df08d51",
-  measurementId: "G-XV5LYL1RYJ",
-}
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
-const auth = getAuth(app)
-const analytics = getAnalytics(app)
-
-// Google Analytics function
 declare global {
   interface Window {
+    PaystackPop: any
     gtag: (...args: any[]) => void
     dataLayer: any[]
   }
 }
 
 const LandingPage: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null)
-  const [showDonateModal, setShowDonateModal] = useState(false)
   const [currentFeatureSlide, setCurrentFeatureSlide] = useState(0)
+  const [showDonateModal, setShowDonateModal] = useState(false)
 
   useEffect(() => {
     // Initialize Google Analytics
@@ -53,387 +32,543 @@ const LandingPage: React.FC = () => {
     `
     document.head.appendChild(script2)
 
-    // Auth state listener
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-    })
+    // Load external stylesheets
+    const fontAwesome = document.createElement("link")
+    fontAwesome.rel = "stylesheet"
+    fontAwesome.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    document.head.appendChild(fontAwesome)
+
+    const lineIcons = document.createElement("link")
+    lineIcons.rel = "stylesheet"
+    lineIcons.href = "https://cdn.lineicons.com/2.0/LineIcons.css"
+    document.head.appendChild(lineIcons)
+
+    // Load Paystack script
+    const paystackScript = document.createElement("script")
+    paystackScript.src = "https://js.paystack.co/v1/inline.js"
+    document.head.appendChild(paystackScript)
 
     return () => {
-      unsubscribe()
       document.head.removeChild(script1)
       document.head.removeChild(script2)
+      document.head.removeChild(fontAwesome)
+      document.head.removeChild(lineIcons)
+      document.head.removeChild(paystackScript)
     }
   }, [])
 
-  const handleAuth = async (mode: "signin" | "signup") => {
+  const handleTryMealLensAI = (event: React.MouseEvent) => {
+    event.preventDefault()
+    window.location.href = "/ai-response"
+  }
+
+  const handleFeedbackSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const formData = new FormData(form)
+
     try {
-      const provider = new GoogleAuthProvider()
-      provider.addScope("email")
-      provider.setCustomParameters({
-        prompt: "select_account",
-      })
-
-      const result = await signInWithPopup(auth, provider)
-      console.log(`Successfully ${mode}:`, result.user)
-
-      // Track authentication event
-      if (window.gtag) {
-        window.gtag("event", mode, {
-          event_category: "authentication",
-          event_label: "google",
-        })
-      }
+      await fetch(
+        "https://docs.google.com/forms/d/e/1FAIpQLSfmzSzyjg7h6GYzDLLI-uPLGjjMI3VqVj-hmwpvygqROo1NvQ/formResponse",
+        {
+          method: "POST",
+          body: formData,
+          mode: "no-cors",
+        },
+      )
+      alert("Thank you for your feedback! We appreciate your input.")
+      form.reset()
     } catch (error) {
-      console.error(`${mode} error:`, error)
+      console.error("Error:", error)
+      alert("There was an error submitting your feedback. Please try again.")
     }
   }
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth)
-      console.log("Successfully signed out")
-    } catch (error) {
-      console.error("Sign out error:", error)
-    }
-  }
+  const processDonation = () => {
+    const nameInput = document.getElementById("donorName") as HTMLInputElement
+    const emailInput = document.getElementById("donorEmail") as HTMLInputElement
+    const amountInput = document.getElementById("donationAmount") as HTMLInputElement
 
-  const handleDonateClick = () => {
-    setShowDonateModal(true)
-    if (window.gtag) {
-      window.gtag("event", "donate_click", {
-        event_category: "engagement",
-        event_label: "donation_modal",
+    const name = nameInput?.value
+    const email = emailInput?.value
+    const amount = amountInput?.value
+
+    if (!name || !email || !amount) {
+      alert("Please fill in all fields")
+      return
+    }
+
+    if (window.PaystackPop) {
+      const handler = window.PaystackPop.setup({
+        key: "pk_live_5f7de652daf3ea53dc685902c5f28f0a2063bc33",
+        email: email,
+        amount: Number.parseInt(amount) * 100,
+        currency: "KES",
+        ref: "" + Math.floor(Math.random() * 1000000000 + 1),
+        metadata: {
+          custom_fields: [
+            {
+              display_name: "Donor Name",
+              variable_name: "donor_name",
+              value: name,
+            },
+          ],
+        },
+        callback: (response: any) => {
+          alert("Thank you for your donation! Reference: " + response.reference)
+          setShowDonateModal(false)
+          if (nameInput) nameInput.value = ""
+          if (emailInput) emailInput.value = ""
+          if (amountInput) amountInput.value = "1000"
+        },
+        onClose: () => {
+          alert("Transaction was not completed, window closed.")
+        },
       })
+      handler.openIframe()
     }
   }
 
-  const appScreenshots = [
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/1.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/2.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/3.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/4.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/5.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/6.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/7.png",
-    "/MealLeansBeta/landingpage-main/assets/images/appImage/8.png",
-  ]
+  const nextSlide = () => {
+    setCurrentFeatureSlide(1)
+  }
+
+  const prevSlide = () => {
+    setCurrentFeatureSlide(0)
+  }
 
   return (
-    <div className="landing-page">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/90 backdrop-blur-md z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <img src="/MealLeansBeta/landingpage-main/assets/images/logo.png" alt="MealLens AI" className="h-8 w-8" />
-            <span className="font-bold text-xl text-gray-800">MealLens AI</span>
-          </div>
+    <div className="min-h-screen">
+      {/* Header */}
+      <section className="relative">
+        <div className="bg-white border-b border-gray-200">
+          <div className="container mx-auto">
+            <div className="flex items-center justify-between py-4 px-6">
+              <nav className="flex items-center justify-between w-full">
+                <a href="/" className="flex items-center">
+                  <img
+                    src="/assets/images/logo.svg"
+                    alt="Logo"
+                    className="w-48 h-auto"
+                  />
+                </a>
 
-          <div className="auth-section">
-            {user ? (
-              <div className="user-info">
-                <img src={user.photoURL || ""} alt="User" className="user-avatar" />
-                <span className="text-gray-700">{user.displayName}</span>
-                <button onClick={handleSignOut} className="auth-button bg-red-500 hover:bg-red-600">
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <div className="space-x-2">
-                <button onClick={() => handleAuth("signin")} className="auth-button">
-                  Sign In
-                </button>
-                <button onClick={() => handleAuth("signup")} className="auth-button bg-green-500 hover:bg-green-600">
-                  Sign Up
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
+                <div className="hidden lg:flex items-center space-x-8">
+                  <a href="#home" className="text-gray-700 hover:text-orange-500 transition-colors">
+                    Home
+                  </a>
+                  <a href="#features" className="text-gray-700 hover:text-orange-500 transition-colors">
+                    Features
+                  </a>
+                  <a href="#about" className="text-gray-700 hover:text-orange-500 transition-colors">
+                    About
+                  </a>
+                  <button
+                    onClick={() => setShowDonateModal(true)}
+                    className="text-gray-700 hover:text-orange-500 transition-colors cursor-pointer"
+                  >
+                    Donate
+                  </button>
+                </div>
 
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-content">
-          <h1 className="hero-title">Transform Your Cooking with AI</h1>
-          <p className="hero-subtitle">
-            Discover recipes from ingredients, identify food from photos, and plan your meals with the power of
-            artificial intelligence.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <Link to="/ai-response" className="cta-button">
-              🥗 Detect Ingredients
-            </Link>
-            <Link to="/detect-food" className="cta-button bg-green-500 hover:bg-green-600">
-              📸 Identify Food
-            </Link>
-            <Link to="/meal-planner" className="cta-button bg-purple-500 hover:bg-purple-600">
-              📅 Plan Meals
-            </Link>
+                <div className="flex items-center space-x-4">
+                  <button className="text-gray-700 hover:text-orange-500 transition-colors">Log In</button>
+                  <button className="text-gray-700 hover:text-orange-500 transition-colors">Sign Up</button>
+                </div>
+              </nav>
+            </div>
           </div>
         </div>
 
-        {/* Background shapes */}
-        <div className="absolute top-10 left-10 w-20 h-20 bg-white/10 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-32 h-32 bg-white/5 rounded-full animate-bounce"></div>
-        <div className="absolute top-1/2 left-5 w-16 h-16 bg-white/10 rounded-full animate-ping"></div>
+        {/* Hero Section */}
+        <div id="home" className="relative hero-background overflow-hidden">
+          {/* Background shapes */}
+          <img
+            className="absolute top-10 left-10 w-16 h-16 opacity-20 floating-shape"
+            src="/assets/images/shape-1.svg"
+            alt="shape"
+          />
+          <img
+            className="absolute top-20 right-20 w-20 h-20 opacity-20 floating-shape"
+            src="/assets/images/shape-2.svg"
+            alt="shape"
+            style={{ animationDelay: "2s" }}
+          />
+          <img
+            className="absolute bottom-20 left-20 w-12 h-12 opacity-50 floating-shape"
+            src="/assets/images/shape-3.svg"
+            alt="shape"
+            style={{ animationDelay: "4s" }}
+          />
+
+          <div className="container mx-auto px-6 py-20">
+            <div className="flex flex-col lg:flex-row items-center justify-between">
+              <div className="lg:w-1/2 mb-10 lg:mb-0">
+                <h1 className="text-4xl lg:text-5xl font-bold text-gray-800 mb-6 leading-tight">
+                  Discover Meals with <span className="gradient-text">MealLensAI</span>
+                </h1>
+                <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                  MealLensAI is your smart kitchen assistant. Snap a picture of your ingredients or a meal, and let AI
+                  guide you with recipes, cooking tips, and personalized suggestions. You can also take a picture of a
+                  prepared meal, and let AI guide you with detailed cooking instructions, provide a list of ingredients
+                  used, a step-by-step guide to recreate the dish, and online resources for preparing the meal. Simplify
+                  meal prep like never before!
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <a href="#features" className="btn-primary text-white px-8 py-3 rounded-lg text-center inline-block">
+                    Explore Features
+                  </a>
+                  <button onClick={handleTryMealLensAI} className="btn-secondary text-white px-8 py-3 rounded-lg">
+                    Try <strong>MealLensAI</strong> Now For Free !!
+                  </button>
+                </div>
+              </div>
+
+              <div className="lg:w-1/2 flex justify-center lg:justify-end">
+                <div className="relative">
+                  <div className="video-container">
+                    <video autoPlay loop muted playsInline controls onContextMenu={(e) => e.preventDefault()}>
+                      <source src="/assets/okay.mp4" type="video/mp4" />
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                  <img
+                    src="/assets/images/dots.svg"
+                    alt="decorative dots"
+                    className="absolute -bottom-4 -right-4 w-16 h-16 opacity-50"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Features Section */}
-      <section className="features-section">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Powerful AI Features</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Experience the future of cooking with our advanced AI-powered tools designed to make your culinary journey
-              effortless and exciting.
-            </p>
+      <section id="features" className="py-20 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4">Our Features</h2>
+            <p className="text-lg text-gray-600">Discover why MealLensAI is the ultimate kitchen companion.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="feature-card">
-              <div className="feature-icon">🥗</div>
-              <h3 className="text-xl font-bold mb-2">Ingredient Detection</h3>
-              <p className="text-gray-600">
-                Upload photos of your ingredients and get instant recipe suggestions tailored to what you have
-                available.
-              </p>
-            </div>
+          {/* Features Carousel */}
+          <div className="relative">
+            <div className="overflow-hidden">
+              <div className="flex carousel-slide" style={{ transform: `translateX(-${currentFeatureSlide * 100}%)` }}>
+                {/* First slide */}
+                <div className="w-full flex-shrink-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="text-center p-6 bg-gray-50 rounded-xl feature-card">
+                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="lni lni-camera text-2xl text-orange-500"></i>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-3">Smart Ingredient Recognition</h3>
+                      <p className="text-gray-600">
+                        Snap a picture or upload an image of your ingredients, and let MealLensAI identify them
+                        instantly using cutting-edge AI technology.
+                      </p>
+                    </div>
 
-            <div className="feature-card">
-              <div className="feature-icon">📸</div>
-              <h3 className="text-xl font-bold mb-2">Food Identification</h3>
-              <p className="text-gray-600">
-                Take a photo of any dish and our AI will identify it, providing nutritional information and cooking
-                tips.
-              </p>
-            </div>
+                    <div className="text-center p-6 bg-gray-50 rounded-xl feature-card">
+                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="lni lni-restaurant text-2xl text-orange-500"></i>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-3">Recipe Suggestions and AI Review</h3>
+                      <p className="text-gray-600">
+                        Discover recipes based on your ingredients, get quick meal ideas, and missing ingredients. Also
+                        snap your finished dish, and let AI score how well you made it.
+                      </p>
+                    </div>
 
-            <div className="feature-card">
-              <div className="feature-icon">📅</div>
-              <h3 className="text-xl font-bold mb-2">Meal Planning</h3>
-              <p className="text-gray-600">
-                Create personalized meal plans based on your dietary preferences, restrictions, and nutritional goals.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+                    <div className="text-center p-6 bg-gray-50 rounded-xl feature-card">
+                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="text-orange-500"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M11.25 7.53169V6L10 6C9.58579 6 9.25 5.66421 9.25 5.25C9.25 4.83579 9.58579 4.5 10 4.5H14C14.4142 4.5 14.75 4.83579 14.75 5.25C14.75 5.66421 14.4142 6 14 6L12.75 6V7.53169C17.2314 7.91212 20.75 11.6702 20.75 16.25V18H21.25C21.6642 18 22 18.3358 22 18.75C22 19.1642 21.6642 19.5 21.25 19.5H2.75C2.33579 19.5 2 19.1642 2 18.75C2 18.3358 2.33579 18 2.75 18H3.25V16.25C3.25 11.6702 6.7686 7.91212 11.25 7.53169ZM4.75 18H19.25V16.25C19.25 12.2459 16.0041 9 12 9C7.99594 9 4.75 12.2459 4.75 16.25V18Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-3">Smart Food Detection</h3>
+                      <p className="text-gray-600">
+                        Capture a photo of any prepared meal, and let our AI, driven by cutting-edge technology,
+                        identify the dish and provide the full recipe with an ingredient list and step-by-step cooking
+                        instructions
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-      {/* App Screenshots */}
-      <section className="app-screenshots">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">See It In Action</h2>
-            <p className="text-gray-600">
-              Explore our intuitive interface and powerful features through these app screenshots.
-            </p>
-          </div>
+                {/* Second slide */}
+                <div className="w-full flex-shrink-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="text-center p-6 bg-gray-50 rounded-xl feature-card">
+                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="lni lni-heart text-2xl text-orange-500"></i>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-3">Health Insights</h3>
+                      <p className="text-red-500 font-semibold mb-2">Upcoming Feature!!!</p>
+                      <p className="text-gray-600">
+                        Gain valuable health insights from your prepared meals, monitor your health and nutrition over
+                        time, and receive personalized tips to improve the nutritional quality of your dishes and
+                        overall well-being.
+                      </p>
+                    </div>
 
-          <div className="screenshot-carousel">
-            {appScreenshots.map((screenshot, index) => (
-              <div key={index} className="screenshot-item">
-                <img src={screenshot || "/placeholder.svg"} alt={`App Screenshot ${index + 1}`} />
+                    <div className="text-center p-6 bg-gray-50 rounded-xl feature-card">
+                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="lni lni-shopping-basket text-2xl text-orange-500"></i>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-3">Shopping Assistant</h3>
+                      <p className="text-red-500 font-semibold mb-2">Upcoming Feature!!!</p>
+                      <p className="text-gray-600">
+                        Automatically generate shopping lists based on your planned meals and missing ingredients and
+                        place order for them from your app
+                      </p>
+                    </div>
+
+                    <div className="text-center p-6 bg-gray-50 rounded-xl feature-card">
+                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i className="lni lni-laptop-phone text-2xl text-orange-500"></i>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-3">Meal Planning</h3>
+                      <p className="text-red-500 font-semibold mb-2">Upcoming Feature!!!</p>
+                      <p className="text-gray-600">
+                        Plan your weekly meals with smart suggestions based on your preferences and available
+                        ingredients.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Carousel Controls */}
+            <button
+              onClick={prevSlide}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={nextSlide}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </div>
       </section>
 
       {/* About Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-6">About MealLens AI</h2>
-              <p className="text-gray-600 mb-4">
-                MealLens AI is revolutionizing the way people cook and eat by leveraging cutting-edge artificial
-                intelligence technology. Our platform helps you make the most of your ingredients, discover new recipes,
-                and maintain a healthy lifestyle.
+      <section id="about" className="py-20 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col lg:flex-row items-center">
+            <div className="lg:w-1/2 mb-10 lg:mb-0">
+              <div className="relative">
+                <img
+                  src="/assets/images/pics1.png"
+                  alt="about MealLensAI"
+                  className="w-full max-w-lg rounded-lg shadow-lg"
+                />
+                <img
+                  src="/assets/images/dots.svg"
+                  alt="dots"
+                  className="absolute -bottom-4 -right-4 w-16 h-16 opacity-50"
+                />
+              </div>
+            </div>
+
+            <div className="lg:w-1/2 lg:pl-12">
+              <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-6">Transform Your Culinary Experience!</h2>
+              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                MealLensAI is your ultimate kitchen companion. Whether you're a seasoned chef or a curious beginner,
+                MealLensAI empowers you to identify ingredients, explore new recipes, and plan meals effortlessly.
+                Simply snap a photo of your ingredients and unlock a world of culinary possibilities tailored to your
+                preferences and dietary needs. With MealLensAI, cooking has never been this fun, smart, and
+                personalized.
               </p>
-              <p className="text-gray-600 mb-6">
-                Whether you're a beginner cook or a culinary expert, our AI-powered tools adapt to your skill level and
-                preferences, making cooking more accessible, enjoyable, and efficient for everyone.
-              </p>
-              <button onClick={handleDonateClick} className="cta-button bg-yellow-500 hover:bg-yellow-600">
-                ❤️ Support Our Mission
+              <a href="#features" className="btn-primary text-white px-8 py-3 rounded-lg inline-block">
+                Learn More
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Waitlist Section */}
+      <section id="blog" className="py-20 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 mb-4">Join Our Mobile App Waitlist Today!</h2>
+            <p className="text-lg text-gray-600">Be among the first to experience our app—join the waitlist today!</p>
+          </div>
+
+          <div className="flex justify-center">
+            <div className="bg-gray-50 rounded-xl p-8 text-center max-w-md">
+              <img
+                src="/assets/images/blog-1.jpg"
+                alt="AI Meal Planning"
+                className="w-full rounded-lg mb-6"
+              />
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Click the link below to join</h3>
+              <a
+                href="https://forms.gle/aUnxiV1Rhx8yhjCz7"
+                className="btn-primary text-white px-8 py-3 rounded-lg inline-block"
+              >
+                Join
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer with Feedback Form */}
+      <section id="footer" className="py-20 newsletter-section">
+        {/* Feedback Form */}
+        <div className="container mx-auto px-6 mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">Share Your Feedback</h2>
+            <p className="text-white/90">Help us improve by sharing your thoughts about MealLensAI</p>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white p-8 rounded-xl feedback-form">
+              <form onSubmit={handleFeedbackSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <input
+                    type="text"
+                    name="entry.1638190700"
+                    placeholder="Your Name"
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                  <input
+                    type="email"
+                    name="entry.665398406"
+                    placeholder="Your Email"
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
+
+                <select
+                  name="entry.1853582846"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mb-6"
+                >
+                  <option value="">Select Rating</option>
+                  <option value="Option 1">5 Stars - Excellent</option>
+                  <option value="Option 2">4 Stars - Very Good</option>
+                  <option value="Option 3">3 Stars - Good</option>
+                  <option value="Option 4">2 Stars - Fair</option>
+                  <option value="Option 5">1 Star - Poor</option>
+                </select>
+
+                <textarea
+                  name="entry.2126368368"
+                  rows={4}
+                  placeholder="Tell us about your experience with MealLensAI..."
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mb-6 resize-none"
+                />
+
+                <div className="text-center">
+                  <button type="submit" className="btn-primary text-white px-8 py-3 rounded-lg">
+                    Submit Feedback
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Newsletter */}
+        <div className="container mx-auto px-6">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-white mb-6">Stay Updated with MealLensAI</h3>
+            <div className="max-w-md mx-auto flex gap-4">
+              <input
+                type="email"
+                placeholder="Enter Your Email..."
+                className="flex-1 px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+              />
+              <button className="bg-white text-orange-500 px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold">
+                Subscribe
               </button>
             </div>
-            <div>
-              <img
-                src="/MealLeansBeta/landingpage-main/assets/images/about.png"
-                alt="About MealLens AI"
-                className="rounded-lg shadow-lg"
-              />
-            </div>
           </div>
         </div>
       </section>
-
-      {/* Blog Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">Latest from Our Blog</h2>
-            <p className="text-gray-600">Stay updated with cooking tips, AI insights, and culinary trends.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <article className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <img
-                src="/MealLeansBeta/landingpage-main/assets/images/blog-1.jpg"
-                alt="Blog Post 1"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-2">AI in Modern Cooking</h3>
-                <p className="text-gray-600 mb-4">
-                  Discover how artificial intelligence is transforming the culinary world and making cooking more
-                  accessible to everyone.
-                </p>
-                <a href="#" className="text-blue-600 hover:text-blue-800 font-semibold">
-                  Read More →
-                </a>
-              </div>
-            </article>
-
-            <article className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <img
-                src="/MealLeansBeta/landingpage-main/assets/images/blog-2.jpg"
-                alt="Blog Post 2"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-2">Healthy Meal Planning</h3>
-                <p className="text-gray-600 mb-4">
-                  Learn effective strategies for planning nutritious meals that fit your lifestyle and dietary goals.
-                </p>
-                <a href="#" className="text-blue-600 hover:text-blue-800 font-semibold">
-                  Read More →
-                </a>
-              </div>
-            </article>
-
-            <article className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <img
-                src="/MealLeansBeta/landingpage-main/assets/images/blog-3.jpg"
-                alt="Blog Post 3"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-2">Ingredient Optimization</h3>
-                <p className="text-gray-600 mb-4">
-                  Maximize your ingredients and minimize food waste with smart cooking techniques and AI assistance.
-                </p>
-                <a href="#" className="text-blue-600 hover:text-blue-800 font-semibold">
-                  Read More →
-                </a>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <img
-                  src="/MealLeansBeta/landingpage-main/assets/images/logo.png"
-                  alt="MealLens AI"
-                  className="h-8 w-8"
-                />
-                <span className="font-bold text-xl">MealLens AI</span>
-              </div>
-              <p className="text-gray-400">Transforming cooking with the power of artificial intelligence.</p>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Features</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <Link to="/ai-response" className="hover:text-white">
-                    Ingredient Detection
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/detect-food" className="hover:text-white">
-                    Food Identification
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/meal-planner" className="hover:text-white">
-                    Meal Planning
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Support</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Help Center
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white">
-                    Privacy Policy
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Connect</h4>
-              <div className="flex space-x-4">
-                <a href="#" className="text-gray-400 hover:text-white">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
-                  </svg>
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z" />
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 MealLens AI. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
 
       {/* Donate Modal */}
       {showDonateModal && (
-        <div className="donate-modal">
-          <div className="donate-content">
-            <button className="close-button" onClick={() => setShowDonateModal(false)}>
-              ×
-            </button>
-            <h3 className="text-2xl font-bold mb-4">Support MealLens AI</h3>
-            <p className="text-gray-600 mb-6">
-              Help us continue developing innovative AI-powered cooking tools. Your support makes a difference!
-            </p>
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Donate to Support MealLensAI</h3>
+              <button onClick={() => setShowDonateModal(false)} className="text-gray-500 hover:text-gray-700">
+                ✕
+              </button>
+            </div>
+
             <div className="space-y-4">
-              <button className="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors">
-                Donate $5
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
+                <input
+                  type="text"
+                  id="donorName"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  id="donorEmail"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Donation Amount (KES)</label>
+                <input
+                  type="number"
+                  id="donationAmount"
+                  min="1000"
+                  defaultValue="1000"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => setShowDonateModal(false)}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
               </button>
-              <button className="w-full bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">
-                Donate $10
-              </button>
-              <button className="w-full bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 transition-colors">
-                Donate $25
+              <button onClick={processDonation} className="flex-1 px-6 py-3 btn-primary text-white rounded-lg">
+                Donate Now
               </button>
             </div>
           </div>

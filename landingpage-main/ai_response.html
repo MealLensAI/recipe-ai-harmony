@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-TPT4ET0Y2Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-TPT4ET0Y2Q');
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Analysis App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+
+
+        .switch-button {
+    background: white;
+    color: #FF6B6B;
+    border: 2px solid #FF6B6B;
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    transition: all 0.3s ease;
+}
+
+.switch-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+/* Active Button Style */
+.switch-button.active {
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+    color: white;
+    border: none;
+    box-shadow: none;
+}
+
+.switch-button.active:hover {
+    transform: none; /* No hover effect for the active button */
+    box-shadow: none;
+}
+
+
+
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            --secondary-gradient: linear-gradient(135deg, #4ECDC4, #556270);
+            --card-gradient: linear-gradient(to right bottom, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8));
+            --hover-gradient: linear-gradient(135deg, #FF8E53, #FF6B6B);
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            background: url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed;
+            padding: 2rem 1rem;
+            color: #2D3436;
+            line-height: 1.6;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card-body{
+            padding: 1rem;
+            margin-top: 10px;
+        }
+
+        .app-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 3rem;
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .form-control, .form-select {
+            background: white;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            padding: 1rem;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #FF6B6B;
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.2);
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #2D3436;
+            margin-bottom: 0.75rem;
+        }
+
+        .btn-analyze {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            border: none;
+            border-radius: 1rem;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            display: block;
+            margin: 0 auto;
+        }
+
+        .btn-analyze:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .loading {
+            display: none;
+            margin: 2rem auto;
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 107, 107, 0.3);
+            border-top: 4px solid #FF6B6B;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .netflix-loading-bar {
+            display: none;
+            width: 100%;
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            margin: 1rem 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .netflix-loading-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 30%;
+            background: linear-gradient(90deg, #FF6B6B, #FF8E53);
+            animation: netflix-loading 1.5s ease-in-out infinite;
+            border-radius: 2px;
+        }
+
+        @keyframes netflix-loading {
+            0% {
+                left: -30%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        .resources-loading {
+            display: none;
+            margin: 1rem 0;
+        }
+
+        .suggestion-button {
+            background: white;
+            color: #FF6B6B;
+            border: 2px solid #FF6B6B;
+            border-radius: 1rem;
+            padding: 0.75rem 1.5rem;
+            margin: 0.5rem;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .suggestion-button:hover {
+            background: var(--primary-gradient);
+            color: white;
+            border-color: transparent;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.2);
+        }
+
+        .result-card {
+            background: var(--card-gradient);
+            border-radius: 1.5rem;
+            border: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            height: 100%;
+           
+        }
+
+        .result-card2{
+            margin-top: 30px;
+            background: var(--card-gradient);
+            border-radius: 1.5rem;
+            border: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            height: 100%;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-title {
+            color: #2D3436;
+            font-weight: 700;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid rgba(255, 107, 107, 0.2);
+            padding-bottom: 0.75rem;
+        }
+
+        .media-preview {
+            border-radius: 1rem;
+            overflow: hidden;
+            margin: 1rem 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .media-preview:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .media-preview .thumbnail {
+            width: 100%;
+            height: 000px;
+            object-fit: cover;
+            border-radius: 1rem 1rem 0 0;
+        }
+
+        .media-preview .content {
+            padding: 1rem;
+        }
+
+        .media-preview .title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2D3436;
+            margin: 0.5rem 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .media-preview .description {
+            font-size: 0.9rem;
+            color: #636E72;
+            margin-bottom: 0.5rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 1rem;
+            margin: 1rem 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 1.5rem;
+            }
+
+            .title {
+                font-size: 2rem;
+            }
+
+            .btn-analyze {
+                padding: 0.75rem 1.5rem;
+                font-size: 1rem;
+            }
+        }
+
+        .instructions {
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .instructions p {
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        /* Feedback Modal Styles */
+        .feedback-modal {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            inset: 0; /* Shorthand for top, right, bottom, left: 0 */
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+        }
+
+        .feedback-modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            animation: modalSlideIn 0.3s ease-out;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .feedback-modal h3 {
+            color: #2D3436;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .feedback-modal p {
+            color: #636E72;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+            line-height: 1.5;
+        }
+
+        .feedback-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .feedback-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 1rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .feedback-btn.yes {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .feedback-btn.yes:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .feedback-btn.later {
+            background: white;
+            color: #636E72;
+            border: 2px solid #E0E0E0;
+        }
+
+        .feedback-btn.later:hover {
+            background: #F8F9FA;
+            border-color: #FF6B6B;
+            color: #FF6B6B;
+        }
+
+        @media (max-width: 768px) {
+            .feedback-modal-content {
+                padding: 1.5rem;
+            }
+
+            .feedback-buttons {
+                flex-direction: column;
+            }
+
+            .feedback-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Supabase SDK FIRST -->
+   
+
+    <div class="switch-container">
+        <button class="switch-button" onclick="switchTo('response')"> Detect Ingredients</button>
+        <button class="switch-button" onclick="switchTo('detect')">Detect  Food</button>
+      
+
+      
+
+</div>
+
+
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="feedback-modal">
+        <div class="feedback-modal-content">
+            <h3>Enjoying the Recipe?</h3>
+            <p>We'd love to hear your feedback to make our app even better!</p>
+            <div class="feedback-buttons" id="initialFeedbackButtons">
+
+
+                <button class="feedback-btn yes" onclick="showMultiStepForm()">Yes, I loved it!</button>
+
+
+                <button class="feedback-btn later" onclick="submitFeedback('later')">Not now, maybe later</button>
+
+
+
+
+            </div>
+
+            <div id="multiStepForm" class="hidden">
+                <form id="feedbackForm">
+                    <!-- Step 1: Email and Feature additions -->
+                    <div id="step1" class="form-step">
+                       
+                        <p class="mb-4">We value your feedback to make MealLensAI even better.</p>
+
+                        <div class="mb-3 text-start">
+                            <label for="feedbackEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="feedbackEmail" required>
+                        </div>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label d-block mb-2">Which features do you think we should add to the next site release or keep?</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Recipe suggestions based on available ingredients detected on the picture" id="feature1">
+                                <label class="form-check-label" for="feature1">Recipe suggestions based on available ingredients detected on the picture</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Suggestions for additional ingredients tailored to the dish you choose to prepare" id="feature2">
+                                <label class="form-check-label" for="feature2">Suggestions for additional ingredients tailored to the dish you choose to prepare</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Already made food detection and cooking instruction for that food" id="feature3">
+                                <label class="form-check-label" for="feature3">Already made food detection and cooking instruction for that food</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="AI-powered meal planning made simple: Just snap a photo of your ingredients, and MeallensAI will automatically plan your daily breakfast, lunch, and dinner meals for you." id="feature4">
+                                <label class="form-check-label" for="feature4">AI-powered meal planning made simple: Just snap a photo of your ingredients, and MeallensAI will automatically plan your daily breakfast, lunch, and dinner meals for you.</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Step-by-step cooking guides" id="feature5">
+                                <label class="form-check-label" for="feature5">Step-by-check-step cooking guides</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Nutritional insights and health tips" id="feature6">
+                                <label class="form-check-label" for="feature6">Nutritional insights and health tips</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Cooking challenges (e.g., 'Cook with 3 ingredients')" id="feature7">
+                                <label class="form-check-label" for="feature7">Cooking challenges (e.g., "Cook with 3 ingredients")</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Community features (e.g., sharing recipes, ratings, and reviews)" id="feature8">
+                                <label class="form-check-label" for="feature8">Community features (e.g., sharing recipes, ratings, and reviews)</label>
+                            </div>
+                        </div>
+                        <button type="button" class="btn feedback-btn yes" onclick="nextStep()">Next</button>
+                    </div>
+
+                    <!-- Step 2: Mobile App and Tutorials -->
+                    <div id="step2" class="form-step hidden">
+                        <h3>App Preference & Tutorials</h3>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label d-block mb-2">If MealLensAI had a mobile app, would you use it? Would you prefer the app or stick with the website?</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mobileAppPreference" id="appUseMobile" value="I would use the mobile app" required>
+                                <label class="form-check-label" for="appUseMobile">I would use the mobile app</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mobileAppPreference" id="appUseWeb" value="I would use the web">
+                                <label class="form-check-label" for="appUseWeb">I would use the web</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mobileAppPreference" id="appUseBoth" value="I would use both">
+                                <label class="form-check-label" for="appUseBoth">I would use both</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label d-block mb-2">Would you use the YouTube/Google tutorial links for additional recipe guidance?</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="useTutorials" id="tutorialsYes" value="Yes" required>
+                                <label class="form-check-label" for="tutorialsYes">Yes</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="useTutorials" id="tutorialsNo" value="No">
+                                <label class="form-check-label" for="tutorialsNo">No</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="useTutorials" id="tutorialsMaybe" value="Maybe">
+                                <label class="form-check-label" for="tutorialsMaybe">Maybe</label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn feedback-btn later" onclick="prevStep()">Back</button>
+                            <button type="button" class="btn feedback-btn yes" onclick="nextStep()">Next</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Pricing and Importance -->
+                    <div id="step3" class="form-step hidden">
+                        <h3>Almost done!</h3>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label d-block mb-2">In future the app would offers a free trial for 5 meals and then costs $1.99/month. Would you be willing to pay for this service?</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="willingToPay" id="payYes" value="Yes">
+                                <label class="form-check-label" for="payYes">Yes</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="willingToPay" id="payNo" value="No">
+                                <label class="form-check-label" for="payNo">No</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="willingToPay" id="payMaybe" value="Maybe">
+                                <label class="form-check-label" for="payMaybe">Maybe</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label d-block mb-2">How important are the following features to you?</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Hands-free voice commands" id="importance1">
+                                <label class="form-check-label" for="importance1">Hands-free voice commands</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Regional cuisine suggestions" id="importance2">
+                                <label class="form-check-label" for="importance2">Regional cuisine suggestions</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Vegetarian/vegan options" id="importance3">
+                                <label class="form-check-label" for="importance3">Vegetarian/vegan options</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Simple and intuitive navigation" id="importance4">
+                                <label class="form-check-label" for="importance4">Simple and intuitive navigation</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Health tracking" id="importance5">
+                                <label class="form-check-label" for="importance5">Health tracking</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Weekly cooking challenges" id="importance6">
+                                <label class="form-check-label" for="importance6">Weekly cooking challenges</label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn feedback-btn later" onclick="prevStep()">Back</button>
+                            <button type="button" class="btn feedback-btn yes" onclick="nextStep()">Next</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Recommendation and Suggestions -->
+                    <div id="step4" class="form-step hidden">
+                        <h3>One last thing!</h3>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label d-block mb-2">Would you recommend MealLensAI to friends or family if you found it useful?</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="recommend" id="recommendYes" value="Yes">
+                                <label class="form-check-label" for="recommendYes">Yes</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="recommend" id="recommendNo" value="No">
+                                <label class="form-check-label" for="recommendNo">No</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 text-start">
+                            <label for="additionalSuggestions" class="form-label">Do you have any suggestions for features or improvements for the future?</label>
+                            <textarea class="form-control" id="additionalSuggestions" rows="4"></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn feedback-btn later" onclick="prevStep()">Back</button>
+                            <button type="submit" class="btn feedback-btn yes">Submit Feedback</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+
+
+
+        <div class="app-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <a href="index.html" style="text-decoration: none; color: #FF6B6B; font-size: 1.0rem;">
+                    &#8592;Home
+                </a>
+                <button onclick="handleSignOut()" style="background: none; border: none; color: #FF6B6B; font-size: 1.0rem; cursor: pointer;">
+                    Sign Out
+                </button>
+            </div>
+            <h1 class="title">Ingredient Detection</h1>
+
+            <div class="mb-4">
+                <label for="inputType" class="form-label">How would you like to start?</label>
+                <select id="inputType" class="form-select">
+                    <option value="image">Snap or Upload Ingredient Image </option>
+                    <option value="ingredient_list">List Your Ingredients</option>
+                </select>
+            </div>
+
+            <div id="imageInput" class="input-section mb-4">
+                <label for="fileInput" class="form-label">Share Your Food Image</label>
+                <input type="file" id="fileInput" class="form-control" accept="image/*" onchange="previewImage(event)">
+                <div style="display: flex; justify-content: center; margin-top: 10px;">
+                    <img id="imagePreview" src="" alt="Image Preview" style="display: none; width: 400px; height: 300px; object-fit: cover; border-radius: 1rem;">
+                </div>
+            </div>
+
+            <div id="ingredientInput" class="input-section hidden mb-4">
+                <label for="ingredientTextInput" class="form-label">What ingredients do you have?</label>
+                <input type="text" id="ingredientTextInput" class="form-control"
+                       placeholder="e.g., chicken, tomatoes, basil, olive oil">
+            </div>
+
+            <button class="btn btn-analyze w-100" onclick="uploadData()">Discover Recipes</button>
+
+            <div id="loading" class="loading"></div>
+
+            <div id="results" class="mt-4"></div>
+        </div>
+    </div>
+<!--    ====== PRICNG PART ENDS ======-->
+
+
+
+
+    <script>
+
+        function switchTo(screen) {
+    if (screen === 'detect') {
+        window.location.href = 'detect_food.html';
+    } else if (screen === 'response') {
+        window.location.href = 'ai_response.html';
+    }
+}
+
+// Highlight the active button for the current page
+document.addEventListener('DOMContentLoaded', () => {
+    const detectButton = document.querySelector('.switch-button:nth-child(1)');
+    const responseButton = document.querySelector('.switch-button:nth-child(2)');
+
+    responseButton.classList.add('active'); // Mark this button as active
+});
+
+
+
+        let analysisId = '';
+
+        document.getElementById('inputType').addEventListener('change', function () {
+            const selectedValue = this.value;
+            document.getElementById('imageInput').classList.toggle('hidden', selectedValue !== 'image');
+            document.getElementById('ingredientInput').classList.toggle('hidden', selectedValue !== 'ingredient_list');
+        });
+
+        function getYouTubeVideoId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function uploadData() {
+            const inputType = document.getElementById('inputType').value;
+            const loading = document.getElementById('loading');
+            const resultsDiv = document.getElementById('results');
+            const formData = new FormData();
+
+            // Google Analytics Event: Discover Recipes Button Click
+            gtag('event', 'discover_recipes_click', {
+                'event_category': 'interaction',
+                'event_label': 'Discover Recipes Button'
+            });
+
+            loading.style.display = 'block';
+            resultsDiv.innerHTML = '';
+
+            if (inputType === 'image') {
+                const fileInput = document.getElementById('fileInput');
+                if (!fileInput.files.length) {
+                    alert('Please select an image file.');
+                    loading.style.display = 'none';
+                    return;
+                }
+                formData.append('image_or_ingredient_list', 'image');
+                formData.append('image', fileInput.files[0]);
+            } else {
+                const ingredientInput = document.getElementById('ingredientTextInput');
+                const ingredients = ingredientInput.value.trim();
+                if (!ingredients) {
+                    alert('Please enter ingredients.');
+                    loading.style.display = 'none';
+                    return;
+                }
+                formData.append('image_or_ingredient_list', 'ingredient_list');
+                formData.append('ingredient_list', ingredients);
+            }
+
+            fetch('https://ai-utu2.onrender.com/process', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+
+                    if (data.error) {
+                        resultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                    } else {
+                        analysisId = data.analysis_id;
+
+                        const analysisItems = data.response
+                            .map((item, index) => `<li class="mb-3">${item.trim()}</li>`)
+                            .join('');
+
+                        resultsDiv.innerHTML = `
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="result-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">AI Detected Ingredient</h5>
+                                            <ol class="ps-4">${analysisItems}</ol>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="result-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">AI Recipe Suggestions</h5>
+                                            <div id="suggestions" class="d-flex flex-wrap gap-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        const suggestionsDiv = document.getElementById('suggestions');
+                        data.food_suggestions.forEach(suggestion => {
+                            const button = document.createElement('button');
+                            button.textContent = suggestion;
+                            button.className = 'suggestion-button';
+                            button.onclick = () => handleSuggestionClick(suggestion);
+                            suggestionsDiv.appendChild(button);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    loading.style.display = 'none';
+                    resultsDiv.innerHTML = `<div class="alert alert-danger">An error occurred. Please try again.</div>`;
+                });
+        }
+
+        function handleSuggestionClick(suggestion) {
+            // Google Analytics Event: Food Suggestion Click
+            gtag('event', 'food_suggestion_click', {
+                'event_category': 'engagement',
+                'event_label': `Suggestion: ${suggestion}`
+            });
+            fetchInstructions(analysisId, suggestion);
+        }
+
+        function fetchInstructions(analysisId, suggestion) {
+            const loading = document.getElementById('loading');
+            const resultsDiv = document.getElementById('results');
+
+            loading.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('food_analysis_id', analysisId);
+            formData.append('food_choice_index', suggestion);
+
+            fetch('https://ai-utu2.onrender.com/instructions', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+
+                    // Structure the cooking instructions
+                    let instructions = data.instructions;
+
+                    // Replace double asterisks with bold tags and add line breaks
+                    instructions = instructions.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>');
+
+                    // Replace single asterisks with paragraph tags
+                    instructions = instructions.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>');
+
+                    // Replace numbered items with line breaks
+                    instructions = instructions.replace(/(\d+\.)/g, '<br>$1');
+
+                    // Create structured HTML for instructions only
+                    const structuredInstructions = `
+                        <div class="result-card2">
+                            <div class="card-body">
+                                <h5 class="card-title">Cooking Instructions</h5>
+                                <div class="instructions">${instructions}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    resultsDiv.innerHTML += structuredInstructions;
+
+                    // Show resources section with loading bar
+                    const resourcesSection = `
+                        <div class="row g-4 mt-4">
+                            <div class="col-md-6">
+                                <div class="result-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Youtube Resources</h5>
+                                        <h6 class="fw-bold mb-3">Video Tutorials</h6>
+                                        <div class="netflix-loading-bar"></div>
+                                        <div class="resources-loading">Loading video tutorials...</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="result-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Google Resources</h5>
+                                        <h6 class="fw-bold mb-3">Recommended Articles</h6>
+                                        <div class="netflix-loading-bar"></div>
+                                        <div class="resources-loading">Loading articles...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    resultsDiv.innerHTML += resourcesSection;
+
+                    // Show loading bars
+                    document.querySelectorAll('.netflix-loading-bar').forEach(bar => {
+                        bar.style.display = 'block';
+                    });
+                    document.querySelectorAll('.resources-loading').forEach(loading => {
+                        loading.style.display = 'block';
+                    });
+
+                    // After instructions are loaded, fetch resources
+                    fetchResources(suggestion);
+                })
+                .catch(error => {
+                    console.error('Error fetching instructions:', error);
+                    loading.style.display = 'none';
+                    resultsDiv.innerHTML += `<div class="alert alert-danger mt-4">Failed to fetch instructions. Please try again.</div>`;
+                });
+        }
+
+        function fetchResources(suggestion) {
+            const formData = new FormData();
+            formData.append('food_choice_index', suggestion);
+
+            fetch('https://ai-utu2.onrender.com/resources', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading bars
+                    document.querySelectorAll('.netflix-loading-bar').forEach(bar => {
+                        bar.style.display = 'none';
+                    });
+                    document.querySelectorAll('.resources-loading').forEach(loading => {
+                        loading.style.display = 'none';
+                    });
+
+                    // Create structured HTML for resources
+                    const resourcesHTML = `
+                        <div class="row g-4 mt-4">
+                            <div class="col-md-6">
+                                <div class="result-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Youtube Resources</h5>
+                                        <h6 class="fw-bold mb-3">Video Tutorials</h6>
+                                        ${data.YoutubeSearch && data.YoutubeSearch.length > 0 ?
+                                            data.YoutubeSearch.map(item => {
+                                                const videoId = getYouTubeVideoId(item.link);
+                                                return videoId ? `
+                                                    <div class="video-container">
+                                                        <iframe
+                                                            src="https://www.youtube.com/embed/${videoId}"
+                                                            title="${item.title}"
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                            allowfullscreen>
+                                                        </iframe>
+                                                    </div>
+                                                ` : `
+                                                    <div class="media-preview">
+                                                        <div class="content">
+                                                            <a href="${item.link}" target="_blank" class="text-decoration-none">
+                                                                <h3 class="title">${item.title}</h3>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('') : '<p>No video tutorials available.</p>'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="result-card">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Google Resources</h5>
+                                        <h6 class="fw-bold mb-3">Recommended Articles</h6>
+                                        ${data.GoogleSearch && data.GoogleSearch.length > 0 ?
+                                            data.GoogleSearch.map(item => `
+                                                <div class="media-preview">
+                                                    <div class="content">
+                                                        <a href="${item.link}" target="_blank" class="text-decoration-none">
+                                                            <h3 class="title">${item.title}</h3>
+                                                        </a>
+                                                        <p class="description">${item.description}</p>
+                                                    </div>
+                                                </div>
+                                            `).join('') : '<p>No articles available.</p>'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Replace the loading section with actual content
+                    const loadingSection = document.querySelector('.row.g-4.mt-4');
+                    if (loadingSection) {
+                        loadingSection.outerHTML = resourcesHTML;
+                    }
+
+                    // Show feedback modal after a short delay (only if not shown before in this session)
+                    setTimeout(() => {
+                        if (!sessionStorage.getItem('feedbackShown')) {
+                            const feedbackModal = document.getElementById('feedbackModal');
+                            feedbackModal.style.opacity = '1';
+                            feedbackModal.style.visibility = 'visible';
+                        }
+                    }, 20000); // Changed delay to 1 minute (60000ms)
+
+                    // Add the share button at the end
+                    const resultsDiv = document.getElementById('results');
+
+                    // Remove any existing share button to avoid duplicates
+                    const oldShareBtn = document.getElementById('shareFullRecipeBtn');
+                    if (oldShareBtn) oldShareBtn.remove();
+
+                    // Add the share button at the end
+                    resultsDiv.innerHTML += `
+                        <div class="text-center mt-4">
+                            <button class="btn btn-analyze" id="shareFullRecipeBtn">
+                                📤 Share This Recipe
+                            </button>
+                        </div>
+                    `;
+
+                    // Attach the event handler
+                    document.getElementById('shareFullRecipeBtn').onclick = () => shareFullRecipe();
+                })
+                .catch(error => {
+                    console.error('Error fetching resources:', error);
+                    document.querySelectorAll('.netflix-loading-bar').forEach(bar => {
+                        bar.style.display = 'none';
+                    });
+                    document.querySelectorAll('.resources-loading').forEach(loading => {
+                        loading.style.display = 'none';
+                    });
+                    const loadingSection = document.querySelector('.row.g-4.mt-4');
+                    if (loadingSection) {
+                        loadingSection.innerHTML = '<div class="alert alert-danger">Failed to fetch resources. Please try again.</div>';
+                    }
+                });
+        }
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            const preview = document.getElementById('imagePreview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result; // Set the image source to the file's data URL
+                    preview.style.display = 'block'; // Show the image preview
+                }
+                reader.readAsDataURL(file); // Read the file as a data URL
+            } else {
+                preview.src = ''; // Clear the preview if no file is selected
+                preview.style.display = 'none'; // Hide the image preview
+            }
+        }
+
+        // Add this function for sign out
+        function handleSignOut() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            }).catch((error) => {
+                console.error('Error signing out:', error);
+            });
+        }
+
+        // Function to handle feedback submission
+        function submitFeedback(feedbackType) {
+            const feedbackModal = document.getElementById('feedbackModal');
+            feedbackModal.style.opacity = '0';
+            feedbackModal.style.visibility = 'hidden';
+            
+            // This block now only handles the 'later' feedback type
+            if (feedbackType === 'later') {
+                // Google Analytics Event: Feedback Later Click (This will be replaced by multi-step form analytics)
+                gtag('event', 'feedback_later_click', {
+                    'event_category': 'engagement',
+                    'event_label': 'Feedback - Later (Initial)'
+                });
+                // Removed alert for silent submission: alert('No problem! Feel free to share your feedback anytime.');
+            } // Removed the 'if (feedbackType === "yes")' block as it's no longer called by the 'Yes' button
+            
+            // Store feedback preference to avoid showing modal again in this session
+            sessionStorage.setItem('feedbackShown', 'true');
+        }
+
+        // Multi-step form navigation functions
+        let currentStep = 1;
+        const multiStepForm = document.getElementById('multiStepForm');
+        const initialFeedbackButtons = document.getElementById('initialFeedbackButtons');
+
+        function showMultiStepForm() {
+            initialFeedbackButtons.style.display = 'none';
+            document.querySelector('.feedback-modal p').classList.add('hidden'); // Hide initial text
+            document.querySelector('.feedback-modal h3').textContent = 'Tell us more about your experience!'; // Change title
+            multiStepForm.classList.remove('hidden');
+            currentStep = 1;
+            showStep(currentStep); 
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                showStep(currentStep);
+            }
+        }
+
+        function nextStep() {
+            // Basic validation for email on step 1
+            if (currentStep === 1) {
+                const emailInput = document.getElementById('feedbackEmail');
+                if (!emailInput.checkValidity()) {
+                    alert('Please enter a valid email address.');
+                    emailInput.reportValidity();
+                    return;
+                }
+            }
+
+            // Google Analytics Event: Multi-step Feedback Next/Back Click
+            gtag('event', `multi_step_feedback_next_click_step_${currentStep}`, {
+                'event_category': 'engagement',
+                'event_label': `Multi-step Feedback - Next from Step ${currentStep}`
+            });
+
+            if (currentStep < 4) { // Assuming 4 steps based on HTML
+                currentStep++;
+                showStep(currentStep);
+            } else {
+                // This part will be handled by the form's submit event listener
+            }
+        }
+
+        function showStep(step) {
+            const steps = document.querySelectorAll('.form-step');
+            steps.forEach((s, index) => {
+                if (index + 1 === step) {
+                    s.classList.remove('hidden');
+                } else {
+                    s.classList.add('hidden');
+                }
+            });
+        }
+
+        document.getElementById('feedbackForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent default form submission
+            const formData = new FormData();
+
+            // Collect email
+            formData.append('entry.1875698540', document.getElementById('feedbackEmail').value);
+
+            // Collect features to add/keep (checkboxes)
+            document.querySelectorAll('#step1 input[type="checkbox"]:checked').forEach(checkbox => {
+                formData.append('entry.1573514442', checkbox.value);
+            });
+
+            // Collect mobile app usage and preference (combined question)
+            const mobileAppPreferenceRadio = document.querySelector('input[name="mobileAppPreference"]:checked');
+            if (mobileAppPreferenceRadio) {
+                formData.append('entry.540499352', mobileAppPreferenceRadio.value);
+            }
+
+            // Collect YouTube/Google tutorial links usage (radio button)
+            const tutorialsRadio = document.querySelector('input[name="useTutorials"]:checked');
+            if (tutorialsRadio) {
+                formData.append('entry.239614688', tutorialsRadio.value);
+            }
+
+            // Collect willingness to pay (radio button)
+            const willingToPayRadio = document.querySelector('input[name="willingToPay"]:checked');
+            if (willingToPayRadio) {
+                formData.append('entry.1881342080', willingToPayRadio.value);
+            }
+
+            // Collect feature importance (checkboxes)
+            document.querySelectorAll('#step3 input[type="checkbox"]:checked').forEach(checkbox => {
+                formData.append('entry.276185905', checkbox.value);
+            });
+
+            // Collect recommendation (radio button)
+            const recommendRadio = document.querySelector('input[name="recommend"]:checked');
+            if (recommendRadio) {
+                formData.append('entry.1025941890', recommendRadio.value);
+            }
+
+            // Collect additional suggestions
+            formData.append('entry.171103057', document.getElementById('additionalSuggestions').value);
+
+            // Google Analytics Event: Multi-step Feedback Submit
+            gtag('event', 'multi_step_feedback_submit', {
+                'event_category': 'engagement',
+                'event_label': 'Multi-step Feedback Form Submitted',
+                'value': JSON.stringify(Object.fromEntries(formData)) // Send collected data as a string for GA
+            });
+
+            // Send data to Google Form
+            fetch('https://docs.google.com/forms/d/e/1FAIpQLSc4GMUgxlYo6GgNvzYjHK4fIG4IYHZckRN3ieFKXokUDZoAyw/formResponse', {
+                method: 'POST',
+                mode: 'no-cors', // Important for cross-origin submission
+                body: formData
+            })
+            .then(() => {
+                // alert('Thank you for your detailed feedback!'); // Removed alert as per user request
+                console.log('Feedback submitted to Google Form!');
+                document.getElementById('feedbackModal').style.display = 'none';
+                sessionStorage.setItem('feedbackShown', 'true');
+            })
+            .catch(error => {
+                console.error('Error submitting feedback to Google Form:', error);
+                alert('There was an error submitting your feedback. Please try again later.');
+            });
+
+            // Close modal is handled in .then() and .catch() now.
+        });
+
+        // Function to share the recipe
+        async function shareRecipe(suggestion, instructions, analysisId) {
+            try {
+                // Get ingredients and suggestions from the page
+                const ingredientsElement = document.getElementById('results').querySelector('.result-card:first-of-type ol');
+                const suggestionsElement = document.getElementById('results').querySelector('.result-card:last-of-type .d-flex.flex-wrap.gap-2');
+                
+                const ingredients = ingredientsElement ? Array.from(ingredientsElement.children).map(li => li.textContent.trim()) : [];
+                const suggestions = suggestionsElement ? Array.from(suggestionsElement.children).map(btn => btn.textContent.trim()) : [];
+
+                console.log('About to insert recipe into Supabase:', { suggestion, instructions, analysisId, ingredients, suggestions });
+                // Save recipe to Supabase
+                const { data, error } = await supabaseClient
+                    .from('shared_recipes')
+                    .insert([
+                        {
+                            recipe_type: 'ingredient_detection',
+                            suggestion: suggestion,
+                            instructions: instructions,
+                            ingredients: JSON.stringify(ingredients),
+                            analysis_id: analysisId
+                        }
+                    ])
+                    .select()
+                    .single();
+                console.log('Supabase insert result:', { data, error });
+
+                if (error) throw error;
+
+                // Generate shareable link
+                const shareableLink = `${window.location.origin}${window.location.pathname}?share=${data.id}`;
+                console.log('Generated shareable link:', shareableLink);
+
+                // Share the link
+                if (navigator.share) {
+                    await navigator.share({
+                        title: `${suggestion} Recipe`,
+                        text: `Check out this ${suggestion} recipe I made with MealLensAI!`,
+                        url: shareableLink
+                    });
+                    console.log('Recipe shared successfully');
+                } else {
+                    // Fallback: copy link to clipboard
+                    await navigator.clipboard.writeText(shareableLink);
+                    alert('Shareable link copied to clipboard! Anyone can visit this link to see your recipe.');
+                }
+            } catch (error) {
+                console.error('Error sharing recipe:', error);
+                alert('Failed to create shareable link. Error: ' + (error.message || JSON.stringify(error)));
+            }
+        }
+
+        async function shareFullRecipe() {
+            try {
+                // Gather ingredients
+                const ingredientsElement = document.getElementById('results').querySelector('.result-card:first-of-type ol');
+                const ingredients = ingredientsElement ? Array.from(ingredientsElement.children).map(li => li.textContent.trim()) : [];
+
+                // Gather instructions as HTML
+                const instructionsElement = document.getElementById('results').querySelector('.instructions');
+                const instructionsHTML = instructionsElement ? instructionsElement.innerHTML : '';
+
+                // Gather YouTube resources as HTML
+                let youtubeHTML = '';
+                const youtubeCard = Array.from(document.querySelectorAll('.result-card')).find(card =>
+                    card.querySelector('.card-title') && card.querySelector('.card-title').textContent.includes('Youtube Resources')
+                );
+                if (youtubeCard) {
+                    youtubeHTML = youtubeCard.outerHTML;
+                }
+
+                // Gather Google resources as HTML
+                let googleHTML = '';
+                const googleCard = Array.from(document.querySelectorAll('.result-card')).find(card =>
+                    card.querySelector('.card-title') && card.querySelector('.card-title').textContent.includes('Google Resources')
+                );
+                if (googleCard) {
+                    googleHTML = googleCard.outerHTML;
+                }
+
+                // Compose a suggestion (recipe name) if available
+                let suggestion = '';
+                const suggestionBtn = document.querySelector('.suggestion-button');
+                if (suggestionBtn) {
+                    suggestion = suggestionBtn.textContent.trim();
+                }
+
+                // Compose a unique analysisId if available (optional)
+                let analysisId = window.analysisId || '';
+
+                // Gather the entire row containing both YouTube and Google resources
+                let resourcesHTML = '';
+                const resourcesRow = document.querySelector('.row.g-4.mt-4');
+                if (resourcesRow) {
+                    resourcesHTML = resourcesRow.outerHTML;
+                }
+
+                // Save recipe to Supabase
+                const { data, error } = await supabaseClient
+                    .from('shared_recipes')
+                    .insert([
+                        {
+                            recipe_type: 'ingredient_detection',
+                            suggestion: suggestion,
+                            instructions: instructionsHTML,
+                            ingredients: JSON.stringify(ingredients),
+                            resources: resourcesHTML, // <-- new field
+                            analysis_id: analysisId
+                        }
+                    ])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                // Generate shareable link
+                const shareableLink = `${window.location.origin}${window.location.pathname}?share=${data.id}`;
+
+                // Share the link
+                if (navigator.share) {
+                    await navigator.share({
+                        title: `${suggestion} Recipe`,
+                        text: `Check out this recipe I made with MealLensAI!`,
+                        url: shareableLink
+                    });
+                } else {
+                    await navigator.clipboard.writeText(shareableLink);
+                    alert('Shareable link copied to clipboard! Anyone can visit this link to see your recipe.');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError' || error.message === 'Share canceled') return;
+                alert('Failed to share recipe. Error: ' + (error.message || JSON.stringify(error)));
+            }
+        }
+    </script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+
+<!-- Your inline script that uses supabase and firebase -->
+<script>
+    // Your Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyDfeNB97dUeCtbSBTqTa_oZLNFUoDRCpLg",
+        authDomain: "meallensai-e84bc.firebaseapp.com",
+        projectId: "meallensai-e84bc",
+        storageBucket: "meallensai-e84bc.firebasestorage.app",
+        messagingSenderId: "931517253636",
+        appId: "1:931517253636:web:344608943b23698df08d51",
+        measurementId: "G-XV5LYL1RYJ"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    // Initialize Supabase
+    console.log('About to initialize Supabase...');
+    const supabaseUrl = 'https://pklqumlzpklzroafmtrs.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrbHF1bWx6cGtsenJvYWZtdHJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTcxNTIsImV4cCI6MjA2NzY5MzE1Mn0.eyzqg0hBZ5ZoPJKwGXPSKL96TJaPOX_p08dxt4FOn8g';
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase initialized:', supabaseClient);
+
+    // Check authentication state
+    auth.onAuthStateChanged((user) => {
+        if (!user) {
+            // If user is not logged in, redirect to index.html
+            window.location.href = 'index.html';
+            return;
+        }
+        // User is logged in, show the content
+        document.body.style.display = 'block';
+    });
+
+    // Initially hide the body content
+    document.body.style.display = 'none';
+
+    // Load shared recipe if URL contains share parameter
+    async function loadSharedRecipe() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const shareId = urlParams.get('share');
+        console.log('loadSharedRecipe: shareId =', shareId);
+        
+        if (shareId) {
+            try {
+                console.log('Fetching shared recipe from Supabase...');
+                const { data, error } = await supabaseClient
+                    .from('shared_recipes')
+                    .select('*')
+                    .eq('id', shareId)
+                    .single();
+                console.log('Supabase fetch result:', { data, error });
+
+                if (error) throw error;
+                
+                if (data) {
+                    // Display the shared recipe
+                    displaySharedRecipe(data);
+                }
+            } catch (error) {
+                console.error('Error loading shared recipe:', error);
+                alert('Shared recipe not found or has expired.');
+            }
+        }
+    }
+
+    // Display shared recipe
+    function displaySharedRecipe(recipeData) {
+        const resultsDiv = document.getElementById('results');
+        let content = '';
+
+        if (recipeData.recipe_type === 'ingredient_detection') {
+            // Display ingredient detection result
+            const ingredients = recipeData.ingredients ? JSON.parse(recipeData.ingredients) : [];
+            const suggestions = recipeData.suggestion ? [recipeData.suggestion] : [];
+
+            content = `
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="result-card">
+                            <div class="card-body">
+                                <h5 class="card-title">AI Detected Ingredient</h5>
+                                <ol class="ps-4">${ingredients.map(item => `<li class="mb-3">${item}</li>`).join('')}</ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="result-card">
+                            <div class="card-body">
+                                <h5 class="card-title">AI Recipe Suggestions</h5>
+                                <div class="d-flex flex-wrap gap-2">${suggestions.map(suggestion => `<button class="suggestion-button">${suggestion}</button>`).join('')}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Display food detection result
+            const detectedFoods = recipeData.detected_foods ? JSON.parse(recipeData.detected_foods) : [];
+            content = `
+                <div class="result-card2">
+                    <div class="card-body">
+                        <h5 class="card-title">Detected Food</h5>
+                        <p><strong>Food Items:</strong> ${detectedFoods.join(', ')}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add cooking instructions if available (as HTML)
+        if (recipeData.instructions) {
+            content += `
+                <div class="result-card2">
+                    <div class="card-body">
+                        <h5 class="card-title">Cooking Instructions</h5>
+                        <div class="instructions">${recipeData.instructions}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add YouTube and Google sections if available (as HTML)
+        if (recipeData.resources) {
+            content += recipeData.resources;
+        }
+
+        resultsDiv.innerHTML = content;
+    }
+
+    // Call loadSharedRecipe when page loads
+    document.addEventListener('DOMContentLoaded', loadSharedRecipe);
+</script>
+
+
+</body>
+</html>
