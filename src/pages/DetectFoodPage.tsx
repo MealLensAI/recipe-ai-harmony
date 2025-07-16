@@ -1,13 +1,13 @@
 "use client"
-
-import type React from "react"
 import { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Camera, Upload, ArrowLeft, Loader2, Utensils, Clock, Users } from "lucide-react"
+import { Upload, ArrowLeft, Loader2, Utensils, Clock, Users, Bookmark, ArrowRight } from "lucide-react"
+import "@/styles/detect-food.css"
+import { supabase } from "@/lib/supabase"
+import { auth } from "@/lib/firebase"
 
 interface DetectedFood {
   name: string
@@ -34,275 +34,245 @@ interface Recipe {
 const DetectFoodPage = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [detectedFoods, setDetectedFoods] = useState<DetectedFood[]>([])
-  const [suggestedRecipes, setSuggestedRecipes] = useState<Recipe[]>([])
-  const [additionalIngredients, setAdditionalIngredients] = useState("")
-  const [showResults, setShowResults] = useState(false)
+  const [currentStep, setCurrentStep] = useState(1) // New state for multi-step form
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [instructions, setInstructions] = useState<string>("")
+  const [detectedFoods, setDetectedFoods] = useState<string[]>([])
+  const [resources, setResources] = useState<any>(null)
+  const [showFeedback, setShowFeedback] = useState(false)
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string)
-        setShowResults(false)
-        setDetectedFoods([])
-        setSuggestedRecipes([])
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const analyzeImage = async () => {
+  const handleSubmit = async () => {
     if (!selectedImage) return
-
-    setIsAnalyzing(true)
-    // TODO: Integrate real API call for food detection here
-    // Example:
-    // const response = await fetch('/api/food-detection', { ... })
-    // const { detectedFoods, suggestedRecipes } = await response.json()
-    // setDetectedFoods(detectedFoods)
-    // setSuggestedRecipes(suggestedRecipes)
-    // setIsAnalyzing(false)
-    // setShowResults(true)
-  }
-
-  const generateMoreRecipes = () => {
-    const ingredients = detectedFoods.map((food) => food.name).join(", ")
-    const additional = additionalIngredients.trim()
-    const allIngredients = additional ? `${ingredients}, ${additional}` : ingredients
-
-    navigate("/ai-response", {
-      state: {
-        ingredients: allIngredients,
-        detectedFoods: detectedFoods,
-        fromDetection: true,
-      },
+    setIsLoading(true)
+    setInstructions("")
+    setDetectedFoods([])
+    setResources(null)
+    const formData = new FormData()
+    formData.append("image", selectedImage)
+    const response = await fetch("https://ai-utu2.onrender.com/food_detect", {
+      method: "POST",
+      body: formData,
     })
+    const data = await response.json()
+    setIsLoading(false)
+    if (data.error) return // handle error
+    setInstructions(data.instructions || "")
+    setDetectedFoods(data.food_detected || [])
+
+    // Store detection in Supabase
+    try {
+      await supabase.from("detection_history").insert([
+        {
+          firebase_uid: auth.currentUser?.uid || null,
+          detection_type: "food_detection",
+          input_data: "image",
+          detected_foods: JSON.stringify(data.food_detected || []),
+          recipe_instructions: data.instructions || null,
+          analysis_id: null,
+          youtube_link: null,
+          google_link: null,
+          resources_link: null,
+          created_at: new Date().toISOString(),
+        },
+      ])
+    } catch (e) {
+      /* ignore for now */
+    }
+
+    // Fetch resources
+    const resResponse = await fetch("https://ai-utu2.onrender.com/food_detect_resources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ food_detected: data.food_detected || [] }),
+    })
+    const resData = await resResponse.json()
+    setResources(resData)
+    setCurrentStep(2) // Move to step 2 after detection and resource fetching
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/")}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Home
-              </Button>
-              <div className="h-6 w-px bg-gray-300" />
-              <h1 className="text-xl font-bold text-gray-900">Food Detection</h1>
-            </div>
-            <div className="flex items-center space-x-2">
-              <img
-                src="/MealLeansBeta/landingpage-main/assets/images/logo.png"
-                alt="MealLeans"
-                className="h-8 w-auto"
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Upload Section */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Detect Food from Your Image</h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Upload a photo of your ingredients and let our AI identify them to suggest delicious recipes
-          </p>
-        </div>
-
-        {/* Image Upload Card */}
-        <Card className="mb-8">
-          <CardContent className="p-8">
-            <div className="text-center">
-              {!selectedImage ? (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 hover:border-orange-400 transition-colors">
-                  <div className="flex flex-col items-center space-y-4">
-                    <div className="p-4 bg-orange-100 rounded-full">
-                      <Camera className="h-8 w-8 text-orange-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Your Food Image</h3>
-                      <p className="text-gray-600 mb-4">Take a photo or upload an image of your ingredients</p>
-                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                        <Button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Choose File
-                        </Button>
-                        <Button variant="outline">
-                          <Camera className="h-4 w-4 mr-2" />
-                          Take Photo
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="relative inline-block">
+    <main className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+      <div className="max-w-4xl w-full bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-10 space-y-6">
+        {/* Step 1: Image Upload */}
+        {currentStep === 1 && (
+          <Card className="shadow-lg border-none">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-gray-800">Upload Food Image</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl transition-all hover:border-red-400 hover:bg-red-50">
+                <label htmlFor="fileInput" className="cursor-pointer text-red-500 font-semibold flex items-center">
+                  <Upload className="h-5 w-5 mr-2" /> Choose or Drag an Image
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="fileInput"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    setSelectedImage(file || null)
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = () => setImagePreview(reader.result as string)
+                      reader.readAsDataURL(file)
+                    } else {
+                      setImagePreview(null)
+                    }
+                  }}
+                />
+                {imagePreview && (
+                  <div className="mt-4 w-full flex justify-center">
                     <img
-                      src={selectedImage || "/placeholder.svg"}
-                      alt="Selected food"
-                      className="max-w-full max-h-96 rounded-lg shadow-lg"
+                      src={imagePreview || "/placeholder.svg"}
+                      alt="Image Preview"
+                      className="max-w-full h-48 object-cover rounded-lg shadow-md"
                     />
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Button
-                      onClick={analyzeImage}
-                      disabled={isAnalyzing}
-                      className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Utensils className="h-4 w-4 mr-2" />
-                          Detect Food
-                        </>
-                      )}
-                    </Button>
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choose Different Image
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
 
-        {/* Results Section */}
-        {showResults && (
-          <div className="space-y-8">
-            {/* Detected Foods */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Detected Ingredients</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {detectedFoods.map((food, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-gray-900">{food.name}</h4>
-                        <Badge variant="secondary" className="text-xs">
-                          {food.confidence}%
-                        </Badge>
-                      </div>
-                      {food.nutrition && (
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <div>Calories: {food.nutrition.calories}</div>
-                          <div>Protein: {food.nutrition.protein}g</div>
-                          <div>Carbs: {food.nutrition.carbs}g</div>
-                          <div>Fat: {food.nutrition.fat}g</div>
-                        </div>
-                      )}
+              <Button
+                className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleSubmit}
+                disabled={isLoading || !selectedImage}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Detecting...
+                  </>
+                ) : (
+                  "Submit"
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Detected Food & Instructions */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            {(detectedFoods.length > 0 || instructions) && (
+              <Card className="shadow-lg border-none">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
+                    <Utensils className="h-5 w-5 mr-2 text-red-500" /> Detected Food
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-gray-700">
+                    <strong>Food Items:</strong>{" "}
+                    <Badge variant="secondary" className="bg-red-100 text-red-700">
+                      {detectedFoods.join(", ")}
+                    </Badge>
+                  </p>
+                  {instructions && (
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                        <Clock className="h-5 w-5 mr-2 text-red-500" /> Cooking Instructions
+                      </h3>
+                      <div
+                        className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: instructions }}
+                      />
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            <div className="flex justify-between mt-6">
+              <Button variant="outline" onClick={() => setCurrentStep(1)} disabled={isLoading}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentStep(3)} disabled={isLoading || !resources}>
+                Next <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        )}
 
-            {/* Additional Ingredients */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Add More Ingredients (Optional)</h3>
-                <Textarea
-                  placeholder="Add any additional ingredients you have (e.g., rice, chicken, spices...)"
-                  value={additionalIngredients}
-                  onChange={(e) => setAdditionalIngredients(e.target.value)}
-                  className="mb-4"
-                  rows={3}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Suggested Recipes */}
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Suggested Recipes</h3>
-                <Button
-                  onClick={generateMoreRecipes}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-                >
-                  Get More Recipes
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {suggestedRecipes.map((recipe, index) => (
-                  <Card key={index} className="overflow-hidden">
-                    <CardContent className="p-6">
-                      <h4 className="text-xl font-bold text-gray-900 mb-2">{recipe.name}</h4>
-                      <p className="text-gray-600 mb-4">{recipe.description}</p>
-
-                      <div className="flex items-center space-x-4 mb-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {recipe.cookTime}
-                        </div>
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-1" />
-                          {recipe.servings} servings
-                        </div>
-                        <Badge variant="outline">{recipe.difficulty}</Badge>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <h5 className="font-semibold text-gray-900 mb-2">Ingredients:</h5>
-                          <ul className="text-sm text-gray-600 space-y-1">
-                            {recipe.ingredients.slice(0, 4).map((ingredient, i) => (
-                              <li key={i}>• {ingredient}</li>
-                            ))}
-                            {recipe.ingredients.length > 4 && (
-                              <li className="text-orange-600">+ {recipe.ingredients.length - 4} more...</li>
-                            )}
-                          </ul>
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          className="w-full bg-transparent"
-                          onClick={() =>
-                            navigate("/ai-response", {
-                              state: {
-                                selectedRecipe: recipe,
-                                ingredients: detectedFoods.map((f) => f.name).join(", "),
-                                fromDetection: true,
-                              },
-                            })
-                          }
+        {/* Step 3: Resources */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            {resources && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="shadow-lg border-none">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
+                      <Users className="h-5 w-5 mr-2 text-red-500" /> Youtube Resources
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
+                      resources.YoutubeSearch.map((item: any, idx: number) => {
+                        const videoId = item.link.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/)
+                        return videoId ? (
+                          <div key={idx} className="relative w-full aspect-video rounded-lg overflow-hidden shadow-md">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${videoId[1]}`}
+                              title={item.title}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="absolute top-0 left-0 w-full h-full border-0"
+                            />
+                          </div>
+                        ) : (
+                          <a
+                            key={idx}
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block p-3 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors duration-200 shadow-sm"
+                          >
+                            <h3 className="text-base font-semibold text-red-600 hover:underline">{item.title}</h3>
+                          </a>
+                        )
+                      })
+                    ) : (
+                      <p className="text-gray-500">No video tutorials available.</p>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card className="shadow-lg border-none">
+                  <CardHeader>
+                    <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
+                      <Bookmark className="h-5 w-5 mr-2 text-red-500" /> Google Resources
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
+                      resources.GoogleSearch.map((item: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-3 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors duration-200 shadow-sm"
                         >
-                          View Full Recipe
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                          <h3 className="text-base font-semibold text-red-600 hover:underline">{item.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{item.description}</p>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No articles available.</p>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
+            )}
+            <div className="flex justify-between mt-6">
+              <Button variant="outline" onClick={() => setCurrentStep(2)} disabled={isLoading}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </Button>
+              {/* No "Next" button here, as this is the final step */}
             </div>
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }
 

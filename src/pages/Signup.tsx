@@ -4,6 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from "firebase/auth"
+import { supabase } from '@/lib/supabase'
 import { auth } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -83,18 +84,69 @@ const Signup = () => {
 
     setIsLoading(true)
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
-
-      // Update user profile with name
-      await updateProfile(userCredential.user, {
-        displayName: `${formData.firstName} ${formData.lastName}`,
+      // Send registration to backend /register endpoint
+      const registerResponse = await fetch('http://localhost:5000/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName
+        })
       })
-
-      toast({
-        title: "Account Created!",
-        description: "Welcome to MealLensAI! Your account has been successfully created.",
+      let registerData
+      try {
+        registerData = await registerResponse.json()
+      } catch (err) {
+        toast({
+          title: "Signup Failed",
+          description: "Unexpected server response. Please try again or contact support.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+      if (registerData.status !== 'success') {
+        toast({
+          title: "Signup Failed",
+          description: registerData.message || "Failed to create account.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+      // Call backend /login to record session
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password })
       })
-      navigate("/detected")
+      let respData
+      try {
+        respData = await response.json()
+      } catch (err) {
+        toast({
+          title: "Signup Failed",
+          description: "Unexpected server response. Please try again or contact support.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+      if (respData.status === 'success') {
+        toast({
+          title: "Account Created!",
+          description: "Welcome to MealLensAI! Your account has been successfully created.",
+        })
+        navigate("/detected")
+      } else {
+        toast({
+          title: "Backend Signup Failed",
+          description: respData.message || "Failed to record session.",
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Signup Failed",
@@ -110,12 +162,44 @@ const Signup = () => {
     setIsGoogleLoading(true)
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
-      toast({
-        title: "Welcome to MealLensAI!",
-        description: "Your account has been successfully created with Google.",
+      const userCredential = await signInWithPopup(auth, provider)
+      // Get Firebase token
+      const token = await userCredential.user.getIdToken()
+      // Call backend /login to record session (Google)
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
       })
-      navigate("/detected")
+      let data
+      try {
+        data = await response.json()
+      } catch (err) {
+        toast({
+          title: "Signup Failed",
+          description: "Unexpected server response. Please try again or contact support.",
+          variant: "destructive",
+        })
+        setIsGoogleLoading(false)
+        return
+      }
+      if (data.status === 'success') {
+        toast({
+          title: "Welcome to MealLensAI!",
+          description: "Your account has been successfully created with Google.",
+        })
+        // Optionally store session_id, user_id, etc. from data
+        navigate("/detected")
+      } else {
+        toast({
+          title: "Backend Signup Failed",
+          description: data.message || "Failed to record session.",
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Google Signup Failed",

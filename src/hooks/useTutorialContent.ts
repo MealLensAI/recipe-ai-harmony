@@ -29,20 +29,33 @@ export const useTutorialContent = () => {
     return (match && match[2] && match[2].length === 11) ? match[2] : null;
   };
 
-  const generateContent = async (recipeName: string) => {
+  const generateContent = async (recipeName: string, ingredients?: string[]) => {
     setLoading(true);
     setInstructions('');
     setYoutubeVideos([]);
     setWebResources([]);
+    
     try {
-      // 1. Get instructions and detected foods
-      const instrRes = await fetch('https://ai-utu2.onrender.com/food_detect', {
+      console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients });
+      
+      // 1. Get cooking instructions using the new meal_plan_instructions API
+      const instrRes = await fetch('https://ai-utu2.onrender.com/meal_plan_instructions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ food_name: recipeName }),
+        body: JSON.stringify({ 
+          food_name: recipeName,
+          ingredients: ingredients || []
+        }),
       });
+      
+      if (!instrRes.ok) {
+        throw new Error(`HTTP error! status: ${instrRes.status}`);
+      }
+      
       const instrData = await instrRes.json();
-      // The API returns markdown, so convert to HTML (simple replace for demo)
+      console.log('[useTutorialContent] Instructions API response:', instrData);
+      
+      // The API returns markdown, so convert to HTML (same as the HTML code)
       let htmlInstructions = instrData.instructions || '';
       htmlInstructions = htmlInstructions
         .replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
@@ -50,16 +63,22 @@ export const useTutorialContent = () => {
         .replace(/(\d+\.)/g, '<br>$1');
       setInstructions(htmlInstructions);
 
-      // 2. Get resources (YouTube and Google)
-      let detectedFoods = instrData.food_detected || [recipeName];
-      const resRes = await fetch('https://ai-utu2.onrender.com/food_detect_resources', {
+      // 2. Get resources (YouTube and Google) using the correct form data
+      const formData = new FormData();
+      formData.append('food_choice_index', recipeName);
+      const resRes = await fetch('https://ai-utu2.onrender.com/resources', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ food_detected: detectedFoods }),
+        body: formData,
       });
+      
+      if (!resRes.ok) {
+        throw new Error(`HTTP error! status: ${resRes.status}`);
+      }
+      
       const resData = await resRes.json();
+      console.log('[useTutorialContent] Resources API response:', resData);
 
-      // Flatten and parse YouTube resources
+      // Flatten and parse YouTube resources (same as HTML code)
       const ytResults = (resData.YoutubeSearch || []).flat().map((item: any) => ({
         title: item.title,
         thumbnail: item.thumbnail || (getYouTubeVideoId(item.link) ? `https://img.youtube.com/vi/${getYouTubeVideoId(item.link)}/maxresdefault.jpg` : ''),
@@ -69,7 +88,7 @@ export const useTutorialContent = () => {
       }));
       setYoutubeVideos(ytResults);
 
-      // Flatten and parse Google resources
+      // Flatten and parse Google resources (same as HTML code)
       const googleResults = (resData.GoogleSearch || []).flat().map((item: any) => ({
         title: item.title,
         description: item.description,
@@ -77,9 +96,10 @@ export const useTutorialContent = () => {
         image: item.image || '',
       }));
       setWebResources(googleResults);
+      
     } catch (error) {
-      console.error('Error generating content:', error);
-      setInstructions('Failed to load instructions.');
+      console.error('[useTutorialContent] Error generating content:', error);
+      setInstructions('Failed to load instructions. Please try again.');
       setYoutubeVideos([]);
       setWebResources([]);
     } finally {

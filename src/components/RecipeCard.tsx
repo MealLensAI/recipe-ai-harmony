@@ -8,9 +8,10 @@ interface RecipeCardProps {
   rating: number;
   mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   onClick?: () => void;
+  originalTitle?: string; // Optional prop for displaying the full meal description
 }
 
-const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mealType, onClick }) => {
+const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mealType, onClick, originalTitle }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [foodImage, setFoodImage] = useState<string>('');
@@ -53,7 +54,7 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
   useEffect(() => {
     setImageLoading(true);
     setImageError(false);
-    fetchFoodImage(title); // Use the actual meal name for each card
+    fetchFoodImage(title); // Use the clean title for image fetching
   }, [title, image]);
 
   const getFallbackImage = () => {
@@ -123,7 +124,9 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
       </div>
       
       <div className="p-4">
-        <h3 className="font-semibold text-[#2D3436] mb-2 text-sm leading-tight line-clamp-2">{title}</h3>
+        <h3 className="font-semibold text-[#2D3436] mb-2 text-sm leading-tight line-clamp-2">
+          {originalTitle || title}
+        </h3>
         
         <div className="flex items-center justify-between">
           <div className="flex items-center text-[#1e293b] text-xs">

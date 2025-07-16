@@ -1,58 +1,78 @@
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
+from dotenv import load_dotenv
+load_dotenv()  # This loads the environment variables from .env file
+from supabase import create_client, Client
+import firebase_admin
+from firebase_admin import credentials, auth
+import json
+import base64
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads/'
-app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+from flask_cors import CORS, cross_origin # Import CORS
 
-# Ensure upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# Import services
+from services.auth_service import AuthService
+from services.supabase_service import SupabaseService
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+# Import blueprints for routes
+from routes.food_detection_routes import food_detection_bp
+from routes.feedback_routes import feedback_bp
+from routes.meal_plan_routes import meal_plan_bp
+from routes.auth_routes import auth_bp
+from routes.ai_session_routes import ai_session_bp
 
-@app.route('/feedback', methods=['POST'])
-def feedback():
-    data = request.form.to_dict()
-    # Store feedback in a file or database (placeholder)
-    print('Received feedback:', data)
-    return jsonify({'status': 'success', 'message': 'Feedback received.'})
+def create_app():
+  """
+  Factory function to create and configure the Flask application.
+  """
+  app = Flask(__name__)
+  CORS(app) # Enable CORS for all routes
 
-@app.route('/food_detect', methods=['POST'])
-def food_detect():
-    input_type = request.form.get('image_or_ingredient_list')
-    if input_type == 'ingredient_list':
-        ingredients = request.form.get('ingredient_list')
-        print('Received ingredient list:', ingredients)
-        # Process ingredients (placeholder)
-        return jsonify({'status': 'success', 'ingredients': ingredients})
-    elif input_type == 'image':
-        if 'image' not in request.files:
-            return jsonify({'status': 'error', 'message': 'No image uploaded.'}), 400
-        file = request.files['image']
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            print('Image saved:', filename)
-            # Process image (placeholder)
-            return jsonify({'status': 'success', 'image': filename})
-        else:
-            return jsonify({'status': 'error', 'message': 'Invalid file type.'}), 400
-    else:
-        return jsonify({'status': 'error', 'message': 'Invalid input type.'}), 400
+  # Initialize Supabase clients
+  supabase_url = os.environ.get("SUPABASE_URL")
+  supabase_service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+  
+  if not supabase_url or not supabase_service_role_key:
+      raise ValueError("Missing required Supabase credentials in .env file")
+  
+  # Create Supabase client with service role key for admin operations
+  app.supabase_service = SupabaseService(supabase_url, supabase_service_role_key)
+  
+  # Initialize AuthService with regular Supabase client
+  firebase_creds = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+   
+  if not firebase_creds:
+      print("Warning: FIREBASE_SERVICE_ACCOUNT_JSON not set. Authentication features will be disabled.")
+      app.auth_service = None
+  else:
+      # Check if it's a file path
+      if os.path.exists(firebase_creds):
+          try:
+              with open(firebase_creds, 'r') as f:
+                  firebase_config = json.load(f)
+              # Convert to base64 string
+              firebase_creds = base64.b64encode(json.dumps(firebase_config).encode('utf-8')).decode('utf-8')
+          except Exception as e:
+              print(f"Error reading Firebase credentials from file: {str(e)}")
+              firebase_creds = None
+      
+      try:
+          app.auth_service = AuthService(firebase_creds, app.supabase_service.supabase)
+      except Exception as e:
+          print(f"Warning: Failed to initialize AuthService: {str(e)}")
+          print("Authentication features will be disabled.")
+          app.auth_service = None
 
-@app.route('/meal_plan', methods=['POST'])
-def save_meal_plan():
-    data = request.get_json()
-    print('Received meal plan:', data)
-    # Store meal plan (placeholder)
-    return jsonify({'status': 'success', 'message': 'Meal plan saved.'})
+  # Register blueprints
+  app.register_blueprint(food_detection_bp, url_prefix='/')
+  app.register_blueprint(feedback_bp, url_prefix='/')
+  app.register_blueprint(meal_plan_bp, url_prefix='/')
+  app.register_blueprint(auth_bp, url_prefix='/')
+  app.register_blueprint(ai_session_bp, url_prefix='/')
 
-@app.route('/meal_plan', methods=['GET'])
-def get_meal_plan():
-    # Retrieve meal plan (placeholder)
-    return jsonify({'status': 'success', 'meal_plan': []})
+  return app
 
 if __name__ == '__main__':
-    app.run(debug=True)
+  app = create_app()
+  app.run(debug=True)

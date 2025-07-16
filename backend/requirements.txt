@@ -1,4 +1,5 @@
 flask
-flask
-flask-session
 werkzeug
+supabase
+firebase-admin
+flask-cors

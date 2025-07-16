@@ -11,21 +11,33 @@ interface CookingTutorialModalProps {
   isOpen: boolean;
   onClose: () => void;
   recipeName: string;
+  ingredients?: string[]; // New prop for ingredients
 }
 
 const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({ 
   isOpen, 
   onClose, 
-  recipeName 
+  recipeName,
+  ingredients = [] // Default to empty array
 }) => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [inlinePlayingIndex, setInlinePlayingIndex] = useState<number | null>(null);
   const { instructions, youtubeVideos, webResources, loading, generateContent } = useTutorialContent();
 
   useEffect(() => {
     if (isOpen && recipeName) {
-      generateContent(recipeName);
+      console.log('[CookingTutorialModal] Generating content for:', { recipeName, ingredients });
+      generateContent(recipeName, ingredients);
     }
-  }, [isOpen, recipeName]);
+  }, [isOpen, recipeName, ingredients]);
+
+  // Reset video states when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedVideo(null);
+      setInlinePlayingIndex(null);
+    }
+  }, [isOpen]);
 
   const handleShare = async () => {
     const shareData = {
@@ -62,6 +74,18 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
     }
   };
 
+  // When modal video opens, stop inline
+  const handleVideoSelect = (videoId: string | null) => {
+    setSelectedVideo(videoId);
+    if (videoId) setInlinePlayingIndex(null);
+  };
+
+  // When inline video plays, stop modal
+  const handleInlinePlay = (index: number | null) => {
+    setInlinePlayingIndex(index);
+    if (index !== null) setSelectedVideo(null);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -89,7 +113,9 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
               <YouTubeResources 
                 videos={youtubeVideos}
-                onVideoSelect={setSelectedVideo}
+                onVideoSelect={handleVideoSelect}
+                inlinePlayingIndex={inlinePlayingIndex}
+                onInlinePlay={handleInlinePlay}
                 onImageError={handleImageError}
               />
 

@@ -5,6 +5,7 @@ import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { supabase } from '@/lib/supabase'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,12 +36,43 @@ const Login = () => {
 
     setIsLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      // Get Firebase token
+      const token = await userCredential.user.getIdToken()
+      // Call backend /login to record session
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ token })
+      })
+      let data
+      try {
+        data = await response.json()
+      } catch (err) {
+        toast({
+          title: "Login Failed",
+          description: "Unexpected server response. Please try again or contact support.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+      if (data.status === 'success') {
       toast({
         title: "Welcome back!",
         description: "You have been successfully logged in.",
       })
+        // Optionally store session_id, user_id, etc. from data
       navigate("/detected")
+      } else {
+        toast({
+          title: "Backend Login Failed",
+          description: data.message || "Failed to record session.",
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -56,12 +88,44 @@ const Login = () => {
     setIsGoogleLoading(true)
     try {
       const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
+      const userCredential = await signInWithPopup(auth, provider)
+      // Get Firebase token
+      const token = await userCredential.user.getIdToken()
+      // Call backend /login to record session (Google)
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      })
+      let data
+      try {
+        data = await response.json()
+      } catch (err) {
+        toast({
+          title: "Login Failed",
+          description: "Unexpected server response. Please try again or contact support.",
+          variant: "destructive",
+        })
+        setIsGoogleLoading(false)
+        return
+      }
+      if (data.status === 'success') {
       toast({
         title: "Welcome!",
         description: "You have been successfully logged in with Google.",
       })
+        // Optionally store session_id, user_id, etc. from data
       navigate("/detected")
+      } else {
+        toast({
+          title: "Backend Login Failed",
+          description: data.message || "Failed to record session.",
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Google Login Failed",

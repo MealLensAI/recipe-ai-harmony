@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute"
 import MainLayout from "./components/MainLayout"
 import { Toaster } from "@/components/ui/toaster"
 import "./App.css"
+import HistoryPage from "./pages/History"
 
 function App() {
   return (
@@ -45,6 +46,16 @@ function App() {
               <ProtectedRoute>
                 <MainLayout>
                   <Index />
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <HistoryPage />
                 </MainLayout>
               </ProtectedRoute>
             }
