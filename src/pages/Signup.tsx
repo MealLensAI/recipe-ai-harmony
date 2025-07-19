@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
 
@@ -104,7 +104,8 @@ const Signup = () => {
       const registerResult = await api.register({
         email: formData.email,
         password: formData.password,
-        name: `${formData.firstName} ${formData.lastName}`
+        first_name: formData.firstName,
+        last_name: formData.lastName
       })
       
       if (registerResult.status !== 'success') {

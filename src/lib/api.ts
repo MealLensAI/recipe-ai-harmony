@@ -230,6 +230,11 @@ class APIService {
   async saveFeedback(feedbackText: string): Promise<APIResponse> {
     return this.post('/feedback', { feedback_text: feedbackText })
   }
+
+  // Profile methods
+  async getUserProfile(): Promise<APIResponse> {
+    return this.get('/profile')
+  }
 }
 
 // Create singleton instance

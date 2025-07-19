@@ -43,26 +43,10 @@ const Navbar = () => {
   const userInitials = userDisplayName ? userDisplayName.charAt(0).toUpperCase() : "U"
   const userPhotoURL = user?.photoURL || null
 
-  // Temporary test mode - remove this in production
-  const isTestMode = true // Set to true to test navbar without authentication
-  
-  if (!isAuthenticated && !isTestMode) {
-    return null // Don't render navbar if not authenticated
+  // Don't render navbar if not authenticated
+  if (!isAuthenticated) {
+    return null
   }
-
-  // Use test data if in test mode
-  const testUser = {
-    uid: 'test-user-id',
-    email: 'test@example.com',
-    displayName: 'Test User',
-    photoURL: null
-  }
-
-  const finalUser = isTestMode ? testUser : user
-  const finalUserEmail = finalUser?.email || "user@example.com"
-  const finalUserDisplayName = finalUser?.displayName || finalUserEmail.split('@')[0] || "User"
-  const finalUserInitials = finalUserDisplayName ? finalUserDisplayName.charAt(0).toUpperCase() : "U"
-  const finalUserPhotoURL = finalUser?.photoURL || null
 
   return (
     <nav className="bg-white shadow-md border-b border-gray-100 sticky top-0 z-50">
@@ -123,17 +107,17 @@ const Navbar = () => {
                   className="relative h-12 w-auto rounded-full flex items-center space-x-3 px-3 hover:bg-gray-100 border border-gray-200"
                 >
                   <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-full text-white font-bold text-lg shadow-md">
-                    {finalUserInitials}
+                    {userInitials}
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-gray-700">{finalUserDisplayName}</span>
+                  <span className="hidden sm:block text-sm font-medium text-gray-700">{userDisplayName}</span>
                   <ChevronDown className="h-4 w-4 text-gray-500" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{finalUserDisplayName}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{finalUserEmail}</p>
+                    <p className="text-sm font-medium leading-none">{userDisplayName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

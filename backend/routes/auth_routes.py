@@ -522,3 +522,43 @@ def register_user():
             'error': error_msg,
             'error_type': 'unknown_error'
         }), 500
+
+
+@auth_bp.route('/profile', methods=['GET'])
+def get_user_profile():
+    """
+    Get the current user's profile information.
+    """
+    try:
+        user_id, error = get_user_id_from_token()
+        if error:
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        supabase = get_supabase_client(use_admin=True)
+        if not supabase:
+            return jsonify({'status': 'error', 'message': 'Database service not available'}), 500
+
+        # Get user profile from profiles table
+        profile_result = supabase.table('profiles').select('*').eq('id', user_id).single().execute()
+        
+        if not profile_result.data:
+            return jsonify({'status': 'error', 'message': 'Profile not found'}), 404
+
+        profile = profile_result.data
+        
+        return jsonify({
+            'status': 'success',
+            'profile': {
+                'id': profile.get('id'),
+                'email': profile.get('email'),
+                'first_name': profile.get('first_name'),
+                'last_name': profile.get('last_name'),
+                'display_name': f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip(),
+                'created_at': profile.get('created_at'),
+                'updated_at': profile.get('updated_at')
+            }
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching user profile: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Failed to fetch profile'}), 500

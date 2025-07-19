@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { api } from "./api"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -74,6 +75,27 @@ export function useProvideAuth(): AuthContextType {
           const parsedUser = JSON.parse(storedUserData)
           setToken(storedToken)
           setUser(parsedUser as User)
+          
+          // Fetch fresh profile data from backend
+          try {
+            const profileResponse = await api.getUserProfile()
+            if (profileResponse.status === 'success' && profileResponse.data) {
+              const profile = profileResponse.data
+              const updatedUser: User = {
+                uid: profile.id,
+                email: profile.email,
+                displayName: profile.display_name,
+                photoURL: undefined
+              }
+              setUser(updatedUser)
+              // Update stored user data
+              localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
+            }
+          } catch (profileError) {
+            console.error('Error fetching user profile:', profileError)
+            // Continue with stored user data if profile fetch fails
+          }
+          
           setLoading(false)
           return
         } catch (error) {
@@ -84,8 +106,8 @@ export function useProvideAuth(): AuthContextType {
       }
 
       // No valid token found, user is not authenticated
-          clearSession()
-        setLoading(false)
+      clearSession()
+      setLoading(false)
     } catch (error) {
       console.error('Error in refreshAuth:', error)
       clearSession()

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAPI, APIError } from '../lib/api';
+import { api } from '../lib/api';
 
 export interface MealPlan {
   day: string;
@@ -27,65 +27,38 @@ export const useMealPlans = () => {
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { api, isAuthenticated } = useAPI();
 
-  // Fetch all meal plans from backend on mount
+  // Fetch all meal plans from backend API on mount
   useEffect(() => {
     const fetchPlans = async () => {
-      if (!isAuthenticated) {
-        setSavedPlans([]);
-        setCurrentPlan(null);
-        return;
-      }
-
       setLoading(true);
-      setError(null);
-      
       try {
-        const result = await api.getMealPlans();
-        
-        if (result.status === 'success') {
-          const plans = (result.data?.meal_plan_management || []).map((plan: any) => {
-            let mealPlanObj = plan.meal_plan;
-            if (typeof mealPlanObj === 'string') {
-              try { mealPlanObj = JSON.parse(mealPlanObj); } catch { mealPlanObj = {}; }
-            }
-            if (mealPlanObj && mealPlanObj.plan_data) {
-              mealPlanObj = mealPlanObj.plan_data;
-            }
-            return {
-              id: plan.id,
-              name: plan.name || mealPlanObj?.name || '',
-              startDate: plan.start_date || mealPlanObj?.startDate || '',
-              endDate: plan.end_date || mealPlanObj?.endDate || '',
-              mealPlan: mealPlanObj.mealPlan || [],
-              createdAt: plan.created_at,
-              updatedAt: plan.updated_at,
-            };
-          });
+        const response = await api.getMealPlans();
+        if (response.status === 'success' && response.data) {
+          const plans = response.data.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.start_date,
+            endDate: plan.end_date,
+            mealPlan: plan.meal_plan,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          }));
           setSavedPlans(plans);
           if (plans.length > 0) setCurrentPlan(plans[0]);
         } else {
           setSavedPlans([]);
           setCurrentPlan(null);
-          setError(result.message || 'Failed to load meal plans');
         }
-      } catch (err) {
+      } catch (error) {
+        console.error('Error fetching meal plans:', error);
         setSavedPlans([]);
         setCurrentPlan(null);
-        if (err instanceof APIError) {
-          setError(err.message);
-        } else {
-          setError('Failed to load meal plans. Please try again.');
-        }
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
-
     fetchPlans();
-  }, [isAuthenticated, api]);
+  }, []);
 
   const generateWeekDates = (startDate: Date): { startDate: string; endDate: string; name: string } => {
     const endDate = new Date(startDate);
@@ -100,33 +73,39 @@ export const useMealPlans = () => {
 
   const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date) => {
     setLoading(true);
-    setError(null);
-    
     try {
       const now = new Date();
       const weekDates = startDate ? generateWeekDates(startDate) : generateWeekDates(now);
+      
       const planData = {
         name: weekDates.name,
-        startDate: weekDates.startDate,
-        endDate: weekDates.endDate,
-        mealPlan,
+        start_date: weekDates.startDate,
+        end_date: weekDates.endDate,
+        meal_plan: mealPlan,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
       };
       
-      const result = await api.saveMealPlan(planData);
-      
-      if (result.status !== 'success') {
-        throw new APIError(result.message || 'Failed to save meal plan', 0);
-      }
-      
-      await refreshMealPlans();
-      return savedPlans[0];
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
+      const response = await api.saveMealPlan(planData);
+      if (response.status === 'success' && response.data) {
+        const newPlan: SavedMealPlan = {
+          id: response.data.id,
+          name: response.data.name,
+          startDate: response.data.start_date,
+          endDate: response.data.end_date,
+          mealPlan: response.data.meal_plan,
+          createdAt: response.data.created_at,
+          updatedAt: response.data.updated_at,
+        };
+        setSavedPlans(prev => [newPlan, ...prev]);
+        setCurrentPlan(newPlan);
+        return newPlan;
       } else {
-        setError('Failed to save meal plan. Please try again.');
+        throw new Error(response.message || 'Failed to save meal plan');
       }
-      throw err;
+    } catch (error) {
+      console.error('Error saving meal plan:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -134,27 +113,29 @@ export const useMealPlans = () => {
 
   const updateMealPlan = async (id: string, mealPlan: MealPlan[]) => {
     setLoading(true);
-    setError(null);
-    
     try {
       const now = new Date();
-      const result = await api.updateMealPlan(id, { 
+      const response = await api.updateMealPlan(id, { 
         meal_plan: mealPlan, 
         updated_at: now.toISOString() 
       });
-      
-      if (result.status !== 'success') {
-        throw new APIError(result.message || 'Failed to update meal plan', 0);
-      }
-      
-      await refreshMealPlans();
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
+      if (response.status === 'success' && response.data) {
+        setSavedPlans(prev => prev.map(plan => plan.id === id ? {
+          ...plan,
+          mealPlan: response.data.meal_plan,
+          updatedAt: response.data.updated_at,
+        } : plan));
+        setCurrentPlan(prev => prev?.id === id ? {
+          ...prev,
+          mealPlan: response.data.meal_plan,
+          updatedAt: response.data.updated_at,
+        } : prev);
       } else {
-        setError('Failed to update meal plan. Please try again.');
+        throw new Error(response.message || 'Failed to update meal plan');
       }
-      throw err;
+    } catch (error) {
+      console.error('Error updating meal plan:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -162,23 +143,22 @@ export const useMealPlans = () => {
 
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
-    setError(null);
-    
     try {
-      const result = await api.deleteMealPlan(id);
-      
-      if (result.status !== 'success') {
-        throw new APIError(result.message || 'Failed to delete meal plan', 0);
-      }
-      
-      await refreshMealPlans();
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
+      const response = await api.deleteMealPlan(id);
+      if (response.status === 'success') {
+        const remainingPlans = savedPlans.filter(plan => plan.id !== id);
+        setSavedPlans(remainingPlans);
+        if (remainingPlans.length > 0) {
+          setCurrentPlan(remainingPlans[0]);
+        } else {
+          setCurrentPlan(null);
+        }
       } else {
-        setError('Failed to delete meal plan. Please try again.');
+        throw new Error(response.message || 'Failed to delete meal plan');
       }
-      throw err;
+    } catch (error) {
+      console.error('Error deleting meal plan:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -194,60 +174,50 @@ export const useMealPlans = () => {
   const duplicateMealPlan = async (id: string, newStartDate: Date) => {
     const originalPlan = savedPlans.find(p => p.id === id);
     if (!originalPlan) return;
+    const weekDates = generateWeekDates(newStartDate);
+    const now = new Date();
     
-    setLoading(true);
-    setError(null);
+    const planData = {
+      name: weekDates.name,
+      start_date: weekDates.startDate,
+      end_date: weekDates.endDate,
+      meal_plan: originalPlan.mealPlan,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    };
     
-    try {
-      const weekDates = generateWeekDates(newStartDate);
-      const now = new Date();
-      const planData = {
-        name: weekDates.name,
-        startDate: weekDates.startDate,
-        endDate: weekDates.endDate,
-        mealPlan: originalPlan.mealPlan,
+    const response = await api.saveMealPlan(planData);
+    if (response.status === 'success' && response.data) {
+      const duplicatedPlan: SavedMealPlan = {
+        id: response.data.id,
+        name: response.data.name,
+        startDate: response.data.start_date,
+        endDate: response.data.end_date,
+        mealPlan: response.data.meal_plan,
+        createdAt: response.data.created_at,
+        updatedAt: response.data.updated_at,
       };
-      
-      const result = await api.saveMealPlan(planData);
-      
-      if (result.status !== 'success') {
-        throw new APIError(result.message || 'Failed to duplicate meal plan', 0);
-      }
-      
-      await refreshMealPlans();
-      return savedPlans[0];
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError('Failed to duplicate meal plan. Please try again.');
-      }
-      throw err;
-    } finally {
-      setLoading(false);
+      setSavedPlans(prev => [duplicatedPlan, ...prev]);
+      setCurrentPlan(duplicatedPlan);
+      return duplicatedPlan;
+    } else {
+      throw new Error(response.message || 'Failed to duplicate meal plan');
     }
   };
 
   const clearAllPlans = async () => {
     setLoading(true);
-    setError(null);
-    
     try {
-      const result = await api.clearMealPlans();
-      
-      if (result.status !== 'success') {
-        throw new APIError(result.message || 'Failed to clear meal plans', 0);
-      }
-      
-      setSavedPlans([]);
-      setCurrentPlan(null);
-    } catch (err) {
-      if (err instanceof APIError) {
-        setError(err.message);
+      const response = await api.clearMealPlans();
+      if (response.status === 'success') {
+        setSavedPlans([]);
+        setCurrentPlan(null);
       } else {
-        setError('Failed to clear meal plans. Please try again.');
+        throw new Error(response.message || 'Failed to clear meal plans');
       }
-      throw err;
+    } catch (error) {
+      console.error('Error clearing all meal plans:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -255,55 +225,36 @@ export const useMealPlans = () => {
 
   const refreshMealPlans = async () => {
     setLoading(true);
-    setError(null);
-    
     try {
-      const result = await api.getMealPlans();
-      
-      if (result.status === 'success') {
-        const plans = (result.data?.meal_plan_management || []).map((plan: any) => {
-          let mealPlanObj = plan.meal_plan;
-          if (typeof mealPlanObj === 'string') {
-            try { mealPlanObj = JSON.parse(mealPlanObj); } catch {}
-          }
-          if (mealPlanObj && mealPlanObj.plan_data) {
-            mealPlanObj = mealPlanObj.plan_data;
-          }
-          return {
-            id: plan.id,
-            name: plan.name || mealPlanObj?.name || '',
-            startDate: plan.start_date || mealPlanObj?.startDate || '',
-            endDate: plan.end_date || mealPlanObj?.endDate || '',
-            mealPlan: mealPlanObj,
-            createdAt: plan.created_at,
-            updatedAt: plan.updated_at,
-          };
-        });
+      const response = await api.getMealPlans();
+      if (response.status === 'success' && response.data) {
+        const plans = response.data.map((plan: any) => ({
+          id: plan.id,
+          name: plan.name,
+          startDate: plan.start_date,
+          endDate: plan.end_date,
+          mealPlan: plan.meal_plan,
+          createdAt: plan.created_at,
+          updatedAt: plan.updated_at,
+        }));
         setSavedPlans(plans);
         setCurrentPlan(plans.length > 0 ? plans[0] : null);
       } else {
         setSavedPlans([]);
         setCurrentPlan(null);
-        setError(result.message || 'Failed to refresh meal plans');
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Error refreshing meal plans:', error);
       setSavedPlans([]);
       setCurrentPlan(null);
-      if (err instanceof APIError) {
-        setError(err.message);
-      } else {
-        setError('Failed to refresh meal plans. Please try again.');
-      }
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return {
     savedPlans,
     currentPlan,
     loading,
-    error,
     saveMealPlan,
     updateMealPlan,
     deleteMealPlan,

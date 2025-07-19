@@ -149,26 +149,8 @@ const Index = () => {
       console.log('[Index] API Response:', data);
       console.log('[Index] Meal Plan Data:', data.meal_plan);
       
-      // Save the new meal plan to your backend
-      const saveResponse = await fetch('/api/meal_plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add Authorization header if needed (e.g., from your auth context)
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        },
-        body: JSON.stringify({
-          name: weekDates.name,
-          startDate: weekDates.startDate,
-          endDate: weekDates.endDate,
-          mealPlan: data.meal_plan
-        })
-      });
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save meal plan to backend');
-      }
-      // Refresh the saved plans
-      await refreshMealPlans();
+      // Save the new meal plan
+      const savedPlan = saveMealPlan(data.meal_plan, selectedDate);
       
       setShowInputModal(false);
       setIngredientList('');
@@ -176,15 +158,15 @@ const Index = () => {
       setImagePreview(null);
       
       toast({
-        title: 'Success!',
-        description: `Your meal plan for ${weekDates.name} has been created and saved!`,
+        title: "Success!",
+        description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
       });
     } catch (error) {
-      console.error('Error generating or saving meal plan:', error);
+      console.error('Error generating meal plan:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to generate or save meal plan. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to generate meal plan. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -237,8 +219,76 @@ const Index = () => {
   };
 
   // In the main content, use the rotated meal plan for display
-  // Remove rotatedMealPlan and getRecipesForSelectedDay logic
-  // Instead, render WeeklyPlanner with planId, and for each day, render MealPlanCard with planId and day
+  const rotatedMealPlan = currentPlan ? getRotatedMealPlan() : [];
+
+  // Replace getRecipesForSelectedDay to use rotated plan
+  const getRecipesForSelectedDay = () => {
+    const rotatedPlan = getRotatedMealPlan();
+    // Always show the first day's recipes (the selected day)
+    const dayPlan = rotatedPlan[0];
+    if (!dayPlan) return [];
+    // Helper function to extract clean food name from meal description
+    const extractFoodName = (mealDescription: string): string => {
+      // Remove the "(buy: ...)" part and any extra text
+      const cleanName = mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();
+      return cleanName;
+    };
+    const recipes = [
+      { 
+        title: extractFoodName(dayPlan.breakfast), 
+        type: 'breakfast', 
+        time: '15 mins', 
+        rating: 5,
+        originalTitle: dayPlan.breakfast // Keep original for display
+      },
+      { 
+        title: extractFoodName(dayPlan.lunch), 
+        type: 'lunch', 
+        time: '25 mins', 
+        rating: 4,
+        originalTitle: dayPlan.lunch
+      },
+      { 
+        title: extractFoodName(dayPlan.dinner), 
+        type: 'dinner', 
+        time: '35 mins', 
+        rating: 5,
+        originalTitle: dayPlan.dinner
+      },
+    ];
+    if (dayPlan.snack) {
+      recipes.push({ 
+        title: extractFoodName(dayPlan.snack), 
+        type: 'snack', 
+        time: '5 mins', 
+        rating: 4,
+        originalTitle: dayPlan.snack
+      });
+    }
+    return selectedMealType === 'all' 
+      ? recipes 
+      : recipes.filter(recipe => recipe.type === selectedMealType);
+  };
+
+  const handleNewPlan = () => {
+    setShowInputModal(true);
+  };
+
+  const handleEditPlan = (plan: SavedMealPlan) => {
+    // For now, just select the plan to edit
+    // In the future, this could open an edit modal
+    toast({
+      title: "Plan Selected",
+      description: `"${plan.name}" is now active for editing.`,
+    });
+  };
+
+  // When a plan is selected in the manager, jump to that week
+  const handleSelectPlan = (plan: SavedMealPlan) => {
+    setSelectedDate(new Date(plan.startDate));
+    selectMealPlan(plan.id);
+    setShowPlanManager(false);
+  };
 
   // Helper to get day name from a Date
   const getDayName = (date: Date) => {
@@ -249,22 +299,6 @@ const Index = () => {
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
     setSelectedDay(getDayName(date));
-  };
-
-  const handleNewPlan = () => {
-    setShowInputModal(true);
-  };
-
-  const handleEditPlan = (plan) => {
-    // For now, just show a toast or log
-    // You can implement editing logic here later
-    console.log('Edit plan:', plan);
-  };
-
-  const handleSelectPlan = (plan) => {
-    setSelectedDate(new Date(plan.startDate));
-    selectMealPlan(plan.id);
-    setShowPlanManager(false);
   };
 
   return (
@@ -304,27 +338,20 @@ const Index = () => {
       <div className="max-w-7xl mx-auto flex gap-6 p-6">
         {/* Sidebar */}
         <div className="w-64 space-y-4">
+          {/* Weekly Planner */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
-            {currentPlan && currentPlan.id ? (
-              <WeeklyPlanner
-                planId={currentPlan.id}
-                selectedDay={selectedDay}
-                onDaySelect={setSelectedDay}
-                startDay={getDayName(new Date(currentPlan.startDate))}
-              />
-            ) : (
-              <div className="text-center text-gray-400">
-                <div className="mb-2">📅</div>
-                <div className="font-semibold">No Plan Selected</div>
-                <div className="text-xs mt-1">Create or select a plan to see your week here.</div>
-              </div>
-            )}
+            <WeeklyPlanner 
+              selectedDay={selectedDay}
+              onDaySelect={setSelectedDay}
+              mealPlan={currentPlan?.mealPlan || []}
+              startDay={currentPlan ? getDayName(new Date(currentPlan.startDate)) : undefined}
+            />
           </div>
         </div>
 
         {/* Main Content */}
         <div className="flex-1">
-          {currentPlan && currentPlan.id ? (
+          {currentPlan ? (
             <React.Fragment>
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -362,12 +389,15 @@ const Index = () => {
                 <LoadingSpinner />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {['breakfast', 'lunch', 'dinner', 'snack'].map(mealType => (
-                    <RecipeCard 
-                      key={`${selectedDay}-${mealType}`}
-                      planId={currentPlan.id}
-                      day={selectedDay}
-                      mealType={mealType}
+                  {getRecipesForSelectedDay().map((recipe, index) => (
+                    <RecipeCard
+                      key={`${selectedDay}-${recipe.type}-${index}`}
+                      title={recipe.title}
+                      originalTitle={recipe.originalTitle}
+                      time={recipe.time}
+                      rating={recipe.rating}
+                      mealType={recipe.type as any}
+                      onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
                     />
                   ))}
                 </div>
