@@ -46,15 +46,24 @@ export const useMealPlans = () => {
         const result = await api.getMealPlans();
         
         if (result.status === 'success') {
-          const plans = (result.data?.meal_plan_management || []).map((plan: any) => ({
-            id: plan.id,
-            name: plan.name,
-            startDate: plan.start_date,
-            endDate: plan.end_date,
-            mealPlan: plan.meal_plan,
-            createdAt: plan.created_at,
-            updatedAt: plan.updated_at,
-          }));
+          const plans = (result.data?.meal_plan_management || []).map((plan: any) => {
+            let mealPlanObj = plan.meal_plan;
+            if (typeof mealPlanObj === 'string') {
+              try { mealPlanObj = JSON.parse(mealPlanObj); } catch { mealPlanObj = {}; }
+            }
+            if (mealPlanObj && mealPlanObj.plan_data) {
+              mealPlanObj = mealPlanObj.plan_data;
+            }
+            return {
+              id: plan.id,
+              name: plan.name || mealPlanObj?.name || '',
+              startDate: plan.start_date || mealPlanObj?.startDate || '',
+              endDate: plan.end_date || mealPlanObj?.endDate || '',
+              mealPlan: mealPlanObj.mealPlan || [],
+              createdAt: plan.created_at,
+              updatedAt: plan.updated_at,
+            };
+          });
           setSavedPlans(plans);
           if (plans.length > 0) setCurrentPlan(plans[0]);
         } else {
@@ -252,15 +261,24 @@ export const useMealPlans = () => {
       const result = await api.getMealPlans();
       
       if (result.status === 'success') {
-        const plans = (result.data?.meal_plan_management || []).map((plan: any) => ({
-          id: plan.id,
-          name: plan.name,
-          startDate: plan.start_date,
-          endDate: plan.end_date,
-          mealPlan: plan.meal_plan,
-          createdAt: plan.created_at,
-          updatedAt: plan.updated_at,
-        }));
+        const plans = (result.data?.meal_plan_management || []).map((plan: any) => {
+          let mealPlanObj = plan.meal_plan;
+          if (typeof mealPlanObj === 'string') {
+            try { mealPlanObj = JSON.parse(mealPlanObj); } catch {}
+          }
+          if (mealPlanObj && mealPlanObj.plan_data) {
+            mealPlanObj = mealPlanObj.plan_data;
+          }
+          return {
+            id: plan.id,
+            name: plan.name || mealPlanObj?.name || '',
+            startDate: plan.start_date || mealPlanObj?.startDate || '',
+            endDate: plan.end_date || mealPlanObj?.endDate || '',
+            mealPlan: mealPlanObj,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          };
+        });
         setSavedPlans(plans);
         setCurrentPlan(plans.length > 0 ? plans[0] : null);
       } else {

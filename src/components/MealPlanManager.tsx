@@ -167,7 +167,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                 }`}
                 onClick={() => {
                   selectMealPlan(plan.id);
-                  if (onSelectPlan) onSelectPlan(plan);
+                  if (onSelectPlan) onSelectPlan(plan); // plan includes id
                 }}
               >
                 <div className="flex items-center justify-between">

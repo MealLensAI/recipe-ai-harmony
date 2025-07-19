@@ -271,35 +271,66 @@ class SupabaseService:
         except Exception as e:
             return None, str(e)
 
+    def normalize_meal_plan_entry(self, raw_plan, user_id=None):
+        import uuid
+        from datetime import datetime
+
+        # If already normalized (has mealPlan at top level), use it directly
+        if 'mealPlan' in raw_plan:
+            meal_plan_obj = raw_plan
+        else:
+            meal_plan_obj = raw_plan.get('meal_plan')
+            if isinstance(meal_plan_obj, str):
+                try:
+                    meal_plan_obj = json.loads(meal_plan_obj)
+                except Exception:
+                    meal_plan_obj = {}
+            if isinstance(meal_plan_obj, dict) and 'plan_data' in meal_plan_obj:
+                meal_plan_obj = meal_plan_obj['plan_data']
+
+        name = raw_plan.get('name') or (meal_plan_obj.get('name') if meal_plan_obj else None)
+        start_date = raw_plan.get('start_date') or raw_plan.get('startDate') or (meal_plan_obj.get('startDate') if meal_plan_obj else None)
+        end_date = raw_plan.get('end_date') or raw_plan.get('endDate') or (meal_plan_obj.get('endDate') if meal_plan_obj else None)
+        meal_plan = raw_plan.get('mealPlan') or (meal_plan_obj.get('mealPlan') if isinstance(meal_plan_obj, dict) else meal_plan_obj)
+
+        if not user_id:
+            user_id = raw_plan.get('user_id')
+        if not raw_plan.get('id'):
+            plan_id = str(uuid.uuid4())
+        else:
+            plan_id = raw_plan.get('id')
+        now = datetime.utcnow().isoformat() + 'Z'
+        return {
+            "id": plan_id,
+            "user_id": user_id,
+            "name": name,
+            "start_date": start_date,
+            "end_date": end_date,
+            "meal_plan": meal_plan,
+            "created_at": raw_plan.get('created_at', now),
+            "updated_at": raw_plan.get('updated_at', now)
+        }
+
     def save_meal_plan(self, user_id: str, plan_data: dict) -> tuple[bool, str | None]:
         """
         Saves a user's meal plan using RPC.
-
-        Args:
-            user_id (str): The Supabase user ID.
-            plan_data (dict): The meal plan data (JSONB).
-
-        Returns:
-            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
             print(f"[DEBUG] Saving meal plan for user: {user_id}, plan_data: {plan_data}")
-            # Ensure plan_data is a JSON string for Supabase
-            plan_data_json = json.dumps(plan_data)
+            # Normalize the plan_data before saving
+            normalized_plan = self.normalize_meal_plan_entry(plan_data, user_id)
+            plan_data_json = json.dumps(normalized_plan)
             result = self.supabase.rpc('upsert_meal_plan', {
                 'p_user_id': user_id,
                 'p_plan_data': plan_data_json
             }).execute()
             print(f"[DEBUG] Supabase RPC result: data={result.data} count={getattr(result, 'count', None)}")
             if result.data:
-                # If result.data is a dict (new behavior)
                 if isinstance(result.data, dict) and result.data.get('status') == 'success':
                     return True, None
-                # If result.data is a list (old behavior)
                 elif isinstance(result.data, list) and result.data and result.data[0].get('status') == 'success':
                     return True, None
                 else:
-                    # Try to get error message from dict or list
                     if isinstance(result.data, dict):
                         error = result.data.get('message', 'Failed to save meal plan')
                     elif isinstance(result.data, list) and result.data:

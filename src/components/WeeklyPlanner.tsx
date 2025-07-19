@@ -14,15 +14,42 @@ interface MealPlan {
 }
 
 interface WeeklyPlannerProps {
+  planId: string;
   selectedDay: string;
   onDaySelect: (day: string) => void;
-  mealPlan?: MealPlan[];
   startDay?: string; // new prop: the start day of the week (from calendar)
 }
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay }) => {
+const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ planId, selectedDay, onDaySelect, startDay }) => {
+  const [mealPlan, setMealPlan] = useState<MealPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/meal_plan/${planId}`, {
+      headers: {
+        'Authorization': `Bearer ${window.localStorage.getItem('access_token')}`
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.meal_plan && data.meal_plan.meal_plan) {
+          setMealPlan(data.meal_plan.meal_plan);
+        } else {
+          setMealPlan([]); // fallback if not found or error
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setMealPlan([]);
+        setLoading(false);
+      });
+  }, [planId]);
+
+  if (loading) return <div>Loading...</div>;
+
   // Helper function to extract clean food name from meal description
   const extractFoodName = (mealDescription: string): string => {
     return mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();

@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Camera, List, Upload, Utensils, ChefHat, Search, Plus, Calendar, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import MealTypeFilter from '../components/MealTypeFilter';
@@ -11,12 +9,8 @@ import MealPlanManager from '../components/MealPlanManager';
 import WeekSelector from '../components/WeekSelector';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/lib/utils';
-import { api } from "@/lib/api";
 
 const Index = () => {
-  const navigate = useNavigate();
-  const { isAuthenticated, loading } = useAuth();
   const [inputType, setInputType] = useState<'image' | 'ingredient_list'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -30,7 +24,6 @@ const Index = () => {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [mealPlanManagement, setMealPlanManagement] = useState([]);
   
   const { 
     currentPlan, 
@@ -44,51 +37,6 @@ const Index = () => {
   } = useMealPlans();
   
   const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchAllPlans = async () => {
-      if (!isAuthenticated) {
-        setMealPlanManagement([]);
-        return;
-      }
-      try {
-        // Only use meal_plan_management from API
-        const result = await api.getAllMealPlans();
-        setMealPlanManagement(result.data.meal_plan_management || []);
-      } catch (err) {
-        setMealPlanManagement([]);
-      }
-    };
-    fetchAllPlans();
-  }, [isAuthenticated]);
-
-  if (loading) {
-    return <LoadingSpinner />
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
-            <Utensils className="h-8 w-8 text-white" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
-            <p className="text-gray-600">
-              Please log in to access the AI Kitchen and create personalized meal plans.
-            </p>
-            <Button 
-              onClick={() => navigate('/login')}
-              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-            >
-              Go to Login
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   const prevShowPlanManager = useRef(showPlanManager);
   useEffect(() => {
@@ -201,8 +149,26 @@ const Index = () => {
       console.log('[Index] API Response:', data);
       console.log('[Index] Meal Plan Data:', data.meal_plan);
       
-      // Save the new meal plan
-      const savedPlan = saveMealPlan(data.meal_plan, selectedDate);
+      // Save the new meal plan to your backend
+      const saveResponse = await fetch('/api/meal_plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add Authorization header if needed (e.g., from your auth context)
+          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        },
+        body: JSON.stringify({
+          name: weekDates.name,
+          startDate: weekDates.startDate,
+          endDate: weekDates.endDate,
+          mealPlan: data.meal_plan
+        })
+      });
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save meal plan to backend');
+      }
+      // Refresh the saved plans
+      await refreshMealPlans();
       
       setShowInputModal(false);
       setIngredientList('');
@@ -210,15 +176,15 @@ const Index = () => {
       setImagePreview(null);
       
       toast({
-        title: "Success!",
-        description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
+        title: 'Success!',
+        description: `Your meal plan for ${weekDates.name} has been created and saved!`,
       });
     } catch (error) {
-      console.error('Error generating meal plan:', error);
+      console.error('Error generating or saving meal plan:', error);
       toast({
-        title: "Error",
-        description: "Failed to generate meal plan. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to generate or save meal plan. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -271,76 +237,8 @@ const Index = () => {
   };
 
   // In the main content, use the rotated meal plan for display
-  const rotatedMealPlan = currentPlan ? getRotatedMealPlan() : [];
-
-  // Replace getRecipesForSelectedDay to use rotated plan
-  const getRecipesForSelectedDay = () => {
-    const rotatedPlan = getRotatedMealPlan();
-    // Always show the first day's recipes (the selected day)
-    const dayPlan = rotatedPlan[0];
-    if (!dayPlan) return [];
-    // Helper function to extract clean food name from meal description
-    const extractFoodName = (mealDescription: string): string => {
-      // Remove the "(buy: ...)" part and any extra text
-      const cleanName = mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();
-      return cleanName;
-    };
-    const recipes = [
-      { 
-        title: extractFoodName(dayPlan.breakfast), 
-        type: 'breakfast', 
-        time: '15 mins', 
-        rating: 5,
-        originalTitle: dayPlan.breakfast // Keep original for display
-      },
-      { 
-        title: extractFoodName(dayPlan.lunch), 
-        type: 'lunch', 
-        time: '25 mins', 
-        rating: 4,
-        originalTitle: dayPlan.lunch
-      },
-      { 
-        title: extractFoodName(dayPlan.dinner), 
-        type: 'dinner', 
-        time: '35 mins', 
-        rating: 5,
-        originalTitle: dayPlan.dinner
-      },
-    ];
-    if (dayPlan.snack) {
-      recipes.push({ 
-        title: extractFoodName(dayPlan.snack), 
-        type: 'snack', 
-        time: '5 mins', 
-        rating: 4,
-        originalTitle: dayPlan.snack
-      });
-    }
-    return selectedMealType === 'all' 
-      ? recipes 
-      : recipes.filter(recipe => recipe.type === selectedMealType);
-  };
-
-  const handleNewPlan = () => {
-    setShowInputModal(true);
-  };
-
-  const handleEditPlan = (plan: SavedMealPlan) => {
-    // For now, just select the plan to edit
-    // In the future, this could open an edit modal
-    toast({
-      title: "Plan Selected",
-      description: `"${plan.name}" is now active for editing.`,
-    });
-  };
-
-  // When a plan is selected in the manager, jump to that week
-  const handleSelectPlan = (plan: SavedMealPlan) => {
-    setSelectedDate(new Date(plan.startDate));
-    selectMealPlan(plan.id);
-    setShowPlanManager(false);
-  };
+  // Remove rotatedMealPlan and getRecipesForSelectedDay logic
+  // Instead, render WeeklyPlanner with planId, and for each day, render MealPlanCard with planId and day
 
   // Helper to get day name from a Date
   const getDayName = (date: Date) => {
@@ -353,33 +251,21 @@ const Index = () => {
     setSelectedDay(getDayName(date));
   };
 
-  if (loading) {
-    return <LoadingSpinner />
-  }
+  const handleNewPlan = () => {
+    setShowInputModal(true);
+  };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
-            <Utensils className="h-8 w-8 text-white" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
-            <p className="text-gray-600">
-              Please log in to access the AI Kitchen and create personalized meal plans.
-            </p>
-            <Button 
-              onClick={() => navigate('/login')}
-              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-            >
-              Go to Login
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const handleEditPlan = (plan) => {
+    // For now, just show a toast or log
+    // You can implement editing logic here later
+    console.log('Edit plan:', plan);
+  };
+
+  const handleSelectPlan = (plan) => {
+    setSelectedDate(new Date(plan.startDate));
+    selectMealPlan(plan.id);
+    setShowPlanManager(false);
+  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -418,35 +304,27 @@ const Index = () => {
       <div className="max-w-7xl mx-auto flex gap-6 p-6">
         {/* Sidebar */}
         <div className="w-64 space-y-4">
-          {/* Weekly Planner */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
-            <WeeklyPlanner 
-              selectedDay={selectedDay}
-              onDaySelect={setSelectedDay}
-              mealPlan={currentPlan?.mealPlan || []}
-              startDay={currentPlan ? getDayName(new Date(currentPlan.startDate)) : undefined}
-            />
+            {currentPlan && currentPlan.id ? (
+              <WeeklyPlanner
+                planId={currentPlan.id}
+                selectedDay={selectedDay}
+                onDaySelect={setSelectedDay}
+                startDay={getDayName(new Date(currentPlan.startDate))}
+              />
+            ) : (
+              <div className="text-center text-gray-400">
+                <div className="mb-2">📅</div>
+                <div className="font-semibold">No Plan Selected</div>
+                <div className="text-xs mt-1">Create or select a plan to see your week here.</div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Main Content */}
         <div className="flex-1">
-          {/* Debug/Display both sets of meal plans */}
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-2">Meal Plans</h2>
-            {mealPlanManagement.length === 0 ? (
-              <div className="text-gray-500">No meal plans found.</div>
-            ) : (
-              <ul>
-                {mealPlanManagement.map(plan => (
-                  <li key={plan.id} className="mb-2 p-2 bg-white rounded shadow">
-                    <strong>{plan.name}</strong> ({plan.start_date} - {plan.end_date})
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          {currentPlan ? (
+          {currentPlan && currentPlan.id ? (
             <React.Fragment>
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -484,15 +362,12 @@ const Index = () => {
                 <LoadingSpinner />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {getRecipesForSelectedDay().map((recipe, index) => (
-                    <RecipeCard
-                      key={`${selectedDay}-${recipe.type}-${index}`}
-                      title={recipe.title}
-                      originalTitle={recipe.originalTitle}
-                      time={recipe.time}
-                      rating={recipe.rating}
-                      mealType={recipe.type as any}
-                      onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                  {['breakfast', 'lunch', 'dinner', 'snack'].map(mealType => (
+                    <RecipeCard 
+                      key={`${selectedDay}-${mealType}`}
+                      planId={currentPlan.id}
+                      day={selectedDay}
+                      mealType={mealType}
                     />
                   ))}
                 </div>

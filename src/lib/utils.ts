@@ -84,8 +84,8 @@ export function useProvideAuth(): AuthContextType {
       }
 
       // No valid token found, user is not authenticated
-      clearSession()
-      setLoading(false)
+          clearSession()
+        setLoading(false)
     } catch (error) {
       console.error('Error in refreshAuth:', error)
       clearSession()

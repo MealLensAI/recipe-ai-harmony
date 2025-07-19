@@ -49,31 +49,31 @@ const Login = () => {
       
       if (result.status === 'success' && result.access_token) {
         // Store the token and user data
-        localStorage.setItem('access_token', result.access_token)
+          localStorage.setItem('access_token', result.access_token)
         localStorage.setItem('supabase_refresh_token', result.refresh_token || '')
         localStorage.setItem('supabase_session_id', result.session_id || '')
         localStorage.setItem('supabase_user_id', result.user_id || '')
-        
+          
         // Store user data
-        const userData = {
+          const userData = {
           uid: result.user_id || '',
           email: email,
           displayName: result.name || email.split('@')[0],
-          photoURL: null
-        }
-        localStorage.setItem('user_data', JSON.stringify(userData))
-        
+            photoURL: null
+          }
+          localStorage.setItem('user_data', JSON.stringify(userData))
+          
         // Update auth context
-        await refreshAuth()
-        
-        toast({
-          title: "Welcome back!",
-          description: "You have been successfully logged in.",
-        })
-        
-        // Redirect to intended page or home
-        const from = location.state?.from?.pathname || "/"
-        navigate(from, { replace: true })
+          await refreshAuth()
+          
+          toast({
+            title: "Welcome back!",
+            description: "You have been successfully logged in.",
+          })
+          
+          // Redirect to intended page or home
+          const from = location.state?.from?.pathname || "/"
+          navigate(from, { replace: true })
       } else {
         toast({
           title: "Login Failed",
