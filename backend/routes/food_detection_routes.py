@@ -2,12 +2,24 @@ from flask import Blueprint, request, jsonify, current_app
 import os
 import uuid # For generating unique IDs
 import json # For handling JSON strings
+from marshmallow import Schema, fields, ValidationError
 
 # Import utilities and services
 from utils.file_utils import allowed_file
 from werkzeug.utils import secure_filename
 
 food_detection_bp = Blueprint('food_detection', __name__)
+
+class DetectionHistorySchema(Schema):
+    recipe_type = fields.Str(required=True)
+    suggestion = fields.Str(required=True)
+    instructions = fields.Str(required=True)
+    ingredients = fields.Str(required=True)
+    detected_foods = fields.Str(required=True)
+    analysis_id = fields.Str(required=True)
+    youtube = fields.Str(required=True)
+    google = fields.Str(required=True)
+    resources = fields.Str(required=True)
 
 @food_detection_bp.route('/process', methods=['POST'])
 def process_food_input():
@@ -314,3 +326,106 @@ def share_recipe():
   else:
       print(f"Error saving shared recipe: {error}")
       return jsonify({'status': 'error', 'message': 'Failed to share recipe.'}), 500
+
+@food_detection_bp.route('/detection_history', methods=['POST'])
+def create_detection_history():
+    """
+    Receives detection data from the frontend and inserts it into detection_history via Supabase.
+    Allows all expected fields using Marshmallow schema validation, including shared_recipes fields.
+    """
+    auth_service = current_app.auth_service
+    supabase_service = current_app.supabase_service
+    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+
+    # Accept both JSON and form data
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
+
+    print("Received payload for detection_history:", data)  # Debug print
+
+    schema = DetectionHistorySchema()
+    try:
+        validated = schema.load(data)
+    except ValidationError as err:
+        return jsonify({'status': 'error', 'message': err.messages}), 400
+
+    # Stringify detected_foods and ingredients to match Supabase text columns
+    if isinstance(validated.get('detected_foods'), list):
+        validated['detected_foods'] = json.dumps(validated['detected_foods'])
+    if isinstance(validated.get('ingredients'), list):
+        validated['ingredients'] = json.dumps(validated['ingredients'])
+
+    print("Payload being passed to save_detection_history:", {
+        'user_id': user_id,
+        'recipe_type': validated.get('recipe_type'),
+        'suggestion': validated.get('suggestion'),
+        'instructions': validated.get('instructions'),
+        'ingredients': validated.get('ingredients'),
+        'detected_foods': validated.get('detected_foods'),
+        'analysis_id': validated.get('analysis_id'),
+        'youtube': validated.get('youtube'),
+        'google': validated.get('google'),
+        'resources': validated.get('resources')
+    })
+
+    # Insert all validated fields, including shared_recipes fields
+    success, error = supabase_service.save_detection_history(
+        user_id=user_id,
+        recipe_type=validated.get('recipe_type'),
+        suggestion=validated.get('suggestion'),
+        instructions=validated.get('instructions'),
+        ingredients=validated.get('ingredients'),
+        detected_foods=validated.get('detected_foods'),
+        analysis_id=validated.get('analysis_id'),
+        youtube=validated.get('youtube'),
+        google=validated.get('google'),
+        resources=validated.get('resources')
+    )
+    if not success:
+        print(f"[ERROR] Failed to save detection history: {error}")
+        return jsonify({'status': 'error', 'message': f'Failed to save detection history: {error}'}), 500
+
+    return jsonify({'status': 'success', 'message': 'Detection history saved.'}), 201
+
+@food_detection_bp.route('/detection_history', methods=['GET'])
+def get_detection_history():
+    """
+    Retrieves a user's food detection history from the database. Requires authentication.
+    """
+    try:
+        auth_header = request.headers.get('Authorization')
+        
+        auth_service = current_app.auth_service
+        user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
+        
+        if not user_id:
+            current_app.logger.warning("Authentication failed: No user_id extracted")
+            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+
+        current_app.logger.info(f"Fetching detection history for user: {user_id}")
+        
+        supabase_service = current_app.supabase_service
+        detection_history, error = supabase_service.get_detection_history(user_id)
+        
+        if detection_history is not None:
+            record_count = len(detection_history) if detection_history else 0
+            current_app.logger.info(f"Successfully retrieved {record_count} records for user {user_id}")
+            
+            response_data = {
+                'status': 'success', 
+                'detection_history': detection_history
+            }
+            
+            return jsonify(response_data), 200
+        else:
+            current_app.logger.error(f"Database error for user {user_id}: {error}")
+            return jsonify({'status': 'error', 'message': f'Failed to retrieve detection history: {error}'}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in get_detection_history: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

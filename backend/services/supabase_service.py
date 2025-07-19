@@ -1,4 +1,5 @@
 import os
+import json
 from supabase import create_client, Client
 from werkzeug.datastructures import FileStorage
 
@@ -11,14 +12,89 @@ class SupabaseService:
             supabase_url (str): The URL of your Supabase project.
             supabase_key (str): Your Supabase service role key. If not provided, will use SUPABASE_SERVICE_ROLE_KEY env var.
         """
+        print(f"[DEBUG] Initializing Supabase client with URL: {supabase_url}")
+        self.supabase_url = supabase_url  # Make supabase_url accessible as an attribute
+        
         if not supabase_url:
-            raise ValueError("Supabase URL is required")
+            error_msg = "Supabase URL is required"
+            print(f"[ERROR] {error_msg}")
+            raise ValueError(error_msg)
+            
         if not supabase_key:
+            print("[DEBUG] No supabase_key provided, checking environment variables")
             supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            
         if not supabase_key:
-            raise ValueError("Supabase service role key is required. Set SUPABASE_SERVICE_ROLE_KEY in your environment.")
-        self.supabase: Client = create_client(supabase_url, supabase_key)
-        print("Supabase client initialized with service role key.")
+            error_msg = "Supabase service role key is required. Set SUPABASE_SERVICE_ROLE_KEY in your environment."
+            print(f"[ERROR] {error_msg}")
+            raise ValueError(error_msg)
+            
+        # Friendly status message (no key info)
+        print("[INFO] Supabase service role key loaded.")
+        
+        # Check if key format looks like JWT (no payload print)
+        key_parts = supabase_key.split('.') if supabase_key else []
+        if not (supabase_key and len(key_parts) == 3):
+            print("[WARNING] Supabase key format doesn't look like a valid JWT.")
+        else:
+            print("[INFO] Supabase key format looks valid.")
+        
+        try:
+            print("[DEBUG] Creating Supabase client...")
+            
+            # Create the client with the correct schema
+            self.supabase: Client = create_client(supabase_url, supabase_key)
+            
+            # Store the key for verification
+            self._service_role_key = supabase_key
+            key_contains_service_role = 'service_role' in str(supabase_key)
+            print("[INFO] Supabase client created.")
+            if not key_contains_service_role:
+                print("[WARNING] The provided key may not have admin privileges. Admin operations may fail.")
+                
+            # Set the search path to include the auth schema
+            try:
+                with self.supabase.postgrest._session() as session:
+                    session.post(
+                        f"{supabase_url}/rest/v1/rpc/set_config",
+                        json={"name": "search_path", "value": "auth, public"}
+                    )
+                print("[INFO] Supabase search_path set to include auth schema.")
+            except Exception as e:
+                print("[WARNING] Could not set search_path for Supabase database. This is usually safe to ignore.")
+            
+            # Test the connection by making a simple query
+            print("[INFO] Testing Supabase connection...")
+            try:
+                # Try to fetch first user from auth schema (if any exists)
+                # This is a lightweight operation to test the connection
+                result = self.supabase.table('auth.users').select('*').limit(1).execute()
+                print("[INFO] Successfully connected to Supabase. User table accessible.")
+                
+                # Also check if profiles table exists
+                try:
+                    profiles = self.supabase.table('profiles').select('*').limit(1).execute()
+                    print("[INFO] Successfully queried profiles table.")
+                except Exception as profiles_error:
+                    print("[WARNING] Could not query profiles table. It may not exist yet.")
+                    
+            except Exception as connection_error:
+                error_msg = str(connection_error)
+                print("[WARNING] Could not verify Supabase connection. Check your Supabase project configuration, exposed schemas, and permissions.")
+                if 'permission denied' in error_msg.lower():
+                    print("[WARNING] This might be due to Row Level Security (RLS) policies. Ensure your service role key has proper permissions.")
+                print("[INFO] Continuing with client initialization, but some features may not work.")
+                
+            print("Supabase client initialized with service role key.")
+            
+        except Exception as e:
+            error_msg = f"Failed to initialize Supabase client: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            if hasattr(e, 'args'):
+                print(f"[ERROR] Error args: {e.args}")
+            if hasattr(e, 'details'):
+                print(f"[ERROR] Error details: {e.details}")
+            raise
 
     def upload_file(self, file: FileStorage, bucket_name: str, file_path: str) -> tuple[str | None, str | None]:
         """
@@ -103,46 +179,25 @@ class SupabaseService:
         except Exception as e:
             raise Exception(f"Error storing AI session data: {str(e)}")
 
-    def save_detection_history(self, user_id: str | None, firebase_uid: str | None, detection_type: str,
-                            input_data: str, detected_foods: str, recipe_suggestion: str | None = None,
-                            recipe_instructions: str | None = None, recipe_ingredients: str | None = None,
-                            analysis_id: str | None = None, youtube_link: str | None = None,
-                            google_link: str | None = None, resources_link: str | None = None) -> tuple[bool, str | None]:
-        """
-        Saves a food detection event using RPC.
-
-        Args:
-            user_id (str | None): The Supabase user ID.
-            firebase_uid (str | None): The Firebase UID if authenticated via Firebase.
-            detection_type (str): Type of detection (e.g., 'ingredient_detection_flow', 'food_detection_flow').
-            input_data (str): The raw input data (e.g., image URL, ingredient list string).
-            detected_foods (str): JSON string of detected food items array.
-            recipe_suggestion (str | None): The suggested recipe name.
-            recipe_instructions (str | None): The generated cooking instructions.
-            recipe_ingredients (str | None): JSON string of ingredients array.
-            analysis_id (str | None): A unique ID for the analysis session.
-            youtube_link (str | None): YouTube resource link.
-            google_link (str | None): Google resource link.
-            resources_link (str | None): Combined resources HTML string.
-
-        Returns:
-            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
-        """
+    def save_detection_history(self, user_id: str, recipe_type: str, suggestion: str = None,
+                              instructions: str = None, ingredients: str = None, detected_foods: str = None,
+                              analysis_id: str = None, youtube: str = None, google: str = None, resources: str = None
+                            ) -> tuple[bool, str | None]:
         try:
-            result = self.supabase.rpc('add_detection_history', {
+            insert_data = {
                 'p_user_id': user_id,
-                'p_detection_type': detection_type,
-                'p_input_data': input_data,
+                'p_recipe_type': recipe_type,
+                'p_suggestion': suggestion,
+                'p_instructions': instructions,
+                'p_ingredients': ingredients,
                 'p_detected_foods': detected_foods,
-                'p_recipe_suggestion': recipe_suggestion,
-                'p_recipe_instructions': recipe_instructions,
-                'p_recipe_ingredients': recipe_ingredients,
                 'p_analysis_id': analysis_id,
-                'p_youtube_link': youtube_link,
-                'p_google_link': google_link,
-                'p_resources_link': resources_link
-            }).execute()
-            
+                'p_youtube': youtube,
+                'p_google': google,
+                'p_resources': resources
+            }
+            insert_data = {k: v for k, v in insert_data.items() if v is not None}
+            result = self.supabase.rpc('add_detection_history', insert_data).execute()
             if result.data and result.data[0].get('status') == 'success':
                 return True, None
             else:
@@ -200,11 +255,19 @@ class SupabaseService:
                 'p_user_id': user_id
             }).execute()
             
-            if result.data and result.data[0].get('status') == 'success':
-                return result.data[0].get('data', []), None
+            # The RPC function returns the data directly as a JSONB array
+            # or null if no records, or an error object if there's an exception
+            if result.data:
+                # Check if first item is an error response
+                if len(result.data) > 0 and isinstance(result.data[0], dict) and result.data[0].get('status') == 'error':
+                    # Error case
+                    error = result.data[0].get('message', 'Failed to fetch detection history')
+                    return None, error
+                else:
+                    # Success case - return the entire data array
+                    return result.data, None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to fetch detection history'
-                return None, error
+                return [], None
         except Exception as e:
             return None, str(e)
 
@@ -220,17 +283,36 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
+            print(f"[DEBUG] Saving meal plan for user: {user_id}, plan_data: {plan_data}")
+            # Ensure plan_data is a JSON string for Supabase
+            plan_data_json = json.dumps(plan_data)
             result = self.supabase.rpc('upsert_meal_plan', {
                 'p_user_id': user_id,
-                'p_plan_data': plan_data
+                'p_plan_data': plan_data_json
             }).execute()
-            
-            if result.data and result.data[0].get('status') == 'success':
-                return True, None
+            print(f"[DEBUG] Supabase RPC result: data={result.data} count={getattr(result, 'count', None)}")
+            if result.data:
+                # If result.data is a dict (new behavior)
+                if isinstance(result.data, dict) and result.data.get('status') == 'success':
+                    return True, None
+                # If result.data is a list (old behavior)
+                elif isinstance(result.data, list) and result.data and result.data[0].get('status') == 'success':
+                    return True, None
+                else:
+                    # Try to get error message from dict or list
+                    if isinstance(result.data, dict):
+                        error = result.data.get('message', 'Failed to save meal plan')
+                    elif isinstance(result.data, list) and result.data:
+                        error = result.data[0].get('message', 'Failed to save meal plan')
+                    else:
+                        error = 'Failed to save meal plan'
+                    print(f"[ERROR] Supabase RPC error: {error}")
+                    return False, error
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to save meal plan'
-                return False, error
+                print(f"[ERROR] Supabase RPC error: No data returned")
+                return False, 'Failed to save meal plan'
         except Exception as e:
+            print(f"[ERROR] Exception in save_meal_plan: {e}")
             return False, str(e)
 
     def get_meal_plans(self, user_id: str) -> tuple[list | None, str | None]:
@@ -249,11 +331,18 @@ class SupabaseService:
                 'p_user_id': user_id
             }).execute()
             
-            if result.data and result.data[0].get('status') == 'success':
-                return result.data[0].get('data', []), None
+            # The RPC function returns the data directly as a JSONB array
+            # or null if no records, or an error object if there's an exception
+            if result.data:
+                if isinstance(result.data[0], dict) and result.data[0].get('status') == 'error':
+                    # Error case
+                    error = result.data[0].get('message', 'Failed to fetch meal plans')
+                    return None, error
+                else:
+                    # Success case - data is returned directly as array
+                    return result.data[0] if result.data[0] is not None else [], None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to fetch meal plans'
-                return None, error
+                return [], None
         except Exception as e:
             return None, str(e)
 
@@ -355,11 +444,18 @@ class SupabaseService:
                 'p_user_id': user_id
             }).execute()
             
-            if result.data and result.data[0].get('status') == 'success':
-                return result.data[0].get('data', []), None
+            # The RPC function returns the data directly as a JSONB array
+            # or null if no records, or an error object if there's an exception
+            if result.data:
+                if isinstance(result.data[0], dict) and result.data[0].get('status') == 'error':
+                    # Error case
+                    error = result.data[0].get('message', 'Failed to list sessions')
+                    return None, error
+                else:
+                    # Success case - data is returned directly as array
+                    return result.data[0] if result.data[0] is not None else [], None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to list sessions'
-                return None, error
+                return [], None
         except Exception as e:
             return None, str(e)
 
@@ -403,6 +499,81 @@ class SupabaseService:
                 return True, None
             else:
                 error = result.data[0].get('message') if result.data else 'Failed to save shared recipe'
+                return False, error
+        except Exception as e:
+            return False, str(e)
+
+    def update_meal_plan(self, user_id: str, plan_id: str, plan_data: dict) -> tuple[bool, str | None]:
+        """
+        Updates an existing meal plan using RPC.
+
+        Args:
+            user_id (str): The Supabase user ID.
+            plan_id (str): The meal plan ID to update.
+            plan_data (dict): The updated meal plan data (JSONB).
+
+        Returns:
+            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        """
+        try:
+            result = self.supabase.rpc('update_meal_plan', {
+                'p_user_id': user_id,
+                'p_plan_id': plan_id,
+                'p_plan_data': plan_data
+            }).execute()
+            
+            if result.data and result.data[0].get('status') == 'success':
+                return True, None
+            else:
+                error = result.data[0].get('message') if result.data else 'Failed to update meal plan'
+                return False, error
+        except Exception as e:
+            return False, str(e)
+
+    def delete_meal_plan(self, user_id: str, plan_id: str) -> tuple[bool, str | None]:
+        """
+        Deletes a meal plan using RPC.
+
+        Args:
+            user_id (str): The Supabase user ID.
+            plan_id (str): The meal plan ID to delete.
+
+        Returns:
+            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        """
+        try:
+            result = self.supabase.rpc('delete_meal_plan', {
+                'p_user_id': user_id,
+                'p_plan_id': plan_id
+            }).execute()
+            
+            if result.data and result.data[0].get('status') == 'success':
+                return True, None
+            else:
+                error = result.data[0].get('message') if result.data else 'Failed to delete meal plan'
+                return False, error
+        except Exception as e:
+            return False, str(e)
+
+    def clear_meal_plans(self, user_id: str) -> tuple[bool, str | None]:
+        """
+        Clears all meal plans for a user using RPC.
+
+        Args:
+            user_id (str): The Supabase user ID.
+
+        Returns:
+            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        """
+        try:
+            result = self.supabase.rpc('clear_user_meal_plans', {
+                'p_user_id': user_id
+            }).execute()
+            
+            if result.data and result.data[0].get('status') == 'success':
+                return True, None
+            else:
+                error = result.data[0].get('message') if result.data else 'Failed to clear meal plans'
                 return False, error
         except Exception as e:
             return False, str(e)

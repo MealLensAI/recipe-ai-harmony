@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Camera, List, Upload, Utensils, ChefHat, Search, Plus, Calendar, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import MealTypeFilter from '../components/MealTypeFilter';
@@ -9,8 +11,12 @@ import MealPlanManager from '../components/MealPlanManager';
 import WeekSelector from '../components/WeekSelector';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/lib/utils';
+import { api } from "@/lib/api";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
   const [inputType, setInputType] = useState<'image' | 'ingredient_list'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -24,6 +30,7 @@ const Index = () => {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [mealPlanManagement, setMealPlanManagement] = useState([]);
   
   const { 
     currentPlan, 
@@ -37,6 +44,51 @@ const Index = () => {
   } = useMealPlans();
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchAllPlans = async () => {
+      if (!isAuthenticated) {
+        setMealPlanManagement([]);
+        return;
+      }
+      try {
+        // Only use meal_plan_management from API
+        const result = await api.getAllMealPlans();
+        setMealPlanManagement(result.data.meal_plan_management || []);
+      } catch (err) {
+        setMealPlanManagement([]);
+      }
+    };
+    fetchAllPlans();
+  }, [isAuthenticated]);
+
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
+            <Utensils className="h-8 w-8 text-white" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
+            <p className="text-gray-600">
+              Please log in to access the AI Kitchen and create personalized meal plans.
+            </p>
+            <Button 
+              onClick={() => navigate('/login')}
+              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const prevShowPlanManager = useRef(showPlanManager);
   useEffect(() => {
@@ -301,6 +353,34 @@ const Index = () => {
     setSelectedDay(getDayName(date));
   };
 
+  if (loading) {
+    return <LoadingSpinner />
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
+            <Utensils className="h-8 w-8 text-white" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
+            <p className="text-gray-600">
+              Please log in to access the AI Kitchen and create personalized meal plans.
+            </p>
+            <Button 
+              onClick={() => navigate('/login')}
+              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
@@ -351,6 +431,21 @@ const Index = () => {
 
         {/* Main Content */}
         <div className="flex-1">
+          {/* Debug/Display both sets of meal plans */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-2">Meal Plans</h2>
+            {mealPlanManagement.length === 0 ? (
+              <div className="text-gray-500">No meal plans found.</div>
+            ) : (
+              <ul>
+                {mealPlanManagement.map(plan => (
+                  <li key={plan.id} className="mb-2 p-2 bg-white rounded shadow">
+                    <strong>{plan.name}</strong> ({plan.start_date} - {plan.end_date})
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           {currentPlan ? (
             <React.Fragment>
               <div className="mb-6">

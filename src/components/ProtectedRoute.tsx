@@ -1,28 +1,17 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
-import { Navigate } from "react-router-dom"
-import { onAuthStateChanged, type User } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { Navigate, useLocation } from "react-router-dom"
 import { Loader2, Utensils } from "lucide-react"
+import { useAuth } from "@/lib/utils"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user)
-      setLoading(false)
-    })
-
-    return () => unsubscribe()
-  }, [])
+  const { isAuthenticated, loading } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -41,8 +30,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     )
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />
+  if (!isAuthenticated) {
+    // Redirect to login with the current location as the intended destination
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return <>{children}</>

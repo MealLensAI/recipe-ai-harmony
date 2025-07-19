@@ -2,14 +2,15 @@
 
 import type { FC } from "react"
 import { useState, useRef } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate, useLocation, Navigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Users, ChefHat, Bookmark, Timer, Utensils, Loader2, Upload, ArrowLeft } from "lucide-react"
 import "@/styles/ai-response.css"
-import { supabase } from "@/lib/supabase"
-import { auth } from "@/lib/firebase"
+// Remove: import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/utils"
+import LoadingSpinner from "@/components/LoadingSpinner"
 
 interface Recipe {
   name: string
@@ -50,6 +51,41 @@ const AIResponsePage: FC = () => {
   const [showFeedback, setShowFeedback] = useState(false)
   const [analysisId, setAnalysisId] = useState<string>("")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { token, isAuthenticated, loading } = useAuth()
+  const [selectedSuggestion, setSelectedSuggestion] = useState<string>("");
+
+  if (loading) {
+    return <LoadingSpinner />
+  }
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
+            <Utensils className="h-8 w-8 text-white" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
+            <p className="text-gray-600">
+              Please log in to use the AI Kitchen feature and save your recipe discoveries to history.
+            </p>
+            <Button 
+              onClick={() => navigate('/login')}
+              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Helper to get a valid token (backend only)
+  const getAuthToken = async () => {
+    const backendToken = localStorage.getItem('access_token')
+    return backendToken
+  }
 
   const handleDiscoverRecipes = async () => {
     setIsLoading(true)
@@ -75,34 +111,12 @@ const AIResponsePage: FC = () => {
     setAnalysisId(data.analysis_id)
     setDetectedIngredients(data.response || [])
     setSuggestions(data.food_suggestions || [])
-
-    // Store detection in Supabase
-    try {
-      await supabase.from("detection_history").insert([
-        {
-          firebase_uid: auth.currentUser?.uid || null,
-          detection_type: "ingredient_detection",
-          input_data: inputType === "image" ? "image" : ingredientList,
-          detected_foods: JSON.stringify(data.response || []),
-          recipe_suggestion: (data.food_suggestions && data.food_suggestions[0]) || null,
-          recipe_instructions: null, // Instructions are fetched in the next step
-          recipe_ingredients: ingredientList || null,
-          analysis_id: data.analysis_id || null,
-          youtube_link: null,
-          google_link: null,
-          resources_link: null,
-          created_at: new Date().toISOString(),
-        },
-      ])
-    } catch (e) {
-      /* ignore for now */
-    }
-
     setCurrentStep(2) // Move to step 2 after initial detection
   }
 
   const handleSuggestionClick = async (suggestion: string) => {
     setIsLoading(true)
+    setSelectedSuggestion(suggestion)
     // fetch instructions
     const formData = new FormData()
     formData.append("food_analysis_id", analysisId)
@@ -122,8 +136,35 @@ const AIResponsePage: FC = () => {
     })
     const resData = await resRes.json()
     setResources(resData)
+    // Now POST to backend
+    if (
+      token &&
+      detectedIngredients.length &&
+      instrData.instructions &&
+      resData
+    ) {
+      const payload = {
+        recipe_type: "ingredient_detection",
+        suggestion: suggestion || "",
+        instructions: instrData.instructions || "",
+        ingredients: JSON.stringify(detectedIngredients || []), // Use actual detected ingredients
+        detected_foods: JSON.stringify(detectedIngredients || []),
+        analysis_id: analysisId || "",
+        youtube: resData?.YoutubeSearch?.[0]?.link || "",
+        google: resData?.GoogleSearch?.[0]?.link || "",
+        resources: JSON.stringify(resData || {})
+      };
+      await fetch("/api/food_detection/detection_history", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload)
+      });
+    }
     setIsLoading(false)
-    setCurrentStep(3) // Move to step 3 after getting instructions and resources
+    setCurrentStep(3) // Move to final step
   }
 
   return (

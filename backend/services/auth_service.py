@@ -27,7 +27,7 @@ class AuthService:
         Initializes the Firebase Admin SDK.
         """
         if not firebase_service_account_json:
-            print("No Firebase service account credentials provided")
+            print("FIREBASE_SERVICE_ACCOUNT_JSON environment variable not set. Firebase authentication will be disabled.")
             return
 
         try:
@@ -45,18 +45,96 @@ class AuthService:
             
             cred = credentials.Certificate(firebase_config)
             self.firebase_app = firebase_admin.initialize_app(cred)
-            print("Firebase Admin SDK initialized.")
+            print("Firebase Admin SDK initialized successfully.")
         except Exception as e:
             print(f"Error initializing Firebase Admin SDK: {str(e)}")
-        else:
-            print("FIREBASE_SERVICE_ACCOUNT_JSON environment variable not set. Firebase authentication will be disabled.")
+            self.firebase_app = None
 
-    def get_supabase_user_id_from_token(self, token: str) -> Tuple[Optional[str], str]:
+    def _verify_supabase_token(self, token: str) -> Tuple[Optional[str], str]:
+        """
+        Verifies a Supabase JWT token and returns the user ID.
+        
+        Args:
+            token (str): Supabase JWT token
+            
+        Returns:
+            Tuple[Optional[str], str]: (user_id, auth_type) or (None, '') if verification fails
+        """
+        try:
+            # Use Supabase admin client to verify the token
+            # This will decode the JWT and verify it's valid
+            user = self.supabase_admin.auth.get_user(token)
+            if user and user.user:
+                # Get the profile for this user
+                profile_data = self.supabase_admin.table('profiles').select('id').eq('id', user.user.id).single().execute()
+                if profile_data.data:
+                    return profile_data.data['id'], 'supabase'
+                else:
+                    print(f"No profile found for Supabase user {user.user.id}")
+                    return None, ''
+            else:
+                print("Invalid Supabase token")
+                return None, ''
+        except Exception as e:
+            print(f"Error verifying Supabase token: {str(e)}")
+            return None, ''
+
+    def _verify_firebase_token(self, token: str) -> Tuple[Optional[str], str]:
         """
         Verifies a Firebase ID token and returns the corresponding Supabase user ID.
         
         Args:
-            token (str): Firebase ID token (with or without 'Bearer ' prefix)
+            token (str): Firebase ID token
+            
+        Returns:
+            Tuple[Optional[str], str]: (user_id, auth_type) or (None, '') if verification fails
+        """
+        if not self.firebase_app:
+            print("Firebase app not initialized")
+            return None, ''
+            
+        try:
+            # Verify Firebase token
+            decoded_token = auth.verify_id_token(token)
+            firebase_uid = decoded_token['uid']
+            firebase_email = decoded_token.get('email')
+            firebase_display_name = decoded_token.get('name')
+
+            # Check if user exists in Supabase profiles
+            try:
+                profile_data = self.supabase_admin.table('profiles').select('id').eq('firebase_uid', firebase_uid).single().execute()
+                if profile_data.data:
+                    return profile_data.data['id'], 'firebase'
+                # Get or create profile for this user
+                profile_response = self.supabase_admin.table('profiles').select('id').eq('supabase_user_id', decoded_token['uid']).limit(1).execute()
+                if profile_response and profile_response.data and len(profile_response.data) > 0:
+                    return profile_response.data[0]['id'], 'firebase'
+                # Create new profile
+                new_profile = self.supabase_admin.table('profiles').insert({
+                    'supabase_user_id': decoded_token['uid'],
+                    'firebase_uid': firebase_uid,
+                    'email': firebase_email,
+                    'name': firebase_display_name,
+                    'created_at': 'now()'
+                }).execute()
+                if new_profile and new_profile.data and len(new_profile.data) > 0:
+                    return new_profile.data[0]['id'], 'firebase'
+                else:
+                    print(f"Failed to create profile for Supabase user {decoded_token['uid']}")
+                    return None, ''
+            except Exception as e:
+                print(f"Error verifying Firebase token: {str(e)}")
+                return None, ''
+        except Exception as e:
+            print(f"Firebase token verification or mapping failed: {e}")
+            return None, ''
+
+    def get_supabase_user_id_from_token(self, token: str) -> Tuple[Optional[str], str]:
+        """
+        Verifies a token (Firebase or Supabase) and returns the corresponding Supabase user ID.
+        
+        Args:
+            token (str): Firebase ID token or Supabase JWT token (with or without 'Bearer ' prefix)
             
         Returns:
             Tuple[Optional[str], str]: (user_id, auth_type) or (None, '') if verification fails
@@ -74,46 +152,19 @@ class AuthService:
             token = token[7:]
             print("Removed 'Bearer ' prefix from token")
             
-        if not self.firebase_app:
-            print("Firebase app not initialized")
-            return None, ''
+        # Try to verify as Supabase token first (most common for email/password login)
+        print("Attempting to verify as Supabase token...")
+        user_id, auth_type = self._verify_supabase_token(token)
+        if user_id:
+            print(f"Successfully verified as Supabase token. User ID: {user_id}")
+            return user_id, auth_type
             
-        print("Firebase app is initialized")  # Debug
-        
-        try:
-            # Verify Firebase token
-            decoded_token = auth.verify_id_token(token)
-            firebase_uid = decoded_token['uid']
-            firebase_email = decoded_token.get('email')
-            firebase_display_name = decoded_token.get('name')
-
-            # Check if user exists in Supabase profiles
-            try:
-                profile_data = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).single().execute()
-                if profile_data.data:
-                    return profile_data.data['id'], 'firebase'
-                # Get or create profile for this user
-                profile_response = self.supabase.table('profiles').select('id').eq('supabase_user_id', decoded_token['uid']).limit(1).execute()
-                if profile_response and profile_response.data and len(profile_response.data) > 0:
-                    return profile_response.data[0]['id'], 'firebase'
-                # Create new profile
-                new_profile = self.supabase.table('profiles').insert({
-                    'supabase_user_id': decoded_token['uid'],
-                    'firebase_uid': firebase_uid,
-                    'email': firebase_email,
-                    'name': firebase_display_name,
-                    'created_at': 'now()'
-                }).execute()
-                if new_profile and new_profile.data and len(new_profile.data) > 0:
-                    return new_profile.data[0]['id'], 'firebase'
-                else:
-                    print(f"Failed to create profile for Supabase user {decoded_token['uid']}")
-                    return None, None
-            except Exception as e:
-                print(f"Error verifying Firebase token: {str(e)}")
-                return None, None
-        except Exception as e:
-            print(f"Firebase token verification or mapping failed: {e}")
-            return None, None
-        # If no Firebase app or admin client, or if token is invalid
-        return None, None
+        # If Supabase verification fails, try Firebase
+        print("Supabase verification failed, attempting Firebase verification...")
+        user_id, auth_type = self._verify_firebase_token(token)
+        if user_id:
+            print(f"Successfully verified as Firebase token. User ID: {user_id}")
+            return user_id, auth_type
+            
+        print("Both Supabase and Firebase token verification failed")
+        return None, ''
