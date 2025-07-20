@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
 import uuid
+from utils.auth_utils import get_user_id_from_token
 
 session_bp = Blueprint('session', __name__)
 
@@ -24,14 +25,13 @@ def create_session():
         "created_at": "..."
     }
     """
-    auth_service = current_app.auth_service
     supabase_service = current_app.supabase_service
     
     # Get user ID from auth token
-    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+    user_id, error = get_user_id_from_token()
     
-    if not user_id:
-        return jsonify({'status': 'error', 'message': 'Authentication required to create session.'}), 401
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication required to create session: {error}'}), 401
     
     # Get request data
     data = request.get_json()
@@ -77,13 +77,12 @@ def get_session(session_id):
         }
     }
     """
-    auth_service = current_app.auth_service
     supabase_service = current_app.supabase_service
     
-    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+    user_id, error = get_user_id_from_token()
     
-    if not user_id:
-        return jsonify({'status': 'error', 'message': 'Authentication required to retrieve session.'}), 401
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication required to retrieve session: {error}'}), 401
     
     session, error = supabase_service.get_session(user_id, session_id)
     
@@ -113,13 +112,12 @@ def update_session(session_id):
         "message": "Session updated successfully"
     }
     """
-    auth_service = current_app.auth_service
     supabase_service = current_app.supabase_service
     
-    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+    user_id, error = get_user_id_from_token()
     
-    if not user_id:
-        return jsonify({'status': 'error', 'message': 'Authentication required to update session.'}), 401
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication required to update session: {error}'}), 401
     
     data = request.get_json()
     if not data or 'session_data' not in data:
@@ -158,13 +156,12 @@ def list_sessions():
         ]
     }
     """
-    auth_service = current_app.auth_service
     supabase_service = current_app.supabase_service
     
-    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+    user_id, error = get_user_id_from_token()
     
-    if not user_id:
-        return jsonify({'status': 'error', 'message': 'Authentication required to list sessions.'}), 401
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication required to list sessions: {error}'}), 401
     
     sessions, error = supabase_service.list_user_sessions(user_id)
     

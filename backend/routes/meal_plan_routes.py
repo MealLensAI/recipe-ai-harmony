@@ -1,34 +1,8 @@
 from flask import Blueprint, request, jsonify, current_app
-import traceback
 import json
+from utils.auth_utils import get_user_id_from_token, log_error
 
 meal_plan_bp = Blueprint('meal_plan', __name__)
-
-def log_error(message: str, error: Exception = None):
-    """Centralized error logging"""
-    current_app.logger.error(f"ERROR: {message}")
-    if error:
-        current_app.logger.error(f"Exception: {str(error)}")
-        current_app.logger.error(f"Traceback: {traceback.format_exc()}")
-
-def get_user_id_from_token():
-    """Extract user ID from token with proper error handling"""
-    try:
-        auth_service = current_app.auth_service
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header:
-            return None, "No Authorization header provided"
-        
-        user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
-        
-        if not user_id:
-            return None, f"Token verification failed. Auth type attempted: {auth_type}"
-        
-        return user_id, None
-    except Exception as e:
-        log_error("Error extracting user ID from token", e)
-        return None, f"Token processing error: {str(e)}"
 
 @meal_plan_bp.route('/meal_plan', methods=['POST'])
 def save_meal_plan():
@@ -46,12 +20,18 @@ def save_meal_plan():
         if not plan_data:
             return jsonify({'status': 'error', 'message': 'Meal plan data is required.'}), 400
 
-        # Save to meal_plan_management table via RPC
-        success, error = supabase_service.save_meal_plan(user_id, plan_data)
-        if success:
-            return jsonify({'status': 'success', 'message': 'Meal plan saved.'}), 201
+        # Save to meal_plan_management table
+        result = supabase_service.save_meal_plan(user_id, plan_data)
+        if isinstance(result, dict):
+            # Success - return the inserted data
+            return jsonify({
+                'status': 'success', 
+                'message': 'Meal plan saved.',
+                'data': result
+            }), 201
         else:
-            error_str = str(error) if error is not None else 'Unknown error'
+            # Error case
+            error_str = str(result[1]) if result and len(result) > 1 else 'Unknown error'
             log_error(f"Failed to save meal plan for user {user_id}", Exception(error_str))
             return jsonify({'status': 'error', 'message': f'Failed to save meal plan: {error_str}'}), 500
     except Exception as e:
@@ -87,13 +67,17 @@ def get_meal_plan():
                         print(f"[DEBUG] Failed to parse meal_plan for plan {plan.get('id')}: {e}")
                         meal_plan_obj = {}
                 # If plan_data key, use it
-                if isinstance(meal_plan_obj, dict) and 'plan_data' in meal_plan_obj:
+                if isinstance(meal_plan_obj, dict) and meal_plan_obj and 'plan_data' in meal_plan_obj:
                     meal_plan_obj = meal_plan_obj['plan_data']
-                # Extract fields robustly
-                plan['name'] = plan.get('name') or meal_plan_obj.get('name')
-                plan['start_date'] = plan.get('start_date') or meal_plan_obj.get('startDate')
-                plan['end_date'] = plan.get('end_date') or meal_plan_obj.get('endDate')
-                plan['meal_plan'] = meal_plan_obj
+                # Extract fields robustly with null checks
+                if meal_plan_obj and isinstance(meal_plan_obj, dict):
+                    plan['name'] = plan.get('name') or meal_plan_obj.get('name')
+                    plan['start_date'] = plan.get('start_date') or meal_plan_obj.get('startDate')
+                    plan['end_date'] = plan.get('end_date') or meal_plan_obj.get('endDate')
+                    plan['meal_plan'] = meal_plan_obj
+                else:
+                    # If meal_plan_obj is None or not a dict, keep existing values
+                    plan['meal_plan'] = meal_plan_obj or []
                 # Log the extracted fields for debugging
                 current_app.logger.info(f"[EXTRACTED] Plan ID: {plan.get('id')}, Name: {plan.get('name')}, Start: {plan.get('start_date')}, End: {plan.get('end_date')}")
             print('[DEBUG] Final meal_plans to return:', meal_plans)
@@ -240,12 +224,17 @@ def get_single_meal_plan(plan_id):
                 meal_plan_obj = json.loads(meal_plan_obj)
             except Exception:
                 meal_plan_obj = {}
-        if isinstance(meal_plan_obj, dict) and 'plan_data' in meal_plan_obj:
+        if isinstance(meal_plan_obj, dict) and meal_plan_obj and 'plan_data' in meal_plan_obj:
             meal_plan_obj = meal_plan_obj['plan_data']
-        plan['name'] = plan.get('name') or meal_plan_obj.get('name')
-        plan['start_date'] = plan.get('start_date') or meal_plan_obj.get('startDate')
-        plan['end_date'] = plan.get('end_date') or meal_plan_obj.get('endDate')
-        plan['meal_plan'] = meal_plan_obj
+        # Extract fields robustly with null checks
+        if meal_plan_obj and isinstance(meal_plan_obj, dict):
+            plan['name'] = plan.get('name') or meal_plan_obj.get('name')
+            plan['start_date'] = plan.get('start_date') or meal_plan_obj.get('startDate')
+            plan['end_date'] = plan.get('end_date') or meal_plan_obj.get('endDate')
+            plan['meal_plan'] = meal_plan_obj
+        else:
+            # If meal_plan_obj is None or not a dict, keep existing values
+            plan['meal_plan'] = meal_plan_obj or []
 
         return jsonify({'status': 'success', 'meal_plan': plan}), 200
     except Exception as e:

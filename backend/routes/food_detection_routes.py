@@ -6,6 +6,7 @@ from marshmallow import Schema, fields, ValidationError
 
 # Import utilities and services
 from utils.file_utils import allowed_file
+from utils.auth_utils import get_user_id_from_token
 from werkzeug.utils import secure_filename
 
 food_detection_bp = Blueprint('food_detection', __name__)
@@ -27,12 +28,11 @@ def process_food_input():
   Receives initial food input (image or ingredient list) and AI-detected
   ingredients/suggestions from the frontend. Stores this data in detection_history.
   """
-  auth_service = current_app.auth_service
   supabase_service = current_app.supabase_service
-  user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+  user_id, error = get_user_id_from_token()
   
-  if not user_id:
-      return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+  if error:
+      return jsonify({'status': 'error', 'message': f'Authentication required: {error}'}), 401
 
   input_type = request.form.get('image_or_ingredient_list')
   detected_ingredients_str = request.form.get('detected_ingredients')
@@ -103,12 +103,11 @@ def update_instructions():
   Receives cooking instructions and ingredients for a chosen recipe suggestion
   from the frontend and updates the corresponding detection history entry.
   """
-  auth_service = current_app.auth_service
   supabase_service = current_app.supabase_service
-  user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+  user_id, error = get_user_id_from_token()
 
-  if not user_id:
-      return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+  if error:
+      return jsonify({'status': 'error', 'message': f'Authentication required: {error}'}), 401
 
   data = request.get_json()
   food_analysis_id = data.get('food_analysis_id')
@@ -142,12 +141,11 @@ def update_resources():
   Receives YouTube, Google, and combined resources links from the frontend
   and updates the corresponding detection history entry.
   """
-  auth_service = current_app.auth_service
   supabase_service = current_app.supabase_service
-  user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+  user_id, error = get_user_id_from_token()
 
-  if not user_id:
-      return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+  if error:
+      return jsonify({'status': 'error', 'message': f'Authentication required: {error}'}), 401
 
   data = request.get_json()
   food_analysis_id = data.get('food_analysis_id')
@@ -181,12 +179,11 @@ def food_detect():
   Receives an image, AI-detected foods, and instructions from the frontend.
   Stores this data in detection_history.
   """
-  auth_service = current_app.auth_service
   supabase_service = current_app.supabase_service
-  user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+  user_id, error = get_user_id_from_token()
   
-  if not user_id:
-      return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+  if error:
+      return jsonify({'status': 'error', 'message': f'Authentication required: {error}'}), 401
 
   if 'image' not in request.files:
       return jsonify({'status': 'error', 'message': 'No image uploaded.'}), 400
@@ -244,12 +241,11 @@ def update_food_detect_resources():
   Receives YouTube, Google, and combined resources links for detected food items
   from the frontend and updates the corresponding detection history entry.
   """
-  auth_service = current_app.auth_service
   supabase_service = current_app.supabase_service
-  user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+  user_id, error = get_user_id_from_token()
 
-  if not user_id:
-      return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+  if error:
+      return jsonify({'status': 'error', 'message': f'Authentication required: {error}'}), 401
 
   data = request.get_json()
   food_analysis_id = data.get('food_analysis_id')
@@ -283,12 +279,11 @@ def share_recipe():
   Receives complete recipe data from the frontend and saves it to the
   'shared_recipes' table.
   """
-  auth_service = current_app.auth_service
   supabase_service = current_app.supabase_service
-  user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+  user_id, error = get_user_id_from_token()
 
-  if not user_id:
-      return jsonify({'status': 'error', 'message': 'Authentication required to share recipes.'}), 401
+  if error:
+      return jsonify({'status': 'error', 'message': f'Authentication required to share recipes: {error}'}), 401
 
   data = request.get_json()
   if not data:
