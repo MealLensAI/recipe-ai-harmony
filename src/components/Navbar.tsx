@@ -96,13 +96,6 @@ const Navbar = () => {
             >
               Meal Planner
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/payment")}
-              className="text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-            >
-              Payment
-            </Button>
           </div>
 
           {/* User Actions with Dropdown */}
@@ -135,6 +128,10 @@ const Navbar = () => {
                 <DropdownMenuItem onClick={() => navigate("/settings")}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/payment")}>
+                  <span className="mr-2">💳</span>
+                  <span>Payment</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
@@ -180,13 +177,6 @@ const Navbar = () => {
             >
               <Settings className="h-5 w-5" />
               <span>Planner</span>
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/payment")}
-            className="flex flex-col items-center justify-center h-16 text-xs space-y-1 text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-          >
-            <span>Payment</span>
           </Button>
           </div>
         </div>
