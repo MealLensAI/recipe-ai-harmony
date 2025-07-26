@@ -22,7 +22,15 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 }) => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [inlinePlayingIndex, setInlinePlayingIndex] = useState<number | null>(null);
-  const { instructions, youtubeVideos, webResources, loading, generateContent } = useTutorialContent();
+  const { 
+    instructions, 
+    youtubeVideos, 
+    webResources, 
+    loading, 
+    loadingInstructions, 
+    loadingResources, 
+    generateContent 
+  } = useTutorialContent();
 
   useEffect(() => {
     if (isOpen && recipeName) {
@@ -98,12 +106,17 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
         />
 
         <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
-          {loading ? (
+          {loading && !instructions && !youtubeVideos.length && !webResources.length ? (
             <TutorialLoadingSpinner />
           ) : (
             <div className="p-8 space-y-10">
-              <CookingInstructions instructions={instructions} />
+              {/* Cooking Instructions - Always show first */}
+              <CookingInstructions 
+                instructions={instructions} 
+                loading={loadingInstructions}
+              />
 
+              {/* Video Player Modal */}
               {selectedVideo && (
                 <VideoPlayer 
                   videoId={selectedVideo}
@@ -111,17 +124,21 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                 />
               )}
 
+              {/* YouTube Resources - Show with loading state */}
               <YouTubeResources 
                 videos={youtubeVideos}
                 onVideoSelect={handleVideoSelect}
                 inlinePlayingIndex={inlinePlayingIndex}
                 onInlinePlay={handleInlinePlay}
                 onImageError={handleImageError}
+                loading={loadingResources}
               />
 
+              {/* Web Resources - Show with loading state */}
               <WebResources 
                 resources={webResources}
                 onImageError={handleImageError}
+                loading={loadingResources}
               />
             </div>
           )}

@@ -114,7 +114,17 @@ export const useMealPlans = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to parse the error message from the response
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (e) {
+          // If we can't parse the response as JSON, use the generic error
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -206,13 +216,11 @@ export const useMealPlans = () => {
       const result = await response.json();
       
       if (result.status === 'success') {
-        const remainingPlans = savedPlans.filter(plan => plan.id !== id);
-        setSavedPlans(remainingPlans);
-        if (remainingPlans.length > 0) {
-          setCurrentPlan(remainingPlans[0]);
-        } else {
-          setCurrentPlan(null);
-        }
+        setSavedPlans(prev => {
+          const remainingPlans = prev.filter(plan => plan.id !== id);
+          setCurrentPlan(remainingPlans.length > 0 ? remainingPlans[0] : null);
+          return remainingPlans;
+        });
       } else {
         throw new Error(result.message || 'Failed to delete meal plan');
       }

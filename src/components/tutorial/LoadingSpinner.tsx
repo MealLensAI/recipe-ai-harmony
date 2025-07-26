@@ -17,4 +17,28 @@ const TutorialLoadingSpinner: React.FC = () => {
   );
 };
 
+// Netflix-style loading bar component
+export const NetflixLoadingBar: React.FC = () => {
+  return (
+    <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden relative">
+      <div 
+        className="h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-full animate-pulse"
+        style={{
+          animation: 'netflix-loading 1.5s ease-in-out infinite',
+        }}
+      />
+      <style jsx>{`
+        @keyframes netflix-loading {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(400%);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 export default TutorialLoadingSpinner;

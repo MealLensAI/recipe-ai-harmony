@@ -617,27 +617,24 @@ class SupabaseService:
 
     def delete_meal_plan(self, user_id: str, plan_id: str) -> tuple[bool, str | None]:
         """
-        Deletes a meal plan using RPC.
-
-        Args:
-            user_id (str): The Supabase user ID.
-            plan_id (str): The meal plan ID to delete.
-
-        Returns:
-            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        Deletes a meal plan using direct table operations.
         """
         try:
-            result = self.supabase.rpc('delete_meal_plan', {
-                'p_user_id': user_id,
-                'p_plan_id': plan_id
-            }).execute()
+            print(f"[DEBUG] Attempting to delete meal plan {plan_id} for user {user_id}")
             
-            if result.data and result.data[0].get('status') == 'success':
+            # Delete directly from table
+            result = self.supabase.table('meal_plan_management').delete().eq('user_id', user_id).eq('id', plan_id).execute()
+            
+            print(f"[DEBUG] Delete result: {result}")
+            
+            if result.data:
+                print(f"[DEBUG] Delete successful")
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to delete meal plan'
-                return False, error
+                print(f"[DEBUG] No rows deleted")
+                return False, 'Meal plan not found or not authorized'
         except Exception as e:
+            print(f"[DEBUG] Exception in delete_meal_plan: {e}")
             return False, str(e)
 
     def clear_meal_plans(self, user_id: str) -> tuple[bool, str | None]:

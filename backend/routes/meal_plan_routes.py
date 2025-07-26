@@ -36,7 +36,9 @@ def save_meal_plan():
             return jsonify({'status': 'error', 'message': f'Failed to save meal plan: {error_str}'}), 500
     except Exception as e:
         log_error("Unexpected error in save_meal_plan", e)
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+        # Try to extract the real error message
+        error_message = str(e)
+        return jsonify({'status': 'error', 'message': error_message}), 500
 
 @meal_plan_bp.route('/meal_plan', methods=['GET'])
 def get_meal_plan():
