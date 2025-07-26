@@ -187,20 +187,7 @@ const DetectFoodPage = () => {
           className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative"
         >
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <a 
-              href="/" 
-              style={{ textDecoration: "none", color: "#FF6B6B", fontSize: "1.0rem" }}
-            >
-              ←Home
-            </a>
-            <button 
-              onClick={() => navigate('/login')}
-              style={{ background: "none", border: "none", color: "#FF6B6B", fontSize: "1.0rem", cursor: "pointer" }}
-            >
-              Sign Out
-            </button>
-          </div>
+          {/* Removed Home and Sign Out buttons */}
 
           {/* Title */}
           <h1 
