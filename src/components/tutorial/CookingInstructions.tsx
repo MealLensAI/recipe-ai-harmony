@@ -15,10 +15,11 @@ const CookingInstructions: React.FC<CookingInstructionsProps> = ({ instructions 
         <h3 className="text-2xl font-bold text-[#2D3436]">Cooking Instructions</h3>
       </div>
       <div 
-        className="prose prose-lg max-w-none text-[#1e293b] leading-relaxed"
+        className="prose prose-lg max-w-none text-[#1e293b] leading-relaxed text-left"
         style={{
           lineHeight: '1.4',
-          margin: 0
+          margin: 0,
+          textAlign: 'left'
         }}
         dangerouslySetInnerHTML={{ 
           __html: instructions 

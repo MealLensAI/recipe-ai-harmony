@@ -129,7 +129,13 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   {loadingResources ? (
                     <div className="space-y-4">
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse" style={{ width: '30%' }}></div>
+                        <div 
+                          className="h-full bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse"
+                          style={{
+                            width: '30%',
+                            animation: 'loading-bar 1.5s ease-in-out infinite'
+                          }}
+                        ></div>
                       </div>
                       <p className="text-gray-600 text-center">Loading video tutorials...</p>
                     </div>
@@ -158,7 +164,13 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   {loadingResources ? (
                     <div className="space-y-4">
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse" style={{ width: '30%' }}></div>
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse"
+                          style={{
+                            width: '30%',
+                            animation: 'loading-bar 1.5s ease-in-out infinite'
+                          }}
+                        ></div>
                       </div>
                       <p className="text-gray-600 text-center">Loading articles...</p>
                     </div>
@@ -176,6 +188,18 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Add CSS animation for loading bar */}
+      <style jsx>{`
+        @keyframes loading-bar {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(400%);
+          }
+        }
+      `}</style>
     </div>
   );
 };
