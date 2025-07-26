@@ -20,7 +20,6 @@ export const useTutorialContent = () => {
   const [youtubeVideos, setYoutubeVideos] = useState<VideoResource[]>([]);
   const [webResources, setWebResources] = useState<WebResource[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingInstructions, setLoadingInstructions] = useState(false);
   const [loadingResources, setLoadingResources] = useState(false);
 
   // Helper to extract YouTube video ID from a URL
@@ -40,8 +39,7 @@ export const useTutorialContent = () => {
     try {
       console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients });
       
-      // Step 1: Load cooking instructions first
-      setLoadingInstructions(true);
+      // 1. Get cooking instructions first
       const instrRes = await fetch('https://ai-utu2.onrender.com/meal_plan_instructions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,10 +63,12 @@ export const useTutorialContent = () => {
         .replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
         .replace(/(\d+\.)/g, '<br>$1');
       setInstructions(htmlInstructions);
-      setLoadingInstructions(false);
 
-      // Step 2: Load resources (YouTube and Google) separately
+      // Instructions are loaded, now start loading resources
+      setLoading(false);
       setLoadingResources(true);
+
+      // 2. Get resources (YouTube and Google) using the correct form data
       const formData = new FormData();
       formData.append('food_choice_index', recipeName);
       const resRes = await fetch('https://ai-utu2.onrender.com/resources', {
@@ -101,17 +101,15 @@ export const useTutorialContent = () => {
         image: item.image || '',
       }));
       setWebResources(googleResults);
-      setLoadingResources(false);
       
     } catch (error) {
       console.error('[useTutorialContent] Error generating content:', error);
       setInstructions('Failed to load instructions. Please try again.');
       setYoutubeVideos([]);
       setWebResources([]);
-      setLoadingInstructions(false);
-      setLoadingResources(false);
     } finally {
       setLoading(false);
+      setLoadingResources(false);
     }
   };
 
@@ -120,7 +118,6 @@ export const useTutorialContent = () => {
     youtubeVideos,
     webResources,
     loading,
-    loadingInstructions,
     loadingResources,
     generateContent
   };

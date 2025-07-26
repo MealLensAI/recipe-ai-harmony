@@ -22,15 +22,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 }) => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [inlinePlayingIndex, setInlinePlayingIndex] = useState<number | null>(null);
-  const { 
-    instructions, 
-    youtubeVideos, 
-    webResources, 
-    loading, 
-    loadingInstructions, 
-    loadingResources, 
-    generateContent 
-  } = useTutorialContent();
+  const { instructions, youtubeVideos, webResources, loading, loadingResources, generateContent } = useTutorialContent();
 
   useEffect(() => {
     if (isOpen && recipeName) {
@@ -106,15 +98,14 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
         />
 
         <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
-          {loading && !instructions && !youtubeVideos.length && !webResources.length ? (
+          {loading ? (
             <TutorialLoadingSpinner />
           ) : (
             <div className="p-8 space-y-10">
-              {/* Cooking Instructions - Always show first */}
-              <CookingInstructions 
-                instructions={instructions} 
-                loading={loadingInstructions}
-              />
+              {/* Cooking Instructions - Always show when loaded */}
+              {instructions && (
+                <CookingInstructions instructions={instructions} />
+              )}
 
               {/* Video Player Modal */}
               {selectedVideo && (
@@ -124,22 +115,63 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                 />
               )}
 
-              {/* YouTube Resources - Show with loading state */}
-              <YouTubeResources 
-                videos={youtubeVideos}
-                onVideoSelect={handleVideoSelect}
-                inlinePlayingIndex={inlinePlayingIndex}
-                onInlinePlay={handleInlinePlay}
-                onImageError={handleImageError}
-                loading={loadingResources}
-              />
+              {/* Resources Section - Show loading or content */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* YouTube Resources */}
+                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-8 border border-red-100">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
+                      <span className="text-xl">📺</span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-[#2D3436]">Video Tutorials</h3>
+                  </div>
+                  
+                  {loadingResources ? (
+                    <div className="space-y-4">
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse" style={{ width: '30%' }}></div>
+                      </div>
+                      <p className="text-gray-600 text-center">Loading video tutorials...</p>
+                    </div>
+                  ) : youtubeVideos.length > 0 ? (
+                    <YouTubeResources 
+                      videos={youtubeVideos}
+                      onVideoSelect={handleVideoSelect}
+                      inlinePlayingIndex={inlinePlayingIndex}
+                      onInlinePlay={handleInlinePlay}
+                      onImageError={handleImageError}
+                    />
+                  ) : (
+                    <p className="text-gray-600 text-center">No video tutorials available.</p>
+                  )}
+                </div>
 
-              {/* Web Resources - Show with loading state */}
-              <WebResources 
-                resources={webResources}
-                onImageError={handleImageError}
-                loading={loadingResources}
-              />
+                {/* Google Resources */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                      <span className="text-xl">🌐</span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-[#2D3436]">Recommended Articles</h3>
+                  </div>
+                  
+                  {loadingResources ? (
+                    <div className="space-y-4">
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse" style={{ width: '30%' }}></div>
+                      </div>
+                      <p className="text-gray-600 text-center">Loading articles...</p>
+                    </div>
+                  ) : webResources.length > 0 ? (
+                    <WebResources 
+                      resources={webResources}
+                      onImageError={handleImageError}
+                    />
+                  ) : (
+                    <p className="text-gray-600 text-center">No articles available.</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
