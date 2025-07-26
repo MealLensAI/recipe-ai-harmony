@@ -128,12 +128,11 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   
                   {loadingResources ? (
                     <div className="space-y-4">
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
                         <div 
-                          className="h-full bg-gradient-to-r from-red-500 to-pink-500 rounded-full animate-pulse"
+                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-red-500 to-pink-500 rounded-full"
                           style={{
-                            width: '30%',
-                            animation: 'loading-bar 1.5s ease-in-out infinite'
+                            animation: 'loading-slide 1.5s ease-in-out infinite'
                           }}
                         ></div>
                       </div>
@@ -163,12 +162,11 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   
                   {loadingResources ? (
                     <div className="space-y-4">
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
                         <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse"
+                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
                           style={{
-                            width: '30%',
-                            animation: 'loading-bar 1.5s ease-in-out infinite'
+                            animation: 'loading-slide 1.5s ease-in-out infinite'
                           }}
                         ></div>
                       </div>
@@ -190,16 +188,18 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       </div>
 
       {/* Add CSS animation for loading bar */}
-      <style jsx>{`
-        @keyframes loading-bar {
-          0% {
-            transform: translateX(-100%);
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes loading-slide {
+            0% {
+              transform: translateX(-100%);
+            }
+            100% {
+              transform: translateX(400%);
+            }
           }
-          100% {
-            transform: translateX(400%);
-          }
-        }
-      `}</style>
+        `
+      }} />
     </div>
   );
 };
