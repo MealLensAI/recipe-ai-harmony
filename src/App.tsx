@@ -13,6 +13,7 @@ import MainLayout from "./components/MainLayout"
 import { Toaster } from "@/components/ui/toaster"
 import "./App.css"
 import HistoryPage from "./pages/History"
+import HistoryDetailPage from "./pages/HistoryDetailPage"
 import { AuthProvider } from "@/lib/AuthProvider"
 import Payment from "./pages/Payment";
 
@@ -62,6 +63,16 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout>
           <HistoryPage />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/history/:id",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <HistoryDetailPage />
         </MainLayout>
       </ProtectedRoute>
     )

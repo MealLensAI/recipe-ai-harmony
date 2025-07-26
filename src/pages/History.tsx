@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, Utensils, BookOpen, CalendarDays, ChevronDown, ChevronUp } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Loader2, Utensils, BookOpen, CalendarDays, Clock, Search, Filter, Bell, Play } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -25,11 +25,35 @@ interface SharedRecipe {
   resources_link?: string
 }
 
+// Helper functions moved outside components
+const getStatusColor = (recipeType: string) => {
+  switch (recipeType) {
+    case "food_detection":
+      return "bg-green-100 text-green-700 border-green-200"
+    case "ingredient_detection":
+      return "bg-blue-100 text-blue-700 border-blue-200"
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200"
+  }
+}
+
+const getStatusText = (recipeType: string) => {
+  switch (recipeType) {
+    case "food_detection":
+      return "Food Detection"
+    case "ingredient_detection":
+      return "Ingredient Detection"
+    default:
+      return "Detection"
+  }
+}
+
 export function HistoryPage() {
   const navigate = useNavigate()
   const [history, setHistory] = useState<SharedRecipe[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
 
@@ -114,6 +138,18 @@ export function HistoryPage() {
     fetchHistory()
   }, [isAuthenticated, authLoading, api])
 
+  // Filter history based on search term
+  const filteredHistory = history.filter(item => {
+    if (!searchTerm) return true
+    
+    const searchLower = searchTerm.toLowerCase()
+    const detectedFoods = item.detected_foods ? JSON.parse(item.detected_foods).join(" ") : ""
+    const suggestion = item.suggestion || ""
+    
+    return detectedFoods.toLowerCase().includes(searchLower) || 
+           suggestion.toLowerCase().includes(searchLower)
+  })
+
   // Show loading while auth is initializing
   if (authLoading) {
     return (
@@ -147,21 +183,57 @@ export function HistoryPage() {
   }
 
   return (
-    <ScrollArea className="h-[600px] w-full rounded-lg border border-gray-200 p-4 shadow-inner bg-gray-50">
-      {history.length === 0 ? (
-        <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-8">
-          <Utensils className="h-16 w-16 text-gray-300 mb-4" aria-hidden="true" />
-          <p className="text-xl font-semibold">No detection history yet.</p>
-          <p className="text-md mt-2">Start scanning to see your results here.</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">History</h1>
+              <p className="text-gray-600 mt-1">Showing your all histories with a clear view.</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Filter
+              </Button>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search history..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
+              <Button variant="ghost" size="sm">
+                <Bell className="h-5 w-5" />
+              </Button>
+              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
+                T
+              </div>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="grid gap-6 p-2">
-          {history.map((item) => (
-            <HistoryCard key={item.id} item={item} />
-          ))}
-        </div>
-      )}
-    </ScrollArea>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto p-6">
+        {filteredHistory.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-8 min-h-[400px]">
+            <Utensils className="h-16 w-16 text-gray-300 mb-4" aria-hidden="true" />
+            <p className="text-xl font-semibold">No detection history yet.</p>
+            <p className="text-md mt-2">Start scanning to see your results here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredHistory.map((item) => (
+              <HistoryCard key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -170,180 +242,88 @@ interface HistoryCardProps {
 }
 
 function HistoryCard({ item }: HistoryCardProps) {
-  const [isInstructionsExpanded, setIsInstructionsExpanded] = useState(false)
+  const navigate = useNavigate()
 
-  const toggleInstructions = () => {
-    setIsInstructionsExpanded(!isInstructionsExpanded)
+  const handleCardClick = () => {
+    navigate(`/history/${item.id}`)
   }
 
+  const getDetectedFoods = () => {
+    try {
+      if (item.detected_foods) {
+        return JSON.parse(item.detected_foods)
+      }
+      if (item.ingredients) {
+        return JSON.parse(item.ingredients)
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  const detectedFoods = getDetectedFoods()
+  const mainFood = detectedFoods[0] || "Unknown"
+  const additionalCount = detectedFoods.length > 1 ? detectedFoods.length - 1 : 0
+
   return (
-    <Card className="overflow-hidden shadow-lg transition-all hover:shadow-xl border border-gray-100 rounded-xl">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-3 bg-gradient-to-r from-red-50 to-orange-50 border-b border-gray-100">
-        <CardTitle className="text-lg font-bold text-gray-800 flex items-center">
-          {item.recipe_type === "food_detection" ? (
-            <Utensils className="mr-2 h-5 w-5 text-red-600" aria-hidden="true" />
-          ) : (
-            <BookOpen className="mr-2 h-5 w-5 text-orange-600" aria-hidden="true" />
-          )}
-          {item.recipe_type === "food_detection" ? "Food Detection Result" : "Ingredient Detection Result"}
-        </CardTitle>
-        <Badge
-          variant="secondary"
-          className="bg-white text-gray-600 border border-gray-200 shadow-sm text-xs px-2 py-1"
-        >
-          <CalendarDays className="mr-1 h-3 w-3" aria-hidden="true" />
-          {new Date(item.created_at).toLocaleDateString()}
-        </Badge>
-      </CardHeader>
-      <CardContent className="p-4 pt-3 space-y-3">
-        {item.recipe_type === "food_detection" && item.detected_foods && (
-          <div className="text-sm text-gray-700 flex items-center">
-            <span className="font-semibold mr-2">Detected Foods:</span>{" "}
-            <Badge variant="outline" className="bg-red-100 text-red-700 border-red-200 font-medium px-2 py-1">
-              {JSON.parse(item.detected_foods).join(", ")}
-            </Badge>
-          </div>
-        )}
-        {item.recipe_type === "ingredient_detection" && item.ingredients && (
-          <div className="text-sm text-gray-700 flex items-center">
-            <span className="font-semibold mr-2">Ingredients:</span>{" "}
-            <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200 font-medium px-2 py-1">
-              {JSON.parse(item.ingredients).join(", ")}
-            </Badge>
-          </div>
-        )}
-        {item.suggestion && (
-          <div className="text-sm text-gray-700">
-            <span className="font-semibold">Recipe Suggestion:</span>{" "}
-            <span className="font-medium text-red-600">{item.suggestion}</span>
-          </div>
-        )}
-        {item.instructions && (
-          <div className="mt-2 text-sm text-gray-700">
-            <strong className="block mb-1 text-base text-gray-800">Instructions:</strong>
-            <div
-              id={`instructions-${item.id}`} // Added ID for aria-controls
-              className={`prose prose-sm max-w-none text-gray-600 leading-relaxed ${
-                isInstructionsExpanded ? "" : "max-h-24 overflow-hidden relative"
-              }`}
-              dangerouslySetInnerHTML={{ __html: item.instructions }}
-            />
-            {item.instructions.length > 200 && ( // Simple heuristic for showing toggle
-              <Button
-                variant="link"
-                onClick={toggleInstructions}
-                className="p-0 h-auto text-red-600 hover:text-red-700 mt-2"
-                aria-expanded={isInstructionsExpanded}
-                aria-controls={`instructions-${item.id}`}
-              >
-                {isInstructionsExpanded ? (
-                  <>
-                    Show Less <ChevronUp className="ml-1 h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    Read More <ChevronDown className="ml-1 h-4 w-4" />
-                  </>
-                )}
-              </Button>
+    <Card 
+      className="overflow-hidden shadow-lg transition-all hover:shadow-xl border border-gray-100 rounded-xl cursor-pointer hover:scale-[1.02] group"
+      onClick={handleCardClick}
+    >
+      <CardContent className="p-6">
+        {/* Header with play button */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h3 className="font-bold text-lg text-gray-900 mb-1 truncate">
+              {mainFood}
+            </h3>
+            {additionalCount > 0 && (
+              <p className="text-sm text-gray-500">
+                +{additionalCount} more ingredients
+              </p>
             )}
           </div>
-        )}
-        {/* Show resource links if present */}
-        {(item.youtube_link || item.google_link || item.resources_link) && (
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-800 mb-2">Resources & Links:</h4>
-            <div className="flex flex-wrap gap-2">
-        {item.youtube_link && (
-                <a 
-                  href={item.youtube_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium hover:bg-red-200 transition-colors"
-                >
-                  🎥 YouTube
-                </a>
-        )}
-        {item.google_link && (
-                <a 
-                  href={item.google_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors"
-                >
-                  🔍 Google
-                </a>
-              )}
-              {item.resources_link && (
-                <a 
-                  href={item.resources_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium hover:bg-green-200 transition-colors"
-                >
-                  📚 Resources
-                </a>
-              )}
-            </div>
+          <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            <Play className="h-4 w-4" />
           </div>
-        )}
-        
-        {/* Show parsed resources if available */}
-        {item.resources && (
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-800 mb-2">Additional Resources:</h4>
-            <div className="text-xs text-gray-600 max-h-32 overflow-y-auto">
-              {(() => {
-                try {
-                  const resources = JSON.parse(item.resources)
-                  if (resources.GoogleSearch && Array.isArray(resources.GoogleSearch)) {
-                    return (
-                      <div className="space-y-1">
-                        <p className="font-medium text-gray-700">Google Search Results:</p>
-                        {resources.GoogleSearch.slice(0, 3).map((result: any, index: number) => (
-                          <div key={index} className="pl-2 border-l-2 border-gray-200">
-                            <a 
-                              href={result.link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline block truncate"
-                              title={result.title}
-                            >
-                              {result.title}
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  }
-                  if (resources.YoutubeSearch && Array.isArray(resources.YoutubeSearch)) {
-                    return (
-                      <div className="space-y-1">
-                        <p className="font-medium text-gray-700">YouTube Videos:</p>
-                        {resources.YoutubeSearch.slice(0, 3).map((result: any, index: number) => (
-                          <div key={index} className="pl-2 border-l-2 border-gray-200">
-                            <a 
-                              href={result.link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-red-600 hover:underline block truncate"
-                              title={result.title}
-                            >
-                              {result.title}
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  }
-                  return <p className="text-gray-500">Resources available</p>
-                } catch (error) {
-                  return <p className="text-gray-500">Resources available</p>
-                }
-              })()}
-            </div>
+        </div>
+
+        {/* Info grid */}
+        <div className="space-y-3">
+          <div className="flex items-center text-sm text-gray-600">
+            <Clock className="h-4 w-4 mr-2" />
+            {new Date(item.created_at).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              second: '2-digit'
+            })}
           </div>
-        )}
+          
+          <div className="flex items-center text-sm text-gray-600">
+            <CalendarDays className="h-4 w-4 mr-2" />
+            {new Date(item.created_at).toLocaleDateString()}
+          </div>
+
+          <div className="flex items-center text-sm text-gray-600">
+            {item.recipe_type === "food_detection" ? (
+              <Utensils className="h-4 w-4 mr-2" />
+            ) : (
+              <BookOpen className="h-4 w-4 mr-2" />
+            )}
+            {item.recipe_type === "food_detection" ? "Food Detection" : "Ingredient Detection"}
+          </div>
+        </div>
+
+        {/* Status badge */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <Badge 
+            variant="outline" 
+            className={`${getStatusColor(item.recipe_type)} text-xs px-2 py-1`}
+          >
+            {getStatusText(item.recipe_type)}
+          </Badge>
+        </div>
       </CardContent>
     </Card>
   )

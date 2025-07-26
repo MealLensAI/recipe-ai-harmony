@@ -104,6 +104,35 @@ const DetectFoodPage = () => {
       // Show results immediately after detection
       setShowResults(true)
       
+      // Save to detection history
+      if (token && data.food_detected && data.instructions) {
+        const payload = {
+          recipe_type: "food_detection",
+          suggestion: data.food_detected.join(", "),
+          instructions: data.instructions,
+          ingredients: JSON.stringify(data.food_detected || []),
+          detected_foods: JSON.stringify(data.food_detected || []),
+          analysis_id: data.analysis_id || "",
+          youtube: "",
+          google: "",
+          resources: "{}"
+        };
+        
+        try {
+          await fetch("/api/food_detection/detection_history", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload)
+          });
+          console.log("[DetectFood] Saved to detection history");
+        } catch (historyError) {
+          console.error("[DetectFood] Error saving to history:", historyError);
+        }
+      }
+      
       // Fetch resources automatically when instructions are displayed
       if (data.food_detected && data.food_detected.length > 0) {
         setLoadingResources(true)
@@ -129,6 +158,30 @@ const DetectFoodPage = () => {
             const resData = await resResponse.json()
             console.log("[DetectFood] Resources data received:", resData)
             setResources(resData)
+            
+            // Update history with resources
+            if (token && data.analysis_id) {
+              const updatePayload = {
+                food_analysis_id: data.analysis_id,
+                youtube_link: resData?.YoutubeSearch?.[0]?.link || "",
+                google_link: resData?.GoogleSearch?.[0]?.link || "",
+                resources_link: JSON.stringify(resData || {})
+              };
+              
+              try {
+                await fetch("/api/food_detection/food_detect_resources", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(updatePayload)
+                });
+                console.log("[DetectFood] Updated history with resources");
+              } catch (updateError) {
+                console.error("[DetectFood] Error updating history with resources:", updateError);
+              }
+            }
           }
         } catch (resourceError) {
           console.error("[DetectFood] Error fetching resources:", resourceError)
