@@ -265,61 +265,61 @@ const AIResponsePage: FC = () => {
           {/* Input Form */}
           <div className="mb-4">
             <label className="block font-semibold text-lg text-[#2D3436] mb-3">
-              How would you like to start?
-            </label>
-            <select
+                  How would you like to start?
+                </label>
+                <select
               className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
-              value={inputType}
-              onChange={(e) => setInputType(e.target.value as "image" | "ingredient_list")}
-            >
-              <option value="image">Snap or Upload Ingredient Image</option>
-              <option value="ingredient_list">List Your Ingredients</option>
-            </select>
-          </div>
+                  value={inputType}
+                  onChange={(e) => setInputType(e.target.value as "image" | "ingredient_list")}
+                >
+                  <option value="image">Snap or Upload Ingredient Image</option>
+                  <option value="ingredient_list">List Your Ingredients</option>
+                </select>
+              </div>
 
           {/* Image Input */}
           {inputType === "image" && (
             <div className="mb-4">
               <label className="block font-semibold text-lg text-[#2D3436] mb-3">
                 Share Your Food Image
-              </label>
-              <input
-                type="file"
-                accept="image/*"
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
                 onChange={handleImageSelect}
                 className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
-              />
-              {imagePreview && (
+                  />
+                  {imagePreview && (
                 <div className="flex justify-center mt-2.5">
-                  <img 
+                      <img
                     src={imagePreview} 
                     alt="Preview" 
                     className="w-[400px] h-[300px] object-cover rounded-2xl"
-                  />
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
           )}
 
           {/* Ingredient Input */}
           {inputType === "ingredient_list" && (
             <div className="mb-4">
               <label className="block font-semibold text-lg text-[#2D3436] mb-3">
-                What ingredients do you have?
-              </label>
+                    What ingredients do you have?
+                  </label>
               <input
                 type="text"
                 value={ingredientList}
                 onChange={(e) => setIngredientList(e.target.value)}
-                placeholder="e.g., chicken, tomatoes, basil, olive oil"
+                    placeholder="e.g., chicken, tomatoes, basil, olive oil"
                 className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
-              />
-            </div>
-          )}
+                  />
+                </div>
+              )}
 
           {/* Discover Button */}
           <button
-            onClick={handleDiscoverRecipes}
+                onClick={handleDiscoverRecipes}
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-2xl py-4 px-8 text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -346,10 +346,10 @@ const AIResponsePage: FC = () => {
                       AI Detected Ingredient
                     </h5>
                     <ol className="pl-4 text-left">
-                      {detectedIngredients.map((item, i) => (
+                    {detectedIngredients.map((item, i) => (
                         <li key={i} className="mb-3 text-left">{item.trim()}</li>
-                      ))}
-                    </ol>
+                    ))}
+                  </ol>
                   </div>
                 </div>
 
@@ -361,21 +361,21 @@ const AIResponsePage: FC = () => {
                     <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
                       AI Recipe Suggestions
                     </h5>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestions.map((suggestion, i) => (
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.map((suggestion, i) => (
                         <button
-                          key={i}
-                          onClick={() => handleSuggestionClick(suggestion)}
-                          disabled={isLoading}
+                        key={i}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        disabled={isLoading}
                           className="bg-white text-[#FF6B6B] border-2 border-[#FF6B6B] rounded-2xl px-3 py-3 m-2 transition-all duration-300 font-semibold text-base hover:bg-gradient-to-r hover:from-[#FF6B6B] hover:to-[#FF8E53] hover:text-white hover:border-transparent hover:translate-y-[-2px] hover:shadow-[0_4px_12px_rgba(255,107,107,0.2)]"
-                        >
-                          {suggestion}
+                      >
+                        {suggestion}
                         </button>
-                      ))}
+                    ))}
                     </div>
                   </div>
                 </div>
-              </div>
+            </div>
 
               {/* Instructions Section */}
               {instructions && (
@@ -391,9 +391,9 @@ const AIResponsePage: FC = () => {
                       style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
                       dangerouslySetInnerHTML={{ __html: instructions }}
                     />
-                  </div>
-                </div>
-              )}
+            </div>
+          </div>
+        )}
 
               {/* Resources Section */}
               {loadingResources && (
@@ -440,7 +440,7 @@ const AIResponsePage: FC = () => {
                     </div>
                   </div>
                 </div>
-              )}
+            )}
 
               {/* Resources Content */}
               {resources && !loadingResources && (
@@ -454,46 +454,46 @@ const AIResponsePage: FC = () => {
                         Youtube Resources
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
+                    {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
                         <div className="space-y-6">
                           {resources.YoutubeSearch.map((item: any, idx: number) => {
                             const videoId = getYouTubeVideoId(item.link);
-                            return videoId ? (
+                        return videoId ? (
                               <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                                 <div className="relative w-full aspect-video bg-black">
-                                  <iframe
+                            <iframe
                                     src={`https://www.youtube.com/embed/${videoId}`}
-                                    title={item.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
+                              title={item.title}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
                                     className="w-full h-full rounded-t-2xl"
-                                  />
+                            />
                                 </div>
                                 <div className="p-6">
                                   <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
                                   <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
                                 </div>
-                              </div>
-                            ) : (
+                          </div>
+                        ) : (
                               <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                                 <div className="p-6">
                                   <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                          <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
                                   >
                                     Watch Tutorial
                                   </a>
                                 </div>
                               </div>
-                            )
+                        )
                           })}
                         </div>
-                      ) : (
+                    ) : (
                         <p className="text-center text-gray-600">No video tutorials available.</p>
-                      )}
+                    )}
                     </div>
                   </div>
 
@@ -506,7 +506,7 @@ const AIResponsePage: FC = () => {
                         Google Resources
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
+                    {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
                         <div className="space-y-6">
                           {resources.GoogleSearch.map((item: any, idx: number) => (
                             <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -514,27 +514,27 @@ const AIResponsePage: FC = () => {
                                 <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
                                 <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
                                 <a
-                                  href={item.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                          href={item.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
                                   className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                                >
+                        >
                                   Read More
-                                </a>
+                        </a>
                               </div>
                             </div>
                           ))}
                         </div>
-                      ) : (
+                    ) : (
                         <p className="text-center text-gray-600">No articles available.</p>
-                      )}
+                    )}
                     </div>
                   </div>
-                </div>
-              )}
+              </div>
+            )}
             </div>
           )}
-        </div>
+          </div>
       </div>
 
       <style jsx>{`
