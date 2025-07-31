@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
+from utils.auth_utils import get_user_id_from_token
 
 feedback_bp = Blueprint('feedback', __name__)
 
@@ -7,9 +8,11 @@ def feedback():
     """
     Handles user feedback submission and stores it in the database.
     """
-    auth_service = current_app.auth_service
     supabase_service = current_app.supabase_service
-    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+    user_id, error = get_user_id_from_token()
+    
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
     
     feedback_text = request.form.get('feedback_text') # Assuming feedback is sent as form data
 

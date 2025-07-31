@@ -20,6 +20,7 @@ export const useTutorialContent = () => {
   const [youtubeVideos, setYoutubeVideos] = useState<VideoResource[]>([]);
   const [webResources, setWebResources] = useState<WebResource[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingResources, setLoadingResources] = useState(false);
 
   // Helper to extract YouTube video ID from a URL
   const getYouTubeVideoId = (url: string) => {
@@ -38,7 +39,7 @@ export const useTutorialContent = () => {
     try {
       console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients });
       
-      // 1. Get cooking instructions using the new meal_plan_instructions API
+      // 1. Get cooking instructions first
       const instrRes = await fetch('https://ai-utu2.onrender.com/meal_plan_instructions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,6 +63,10 @@ export const useTutorialContent = () => {
         .replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
         .replace(/(\d+\.)/g, '<br>$1');
       setInstructions(htmlInstructions);
+
+      // Instructions are loaded, now start loading resources
+      setLoading(false);
+      setLoadingResources(true);
 
       // 2. Get resources (YouTube and Google) using the correct form data
       const formData = new FormData();
@@ -104,6 +109,7 @@ export const useTutorialContent = () => {
       setWebResources([]);
     } finally {
       setLoading(false);
+      setLoadingResources(false);
     }
   };
 
@@ -112,6 +118,7 @@ export const useTutorialContent = () => {
     youtubeVideos,
     webResources,
     loading,
+    loadingResources,
     generateContent
   };
 };

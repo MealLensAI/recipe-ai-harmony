@@ -2,7 +2,7 @@ import os
 import json
 from supabase import create_client, Client
 from werkzeug.datastructures import FileStorage
-
+from datetime import datetime
 class SupabaseService:
     def __init__(self, supabase_url: str, supabase_key: str = None):
         """
@@ -311,44 +311,101 @@ class SupabaseService:
             "updated_at": raw_plan.get('updated_at', now)
         }
 
-    def save_meal_plan(self, user_id: str, plan_data: dict) -> tuple[bool, str | None]:
+    def save_meal_plan(self, user_id: str, plan_data: dict):
         """
-        Saves a user's meal plan using RPC.
+        Saves a user's meal plan using direct table insertion to match React code structure.
+        Returns the inserted meal plan data.
         """
         try:
             print(f"[DEBUG] Saving meal plan for user: {user_id}, plan_data: {plan_data}")
-            # Normalize the plan_data before saving
-            normalized_plan = self.normalize_meal_plan_entry(plan_data, user_id)
-            plan_data_json = json.dumps(normalized_plan)
-            result = self.supabase.rpc('upsert_meal_plan', {
-                'p_user_id': user_id,
-                'p_plan_data': plan_data_json
-            }).execute()
-            print(f"[DEBUG] Supabase RPC result: data={result.data} count={getattr(result, 'count', None)}")
-            if result.data:
-                if isinstance(result.data, dict) and result.data.get('status') == 'success':
-                    return True, None
-                elif isinstance(result.data, list) and result.data and result.data[0].get('status') == 'success':
-                    return True, None
-                else:
-                    if isinstance(result.data, dict):
-                        error = result.data.get('message', 'Failed to save meal plan')
-                    elif isinstance(result.data, list) and result.data:
-                        error = result.data[0].get('message', 'Failed to save meal plan')
-                    else:
-                        error = 'Failed to save meal plan'
-                    print(f"[ERROR] Supabase RPC error: {error}")
-                    return False, error
+
+            # Extract data from plan_data to match React structure
+            name = plan_data.get('name')
+            start_date = plan_data.get('startDate') or plan_data.get('start_date')
+            end_date = plan_data.get('endDate') or plan_data.get('end_date')
+            meal_plan = plan_data.get('mealPlan') or plan_data.get('meal_plan')
+            
+            print(f"[DEBUG] Extracted data - name: {name}, start_date: {start_date}, end_date: {end_date}")
+            print(f"[DEBUG] meal_plan data: {meal_plan}")
+            print(f"[DEBUG] meal_plan type: {type(meal_plan)}")
+
+            # Create insert data matching React structure
+            insert_data = {
+                'user_id': user_id,
+                'name': name,
+                'start_date': start_date,
+                'end_date': end_date,
+                'meal_plan': meal_plan,
+                'created_at': plan_data.get('created_at') or datetime.utcnow().isoformat() + 'Z',
+                'updated_at': plan_data.get('updated_at') or datetime.utcnow().isoformat() + 'Z'
+            }
+
+            # Insert directly into table using Python client syntax
+            result = self.supabase.table('meal_plan_management').insert(insert_data).execute()
+
+            print(f"[DEBUG] Supabase insert result: data={result.data}")
+
+            if result.data and len(result.data) > 0:
+                # Get the inserted record (first item in the array)
+                inserted_data = result.data[0]
+                
+                print(f"[DEBUG] inserted_data = {inserted_data}")
+                
+                # Return data in the format expected by frontend
+                return {
+                    'id': inserted_data['id'],
+                    'name': inserted_data['name'],
+                    'startDate': inserted_data['start_date'],
+                    'endDate': inserted_data['end_date'],
+                    'mealPlan': inserted_data['meal_plan'],
+                    'createdAt': inserted_data['created_at'],
+                    'updatedAt': inserted_data['updated_at']
+                }
             else:
-                print(f"[ERROR] Supabase RPC error: No data returned")
-                return False, 'Failed to save meal plan'
+                print(f"[ERROR] Supabase insert error: No data returned")
+                return None, 'Failed to save meal plan'
+
         except Exception as e:
             print(f"[ERROR] Exception in save_meal_plan: {e}")
-            return False, str(e)
+            return None, str(e)
+    # def save_meal_plan(self, user_id: str, plan_data: dict) -> tuple[bool, str | None]:
+    #     """
+    #     Saves a user's meal plan using RPC.
+    #     """
+    #     try:
+    #         print(f"[DEBUG] Saving meal plan for user: {user_id}, plan_data: {plan_data}")
+    #         # Normalize the plan_data before saving
+    #         normalized_plan = self.normalize_meal_plan_entry(plan_data, user_id)
+    #         plan_data_json = json.dumps(normalized_plan)
+    #         result = self.supabase.rpc('upsert_meal_plan', {
+    #             'p_user_id': user_id,
+    #             'p_plan_data': plan_data_json
+    #         }).execute()
+    #         print(f"[DEBUG] Supabase RPC result: data={result.data} count={getattr(result, 'count', None)}")
+    #         if result.data:
+    #             if isinstance(result.data, dict) and result.data.get('status') == 'success':
+    #                 return True, None
+    #             elif isinstance(result.data, list) and result.data and result.data[0].get('status') == 'success':
+    #                 return True, None
+    #             else:
+    #                 if isinstance(result.data, dict):
+    #                     error = result.data.get('message', 'Failed to save meal plan')
+    #                 elif isinstance(result.data, list) and result.data:
+    #                     error = result.data[0].get('message', 'Failed to save meal plan')
+    #                 else:
+    #                     error = 'Failed to save meal plan'
+    #                 print(f"[ERROR] Supabase RPC error: {error}")
+    #                 return False, error
+    #         else:
+    #             print(f"[ERROR] Supabase RPC error: No data returned")
+    #             return False, 'Failed to save meal plan'
+    #     except Exception as e:
+    #         print(f"[ERROR] Exception in save_meal_plan: {e}")
+    #         return False, str(e)t
 
     def get_meal_plans(self, user_id: str) -> tuple[list | None, str | None]:
         """
-        Retrieves a user's meal plans using RPC.
+        Retrieves a user's meal plans using direct table query.
 
         Args:
             user_id (str): The Supabase user ID.
@@ -358,23 +415,20 @@ class SupabaseService:
                                           (None, error_message) on failure.
         """
         try:
-            result = self.supabase.rpc('get_user_meal_plans', {
-                'p_user_id': user_id
-            }).execute()
+            print(f"[DEBUG] Fetching meal plans for user: {user_id}")
             
-            # The RPC function returns the data directly as a JSONB array
-            # or null if no records, or an error object if there's an exception
-            if result.data:
-                if isinstance(result.data[0], dict) and result.data[0].get('status') == 'error':
-                    # Error case
-                    error = result.data[0].get('message', 'Failed to fetch meal plans')
-                    return None, error
-                else:
-                    # Success case - data is returned directly as array
-                    return result.data[0] if result.data[0] is not None else [], None
+            # Query the meal_plan_management table directly
+            result = self.supabase.table('meal_plan_management').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
+            
+            print(f"[DEBUG] Query result: {result.data}")
+            
+            if result.data is not None:
+                # Return the list of meal plans
+                return result.data, None
             else:
                 return [], None
         except Exception as e:
+            print(f"[ERROR] Exception in get_meal_plans: {e}")
             return None, str(e)
 
     def save_session(self, user_id: str, session_id: str, session_data: dict, created_at: str) -> tuple[bool, str | None]:
@@ -563,27 +617,24 @@ class SupabaseService:
 
     def delete_meal_plan(self, user_id: str, plan_id: str) -> tuple[bool, str | None]:
         """
-        Deletes a meal plan using RPC.
-
-        Args:
-            user_id (str): The Supabase user ID.
-            plan_id (str): The meal plan ID to delete.
-
-        Returns:
-            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        Deletes a meal plan using direct table operations.
         """
         try:
-            result = self.supabase.rpc('delete_meal_plan', {
-                'p_user_id': user_id,
-                'p_plan_id': plan_id
-            }).execute()
+            print(f"[DEBUG] Attempting to delete meal plan {plan_id} for user {user_id}")
             
-            if result.data and result.data[0].get('status') == 'success':
+            # Delete directly from table
+            result = self.supabase.table('meal_plan_management').delete().eq('user_id', user_id).eq('id', plan_id).execute()
+            
+            print(f"[DEBUG] Delete result: {result}")
+            
+            if result.data:
+                print(f"[DEBUG] Delete successful")
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to delete meal plan'
-                return False, error
+                print(f"[DEBUG] No rows deleted")
+                return False, 'Meal plan not found or not authorized'
         except Exception as e:
+            print(f"[DEBUG] Exception in delete_meal_plan: {e}")
             return False, str(e)
 
     def clear_meal_plans(self, user_id: str) -> tuple[bool, str | None]:

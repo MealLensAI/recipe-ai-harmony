@@ -41,10 +41,10 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
     setSelectedDate(newDate);
   };
 
-  const handleDeletePlan = (plan: SavedMealPlan) => {
+  const handleDeletePlan = async (plan: SavedMealPlan) => {
     if (confirm(`Are you sure you want to delete "${plan.name}"?`)) {
       try {
-        deleteMealPlan(plan.id);
+        await deleteMealPlan(plan.id); // <-- await here!
         toast({
           title: "Plan Deleted",
           description: `"${plan.name}" has been deleted successfully.`,

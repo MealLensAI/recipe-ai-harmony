@@ -1,56 +1,30 @@
 "use client"
 import { useEffect, useState, useRef } from "react"
-import { useNavigate, Navigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Upload, ArrowLeft, Loader2, Utensils, Clock, Users, Bookmark, ArrowRight, Share2 } from "lucide-react" // Added Share2 icon
-import "@/styles/detect-food.css"
-// Removed: import { supabase } from "@/lib/supabase" // This import was removed in your provided file
+import { Upload, Loader2, Utensils } from "lucide-react"
 import { useAuth } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast" // Import useToast for feedback
+import { useToast } from "@/hooks/use-toast"
 import LoadingSpinner from "@/components/LoadingSpinner"
-
-interface DetectedFood {
-  name: string
-  confidence: number
-  nutrition?: {
-    calories: number
-    protein: number
-    carbs: number
-    fat: number
-  }
-}
-
-interface Recipe {
-  name: string
-  description: string
-  cookTime: string
-  servings: number
-  difficulty: string
-  ingredients: string[]
-  instructions: string[]
-  image?: string
-}
 
 const DetectFoodPage = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [currentStep, setCurrentStep] = useState(1) // New state for multi-step form
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [instructions, setInstructions] = useState<string>("")
   const [detectedFoods, setDetectedFoods] = useState<string[]>([])
   const [resources, setResources] = useState<any>(null)
-  const [isLoadingResources, setIsLoadingResources] = useState(false)
-  const { toast } = useToast() // Initialize useToast
+  const [loadingResources, setLoadingResources] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const { toast } = useToast()
   const { token, isAuthenticated, loading } = useAuth()
-  const [hasAutoSaved, setHasAutoSaved] = useState(false)
 
   if (loading) {
     return <LoadingSpinner />
   }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
@@ -75,6 +49,18 @@ const DetectFoodPage = () => {
     )
   }
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
   const handleSubmit = async () => {
     if (!selectedImage) return
     
@@ -82,7 +68,7 @@ const DetectFoodPage = () => {
     setInstructions("")
     setDetectedFoods([])
     setResources(null)
-    setHasAutoSaved(false) // Reset auto-save state for new detection
+    setShowResults(false)
     const formData = new FormData()
     formData.append("image", selectedImage)
     
@@ -103,16 +89,53 @@ const DetectFoodPage = () => {
         return
       }
       
-      setInstructions(data.instructions || "")
+      // Format instructions like in the HTML version
+      let formattedInstructions = data.instructions || ""
+      
+      // Apply the same formatting as in the HTML
+      formattedInstructions = formattedInstructions.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
+      formattedInstructions = formattedInstructions.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
+      formattedInstructions = formattedInstructions.replace(/(\d+\.)/g, '<br>$1')
+      
+      setInstructions(formattedInstructions)
       setDetectedFoods(data.food_detected || [])
       console.log("[DetectFood] Detected foods:", data.food_detected)
       
-      // Move to step 2 immediately after detection
-      setCurrentStep(2)
+      // Show results immediately after detection
+      setShowResults(true)
+      
+      // Save to detection history
+      if (token && data.food_detected && data.instructions) {
+        const payload = {
+          recipe_type: "food_detection",
+          suggestion: data.food_detected.join(", "),
+          instructions: data.instructions,
+          ingredients: JSON.stringify(data.food_detected || []),
+          detected_foods: JSON.stringify(data.food_detected || []),
+          analysis_id: data.analysis_id || "",
+          youtube: "",
+          google: "",
+          resources: "{}"
+        };
+        
+        try {
+          await fetch("/api/food_detection/detection_history", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload)
+          });
+          console.log("[DetectFood] Saved to detection history");
+        } catch (historyError) {
+          console.error("[DetectFood] Error saving to history:", historyError);
+        }
+      }
       
       // Fetch resources automatically when instructions are displayed
       if (data.food_detected && data.food_detected.length > 0) {
-        setIsLoadingResources(true)
+        setLoadingResources(true)
         try {
           console.log("[DetectFood] Fetching resources for:", data.food_detected)
           const resResponse = await fetch("https://ai-utu2.onrender.com/food_detect_resources", {
@@ -135,6 +158,30 @@ const DetectFoodPage = () => {
             const resData = await resResponse.json()
             console.log("[DetectFood] Resources data received:", resData)
             setResources(resData)
+            
+            // Update history with resources
+            if (token && data.analysis_id) {
+              const updatePayload = {
+                food_analysis_id: data.analysis_id,
+                youtube_link: resData?.YoutubeSearch?.[0]?.link || "",
+                google_link: resData?.GoogleSearch?.[0]?.link || "",
+                resources_link: JSON.stringify(resData || {})
+              };
+              
+              try {
+                await fetch("/api/food_detection/food_detect_resources", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(updatePayload)
+                });
+                console.log("[DetectFood] Updated history with resources");
+              } catch (updateError) {
+                console.error("[DetectFood] Error updating history with resources:", updateError);
+              }
+            }
           }
         } catch (resourceError) {
           console.error("[DetectFood] Error fetching resources:", resourceError)
@@ -145,7 +192,7 @@ const DetectFoodPage = () => {
           })
           setResources(null)
         } finally {
-          setIsLoadingResources(false)
+          setLoadingResources(false)
         }
       } else {
         console.warn("[DetectFood] No detected foods, skipping resources fetch.")
@@ -162,356 +209,265 @@ const DetectFoodPage = () => {
     }
   }
 
-  const handleShareDetection = async () => {
-    if (!token || !isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to share your detection.",
-        variant: "destructive",
-      })
-      return
+  const getYouTubeVideoId = (url: string) => {
+    if (!url) {
+      console.error('Invalid URL:', url);
+      return null;
     }
-    if (!detectedFoods.length || !instructions || !resources) {
-      toast({
-        title: "Incomplete Detection",
-        description: "Please complete detection and ensure resources are loaded before sharing.",
-        variant: "destructive",
-      })
-      return
-    }
-    setIsLoading(true)
-    try {
-      const payload = {
-        recipe_type: "food_detection",
-        suggestion: detectedFoods.join(", "), // Use detected foods as suggestion
-        instructions: instructions,
-        ingredients: JSON.stringify(detectedFoods), // Stringify the array
-        detected_foods: JSON.stringify(detectedFoods), // Stringify the array
-        analysis_id: "", // Empty for food detection
-        youtube: resources?.YoutubeSearch?.[0]?.link || "",
-        google: resources?.GoogleSearch?.[0]?.link || "",
-        resources: JSON.stringify(resources) // Stringify the entire resources object
-      }
-      
-      console.log("Sharing detection with payload:", payload)
-      console.log("Token being used:", token ? `${token.substring(0, 20)}...` : "No token")
-      
-      const response = await fetch("/api/food_detection/detection_history", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        body: JSON.stringify(payload),
-      })
-      
-      console.log("Share response status:", response.status)
-      
-      if (response.ok) {
-        const responseData = await response.json()
-        console.log("Share response data:", responseData)
-        toast({
-          title: "Detection Shared!",
-          description: "Your food detection has been successfully saved to history.",
-        })
-      } else {
-        const errorData = await response.json()
-        console.error("Share failed with error:", errorData)
-        toast({
-          title: "Share Failed",
-          description: errorData.message || "Could not save detection to history.",
-          variant: "destructive",
-        })
-      }
-    } catch (e: any) {
-      console.error("Error sharing detection:", e)
-      toast({
-        title: "Error",
-        description: e.message || "An unexpected error occurred while sharing.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Auto-save detection history when all data is ready
-  useEffect(() => {
-    console.log("[DetectFood] Auto-save useEffect triggered", {
-      hasAutoSaved,
-      instructions,
-      detectedFoods,
-      resources,
-      token,
-      isAuthenticated
-    })
-    if (
-      !hasAutoSaved &&
-      instructions &&
-      detectedFoods.length > 0 &&
-      resources &&
-      token &&
-      isAuthenticated
-    ) {
-      console.log("[DetectFood] Triggering autoSaveDetectionHistory...")
-      autoSaveDetectionHistory()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instructions, detectedFoods, resources, token, isAuthenticated])
-
-  const autoSaveDetectionHistory = async () => {
-    setHasAutoSaved(true)
-    try {
-      const payload = {
-        recipe_type: "food_detection",
-        suggestion: detectedFoods.join(", "),
-        instructions: instructions,
-        ingredients: JSON.stringify(detectedFoods),
-        detected_foods: JSON.stringify(detectedFoods),
-        analysis_id: "",
-        youtube: resources?.YoutubeSearch?.[0]?.link || "",
-        google: resources?.GoogleSearch?.[0]?.link || "",
-        resources: JSON.stringify(resources)
-      }
-      console.log("[DetectFood] [AutoSave] Uploading detection with payload:", payload)
-      const response = await fetch("/api/food_detection/detection_history", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        body: JSON.stringify(payload),
-      })
-      console.log("[DetectFood] [AutoSave] POST response status:", response.status)
-      if (response.ok) {
-        const responseData = await response.json()
-        console.log("[DetectFood] [AutoSave] Detection auto-saved:", responseData)
-        toast({
-          title: "Detection Saved!",
-          description: "Your food detection has been automatically saved to history.",
-        })
-      } else {
-        const errorData = await response.json()
-        console.error("[DetectFood] [AutoSave] Auto-save failed:", errorData)
-        toast({
-          title: "Auto-save Failed",
-          description: errorData.message || "Could not auto-save detection to history.",
-          variant: "destructive",
-        })
-        setHasAutoSaved(false) // allow retry if needed
-      }
-    } catch (e: any) {
-      console.error("[DetectFood] [AutoSave] Error auto-saving detection:", e)
-      toast({
-        title: "Auto-save Error",
-        description: e.message || "An unexpected error occurred while auto-saving.",
-        variant: "destructive",
-      })
-      setHasAutoSaved(false)
-    }
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2] && match[2].length === 11) ? match[2] : null;
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-      <div className="max-w-4xl w-full bg-white rounded-2xl shadow-xl p-6 sm:p-8 lg:p-10 space-y-6">
-        {/* Step 1: Image Upload */}
-        {currentStep === 1 && (
-          <Card className="shadow-lg border-none">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-800">Upload Food Image</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl transition-all hover:border-red-400 hover:bg-red-50">
-                <label htmlFor="fileInput" className="cursor-pointer text-red-500 font-semibold flex items-center">
-                  <Upload className="h-5 w-5 mr-2" /> Choose or Drag an Image
-                </label>
+    <div 
+      className="min-h-screen p-8 text-[#2D3436] leading-[1.6]"
+      style={{
+        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+        background: "url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed",
+        padding: "2rem 1rem"
+      }}
+    >
+      <style>{`
+        @keyframes loading-slide {
+          0% { left: -30%; }
+          100% { left: 100%; }
+        }
+      `}</style>
+
+      <div className="max-w-[800px] mx-auto">
+        <div 
+          className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative"
+        >
+          {/* Header */}
+          {/* Removed Home and Sign Out buttons */}
+
+          {/* Title */}
+          <h1 
+            className="text-[2.5rem] font-[800] text-center mb-8"
+            style={{
+              background: "linear-gradient(135deg, #FF6B6B, #FF8E53)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+              letterSpacing: "-1px"
+            }}
+          >
+            Food Detection
+          </h1>
+
+          {/* Image Input */}
+          <div className="mb-6">
                 <input
-                  ref={fileInputRef}
                   type="file"
                   id="fileInput"
                   accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    setSelectedImage(file || null)
-                    if (file) {
-                      const reader = new FileReader()
-                      reader.onload = () => setImagePreview(reader.result as string)
-                      reader.readAsDataURL(file)
-                    } else {
-                      setImagePreview(null)
-                    }
-                  }}
-                />
-                {imagePreview && (
-                  <div className="mt-4 w-full flex justify-center">
-                    <img
-                      src={imagePreview || "/placeholder.svg"}
-                      alt="Image Preview"
-                      className="max-w-full h-48 object-cover rounded-lg shadow-md"
+              className="w-full p-4 border-2 border-[rgba(0,0,0,0.1)] rounded-2xl text-[1.1rem] transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
+              onChange={handleImageSelect}
+            />
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
+              <img 
+                id="imagePreview" 
+                src={imagePreview || ""} 
+                alt="Image Preview" 
+                style={{ 
+                  display: imagePreview ? "block" : "none", 
+                  width: "400px", 
+                  height: "300px", 
+                  objectFit: "cover", 
+                  borderRadius: "1rem" 
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button 
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-2xl py-4 px-8 text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Submit
+          </button>
+
+          {/* Loading Spinner */}
+          {isLoading && (
+            <div className="flex justify-center mt-8">
+              <div className="w-12 h-12 border-4 border-[rgba(255,107,107,0.3)] border-t-[#FF6B6B] rounded-full animate-spin"></div>
+            </div>
+          )}
+
+          {/* Results */}
+          {showResults && (
+            <div className="mt-4">
+              {/* Instructions Section */}
+              {instructions && (
+                <div 
+                  className="mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                >
+                  <div className="p-4 mt-2.5">
+                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                      Cooking Instructions
+                    </h5>
+                    <div 
+                      className="leading-[1.4] m-0 text-left"
+                      style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
+                      dangerouslySetInnerHTML={{ __html: instructions }}
                     />
                   </div>
-                )}
               </div>
+              )}
 
-              <Button
-                className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleSubmit}
-                disabled={isLoading || !selectedImage}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Detecting...
-                  </>
-                ) : (
-                  "Submit"
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 2: Detected Food & Instructions */}
-        {currentStep === 2 && (
-          <div className="space-y-6">
-            {(detectedFoods.length > 0 || instructions) && (
-              <Card className="shadow-lg border-none">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
-                    <Utensils className="h-5 w-5 mr-2 text-red-500" /> Detected Food
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Changed <p> to <div> to fix DOM nesting warning */}
-                  <div className="text-gray-700">
-                    <strong>Food Items:</strong>{" "}
-                    <Badge variant="secondary" className="bg-red-100 text-red-700">
-                      {detectedFoods.join(", ")}
-                    </Badge>
-                  </div>
-                  {instructions && (
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                        <Clock className="h-5 w-5 mr-2 text-red-500" /> Cooking Instructions
-                      </h3>
-                      <div
-                        className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: instructions }}
-                      />
+              {/* Resources Section */}
+              {loadingResources && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  {/* YouTube Resources Loading */}
+                  <div 
+                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                  >
+                    <div className="p-4 mt-2.5">
+                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                        Youtube Resources
+                      </h5>
+                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
+                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
+                        <div 
+                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
+                          style={{
+                            animation: 'loading-slide 1.5s ease-in-out infinite'
+                          }}
+                        ></div>
+                      </div>
+                      <div className="text-center">Loading video tutorials...</div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            {isLoadingResources && (
-              <Card className="shadow-lg border-none">
-                <CardContent className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mr-3 text-red-500" />
-                  <span className="text-gray-600">Fetching cooking resources...</span>
-                </CardContent>
-              </Card>
-            )}
-            <div className="flex justify-between mt-6">
-              <Button variant="outline" onClick={() => setCurrentStep(1)} disabled={isLoading}>
-                <ArrowLeft className="h-4 w-4 mr-2" /> Back
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setCurrentStep(3)} 
-                disabled={isLoading || isLoadingResources || !resources}
-              >
-                Next <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+                  </div>
+
+                  {/* Google Resources Loading */}
+                  <div 
+                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                  >
+                    <div className="p-4 mt-2.5">
+                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                        Google Resources
+                      </h5>
+                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
+                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
+                        <div 
+                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
+                          style={{
+                            animation: 'loading-slide 1.5s ease-in-out infinite'
+                          }}
+                        ></div>
+                      </div>
+                      <div className="text-center">Loading articles...</div>
+                    </div>
             </div>
           </div>
         )}
 
-        {/* Step 3: Resources */}
-        {currentStep === 3 && (
-          <div className="space-y-6">
-            {resources && (
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="shadow-lg border-none">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
-                      <Users className="h-5 w-5 mr-2 text-red-500" /> Youtube Resources
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
-                      resources.YoutubeSearch.map((item: any, idx: number) => {
-                        // Added null/undefined check for item.link
-                        const videoId = item.link?.match(/(?:v=|\/)([0-9A-Za-z_-]{11}).*/)
-                        return videoId ? (
-                          <div key={idx} className="relative w-full aspect-video rounded-lg overflow-hidden shadow-md">
-                            <iframe
-                              src={`https://www.youtube.com/embed/${videoId[1]}`}
-                              title={item.title}
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              className="absolute top-0 left-0 w-full h-full border-0"
-                            />
-                          </div>
-                        ) : (
-                          <a
-                            key={idx}
-                            href={item.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block p-3 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors duration-200 shadow-sm"
-                          >
-                            <h3 className="text-base font-semibold text-red-600 hover:underline">{item.title}</h3>
-                          </a>
-                        )
-                      })
-                    ) : (
-                      <p className="text-gray-500">No video tutorials available.</p>
-                    )}
-                  </CardContent>
-                </Card>
-                <Card className="shadow-lg border-none">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold text-gray-800 flex items-center">
-                      <Bookmark className="h-5 w-5 mr-2 text-red-500" /> Google Resources
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+              {/* Resources Content */}
+              {resources && !loadingResources && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  {/* YouTube Resources */}
+                  <div 
+                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                  >
+                    <div className="p-4 mt-2.5">
+                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                        Youtube Resources
+                      </h5>
+                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
+                      {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
+                        <div className="space-y-6">
+                          {/* Flatten the nested arrays like in the HTML version */}
+                          {resources.YoutubeSearch.flat().map((item: any, idx: number) => {
+                            // Add null checks for item and item.link
+                            if (!item || !item.link) {
+                              console.warn('Invalid YouTube item:', item);
+                              return null;
+                            }
+                            
+                            const videoId = getYouTubeVideoId(item.link);
+                            return videoId ? (
+                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                                <div className="relative w-full aspect-video bg-black">
+                                  <iframe
+                                    src={`https://www.youtube.com/embed/${videoId}`}
+                                    title={item.title || 'YouTube Video'}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    className="w-full h-full rounded-t-2xl"
+                                  />
+                                </div>
+                                <div className="p-6">
+                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title || 'Untitled Video'}</h4>
+                                  <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                                <div className="p-6">
+                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title || 'Untitled Video'}</h4>
+                                  <a
+                                    href={item.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
+                                  >
+                                    Watch Tutorial
+                                  </a>
+                                </div>
+                              </div>
+                            )
+                          }).filter(Boolean)} {/* Filter out null items */}
+                        </div>
+                      ) : (
+                        <p className="text-center text-gray-600">No video tutorials available.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Google Resources */}
+                  <div 
+                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                  >
+                    <div className="p-4 mt-2.5">
+                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                        Google Resources
+                      </h5>
+                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
                     {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
-                      resources.GoogleSearch.map((item: any, idx: number) => (
-                        <a
-                          key={idx}
+                        <div className="space-y-6">
+                          {/* Flatten the nested arrays like in the HTML version */}
+                          {resources.GoogleSearch.flat().map((item: any, idx: number) => (
+                            <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                              <div className="p-6">
+                                <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
+                                <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
+                                <a
                           href={item.link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block p-3 rounded-md bg-gray-50 hover:bg-gray-100 transition-colors duration-200 shadow-sm"
+                                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
                         >
-                          <h3 className="text-base font-semibold text-red-600 hover:underline">{item.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{item.description}</p>
+                                  Read More
                         </a>
-                      ))
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                     ) : (
-                      <p className="text-gray-500">No articles available.</p>
+                        <p className="text-center text-gray-600">No articles available.</p>
                     )}
-                  </CardContent>
-                </Card>
+                    </div>
+                  </div>
               </div>
             )}
-            <div className="flex justify-between mt-6">
-              <Button variant="outline" onClick={() => setCurrentStep(2)} disabled={isLoading}>
-                <ArrowLeft className="h-4 w-4 mr-2" /> Back
-              </Button>
-              <Button
-                className="py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleShareDetection}
-                disabled={isLoading || (!detectedFoods.length || !instructions || !resources) || hasAutoSaved}
-              >
-                <Share2 className="mr-2 h-5 w-5" /> Share Detection
-              </Button>
             </div>
+          )}
           </div>
-        )}
       </div>
-    </main>
+    </div>
   )
 }
 

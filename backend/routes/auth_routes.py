@@ -4,6 +4,7 @@ import os
 import json
 from services.auth_service import AuthService
 from supabase import Client
+from utils.auth_utils import get_user_id_from_token
 
 auth_bp = Blueprint('auth', __name__)
 

@@ -27,30 +27,49 @@ export const useMealPlans = () => {
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch all meal plans from Supabase on mount
+  // Fetch all meal plans from backend API on mount
   useEffect(() => {
     const fetchPlans = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('meal_plan_management')
-        .select('*')
-        .order('updated_at', { ascending: false });
-      if (error) {
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        console.log('[DEBUG] Received meal plans response:', result);
+        
+        if (result.status === 'success' && result.meal_plans) {
+          const plans = result.meal_plans.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.start_date,
+            endDate: plan.end_date,
+            mealPlan: plan.meal_plan,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          }));
+          console.log('[DEBUG] Processed meal plans:', plans);
+          setSavedPlans(plans);
+          if (plans.length > 0) setCurrentPlan(plans[0]);
+        } else {
+          console.error('Error fetching meal plans:', result.message);
+          setSavedPlans([]);
+          setCurrentPlan(null);
+        }
+      } catch (error) {
         console.error('Error fetching meal plans:', error);
         setSavedPlans([]);
         setCurrentPlan(null);
-      } else {
-        const plans = (data || []).map((plan: any) => ({
-          id: plan.id,
-          name: plan.name,
-          startDate: plan.start_date,
-          endDate: plan.end_date,
-          mealPlan: plan.meal_plan,
-          createdAt: plan.created_at,
-          updatedAt: plan.updated_at,
-        }));
-        setSavedPlans(plans);
-        if (plans.length > 0) setCurrentPlan(plans[0]);
       }
       setLoading(false);
     };
@@ -73,33 +92,59 @@ export const useMealPlans = () => {
     try {
       const now = new Date();
       const weekDates = startDate ? generateWeekDates(startDate) : generateWeekDates(now);
-      const { data, error } = await supabase
-        .from('meal_plan_management')
-        .insert([
-          {
-            name: weekDates.name,
-            start_date: weekDates.startDate,
-            end_date: weekDates.endDate,
-            meal_plan: mealPlan,
-            created_at: now.toISOString(),
-            updated_at: now.toISOString(),
-          }
-        ])
-        .select()
-        .single();
-      if (error) throw error;
-      const newPlan: SavedMealPlan = {
-        id: data.id,
-        name: data.name,
-        startDate: data.start_date,
-        endDate: data.end_date,
-        mealPlan: data.meal_plan,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+
+      const planData = {
+        name: weekDates.name,
+        start_date: weekDates.startDate,
+        end_date: weekDates.endDate,
+        meal_plan: mealPlan,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString()
       };
-      setSavedPlans(prev => [newPlan, ...prev]);
-      setCurrentPlan(newPlan);
-      return newPlan;
+
+      console.log('[DEBUG] Sending meal plan data:', planData);
+
+      const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        },
+        body: JSON.stringify(planData)
+      });
+
+      if (!response.ok) {
+        // Try to parse the error message from the response
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (e) {
+          // If we can't parse the response as JSON, use the generic error
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.data) {
+        const newPlan: SavedMealPlan = {
+          id: result.data.id,
+          name: result.data.name,
+          startDate: result.data.startDate,
+          endDate: result.data.endDate,
+          mealPlan: result.data.mealPlan,
+          createdAt: result.data.createdAt,
+          updatedAt: result.data.updatedAt,
+        };
+        setSavedPlans(prev => [newPlan, ...prev]);
+        setCurrentPlan(newPlan);
+        return newPlan;
+      } else {
+        throw new Error(result.message || 'Failed to save meal plan');
+      }
     } catch (error) {
       console.error('Error saving meal plan:', error);
       throw error;
@@ -112,23 +157,39 @@ export const useMealPlans = () => {
     setLoading(true);
     try {
       const now = new Date();
-      const { data, error } = await supabase
-        .from('meal_plan_management')
-        .update({ meal_plan: mealPlan, updated_at: now.toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-      if (error) throw error;
-      setSavedPlans(prev => prev.map(plan => plan.id === id ? {
-        ...plan,
-        mealPlan: data.meal_plan,
-        updatedAt: data.updated_at,
-      } : plan));
-      setCurrentPlan(prev => prev?.id === id ? {
-        ...prev,
-        mealPlan: data.meal_plan,
-        updatedAt: data.updated_at,
-      } : prev);
+      const response = await fetch(`http://127.0.0.1:5000/api/meal_plans/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        },
+        body: JSON.stringify({ 
+          meal_plan: mealPlan, 
+          updated_at: now.toISOString() 
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        // Update local state
+        setSavedPlans(prev => prev.map(plan => plan.id === id ? {
+          ...plan,
+          mealPlan: mealPlan,
+          updatedAt: now.toISOString(),
+        } : plan));
+        setCurrentPlan(prev => prev?.id === id ? {
+          ...prev,
+          mealPlan: mealPlan,
+          updatedAt: now.toISOString(),
+        } : prev);
+      } else {
+        throw new Error(result.message || 'Failed to update meal plan');
+      }
     } catch (error) {
       console.error('Error updating meal plan:', error);
       throw error;
@@ -140,17 +201,28 @@ export const useMealPlans = () => {
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('meal_plan_management')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      const remainingPlans = savedPlans.filter(plan => plan.id !== id);
-      setSavedPlans(remainingPlans);
-      if (remainingPlans.length > 0) {
-        setCurrentPlan(remainingPlans[0]);
+      const response = await fetch(`http://127.0.0.1:5000/api/meal_plans/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setSavedPlans(prev => {
+          const remainingPlans = prev.filter(plan => plan.id !== id);
+          setCurrentPlan(remainingPlans.length > 0 ? remainingPlans[0] : null);
+          return remainingPlans;
+        });
       } else {
-        setCurrentPlan(null);
+        throw new Error(result.message || 'Failed to delete meal plan');
       }
     } catch (error) {
       console.error('Error deleting meal plan:', error);
@@ -170,45 +242,75 @@ export const useMealPlans = () => {
   const duplicateMealPlan = async (id: string, newStartDate: Date) => {
     const originalPlan = savedPlans.find(p => p.id === id);
     if (!originalPlan) return;
+    
     const weekDates = generateWeekDates(newStartDate);
     const now = new Date();
-    const { data, error } = await supabase
-      .from('meal_plan_management')
-      .insert([
-        {
-          name: weekDates.name,
-          start_date: weekDates.startDate,
-          end_date: weekDates.endDate,
-          meal_plan: originalPlan.mealPlan,
-          created_at: now.toISOString(),
-          updated_at: now.toISOString(),
-        }
-      ])
-      .select()
-      .single();
-    if (error) throw error;
-    const duplicatedPlan: SavedMealPlan = {
-      id: data.id,
-      name: data.name,
-      startDate: data.start_date,
-      endDate: data.end_date,
-      mealPlan: data.meal_plan,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+    
+    const planData = {
+      name: weekDates.name,
+      start_date: weekDates.startDate,
+      end_date: weekDates.endDate,
+      meal_plan: originalPlan.mealPlan,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
     };
-    setSavedPlans(prev => [duplicatedPlan, ...prev]);
-    setCurrentPlan(duplicatedPlan);
-    return duplicatedPlan;
+
+    const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+      },
+      body: JSON.stringify(planData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.status === 'success' && result.data) {
+      const duplicatedPlan: SavedMealPlan = {
+        id: result.data.id,
+        name: result.data.name,
+        startDate: result.data.startDate,
+        endDate: result.data.endDate,
+        mealPlan: result.data.mealPlan,
+        createdAt: result.data.createdAt,
+        updatedAt: result.data.updatedAt,
+      };
+      setSavedPlans(prev => [duplicatedPlan, ...prev]);
+      setCurrentPlan(duplicatedPlan);
+      return duplicatedPlan;
+    } else {
+      throw new Error(result.message || 'Failed to duplicate meal plan');
+    }
   };
 
   const clearAllPlans = async () => {
     setLoading(true);
     try {
-      // Delete all plans from Supabase
-      const { error } = await supabase.from('meal_plan_management').delete().neq('id', '');
-      if (error) throw error;
-      setSavedPlans([]);
-      setCurrentPlan(null);
+      const response = await fetch('http://127.0.0.1:5000/api/meal_plans/clear', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setSavedPlans([]);
+        setCurrentPlan(null);
+      } else {
+        throw new Error(result.message || 'Failed to clear meal plans');
+      }
     } catch (error) {
       console.error('Error clearing all meal plans:', error);
       throw error;
@@ -219,25 +321,41 @@ export const useMealPlans = () => {
 
   const refreshMealPlans = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('meal_plan_management')
-      .select('*')
-      .order('updated_at', { ascending: false });
-    if (error) {
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.meal_plans) {
+        const plans = result.meal_plans.map((plan: any) => ({
+          id: plan.id,
+          name: plan.name,
+          startDate: plan.start_date,
+          endDate: plan.end_date,
+          mealPlan: plan.meal_plan,
+          createdAt: plan.created_at,
+          updatedAt: plan.updated_at,
+        }));
+        setSavedPlans(plans);
+        setCurrentPlan(plans.length > 0 ? plans[0] : null);
+      } else {
+        setSavedPlans([]);
+        setCurrentPlan(null);
+      }
+    } catch (error) {
+      console.error('Error refreshing meal plans:', error);
       setSavedPlans([]);
       setCurrentPlan(null);
-    } else {
-      const plans = (data || []).map((plan: any) => ({
-        id: plan.id,
-        name: plan.name,
-        startDate: plan.start_date,
-        endDate: plan.end_date,
-        mealPlan: plan.meal_plan,
-        createdAt: plan.created_at,
-        updatedAt: plan.updated_at,
-      }));
-      setSavedPlans(plans);
-      setCurrentPlan(plans.length > 0 ? plans[0] : null);
     }
     setLoading(false);
   };

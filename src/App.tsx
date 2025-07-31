@@ -13,7 +13,9 @@ import MainLayout from "./components/MainLayout"
 import { Toaster } from "@/components/ui/toaster"
 import "./App.css"
 import HistoryPage from "./pages/History"
+import HistoryDetailPage from "./pages/HistoryDetailPage"
 import { AuthProvider } from "@/lib/AuthProvider"
+import Payment from "./pages/Payment";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
@@ -61,6 +63,26 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout>
           <HistoryPage />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/history/:id",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <HistoryDetailPage />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/payment",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <Payment />
         </MainLayout>
       </ProtectedRoute>
     )

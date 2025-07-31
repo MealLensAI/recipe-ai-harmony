@@ -149,8 +149,8 @@ const Index = () => {
       console.log('[Index] API Response:', data);
       console.log('[Index] Meal Plan Data:', data.meal_plan);
       
-      // Save the new meal plan
-      const savedPlan = saveMealPlan(data.meal_plan, selectedDate);
+      // Save the new meal plan and await the result
+      const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
       
       setShowInputModal(false);
       setIngredientList('');
@@ -161,13 +161,46 @@ const Index = () => {
         title: "Success!",
         description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Log the error in detail
       console.error('Error generating meal plan:', error);
+
+      // Try to extract error message from various possible structures
+      let errorMessage = '';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        // Try to extract from nested properties
+        if (error[1]?.message) {
+          errorMessage = error[1].message;
+        } else if (error.details) {
+          errorMessage = error.details;
+        } else {
+          errorMessage = JSON.stringify(error);
+        }
+      }
+
+      // Log the extracted error message for debugging
+      console.log('Extracted error message:', errorMessage);
+
+      if (
+        errorMessage.includes('duplicate key value') &&
+        errorMessage.includes('unique_user_week')
+      ) {
+        toast({
+          title: "Duplicate Plan",
+          description: "A meal plan for this week already exists. Please choose a different week or edit the existing plan.",
+          variant: "destructive",
+        });
+      } else {
       toast({
         title: "Error",
         description: "Failed to generate meal plan. Please try again.",
         variant: "destructive",
       });
+      }
     } finally {
       setIsLoading(false);
     }
