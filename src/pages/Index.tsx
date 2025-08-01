@@ -11,6 +11,30 @@ import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 
+// Countries list for the dropdown
+const countries = [
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+  'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+  'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia',
+  'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
+  'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador',
+  'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
+  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau',
+  'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
+  'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait',
+  'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+  'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
+  'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru',
+  'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+  'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
+  'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe',
+  'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
+  'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
+  'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey',
+  'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu',
+  'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
+];
+
 const Index = () => {
   const [inputType, setInputType] = useState<'image' | 'ingredient_list' | 'auto_sick' | 'auto_healthy'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
@@ -169,7 +193,7 @@ const Index = () => {
           formData.append('sickness', sicknessInfo!.sicknessType);
           formData.append('location', location);
           formData.append('budget', budget);
-          const response = await fetch('http://localhost:5001/auto_sick_smart_plan', {
+          const response = await fetch('https://ai-utu2.onrender.com/auto_sick_smart_plan', {
             method: 'POST',
             body: formData,
           });
@@ -202,7 +226,7 @@ const Index = () => {
           // Auto generate based on location and budget only
           formData.append('location', location);
           formData.append('budget', budget);
-          const response = await fetch('http://localhost:5001/auto_generate_plan', {
+          const response = await fetch('https://ai-utu2.onrender.com/auto_generate_plan', {
             method: 'POST',
             body: formData,
           });
@@ -752,14 +776,17 @@ const Index = () => {
                       <label className="block text-sm font-semibold text-[#2D3436] mb-2">
                         Your Location
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
-                        placeholder="e.g., Lagos, Nigeria"
                         className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
                         disabled={isLoading}
-                      />
+                      >
+                        <option value="">Select a country</option>
+                        {countries.map(country => (
+                          <option key={country} value={country}>{country}</option>
+                        ))}
+                      </select>
                       <p className="text-sm text-[#1e293b] mt-1">
                         This helps us suggest locally available ingredients
                       </p>
@@ -767,7 +794,7 @@ const Index = () => {
 
                     <div>
                       <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Weekly Budget (₦)
+                        Weekly Budget
                       </label>
                       <input
                         type="number"
