@@ -1,7 +1,7 @@
-import { 
-  createBrowserRouter, 
-  RouterProvider, 
-  Navigate 
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate
 } from "react-router-dom"
 import Login from "./pages/Login"
 import Signup from "./pages/Signup"
@@ -18,6 +18,7 @@ import { AuthProvider } from "@/lib/AuthProvider"
 import Payment from "./pages/Payment"
 import ProfilePage from "./pages/ProfilePage"
 import SettingsPage from "./pages/SettingsPage"
+import Settings from "./pages/Settings"
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
@@ -31,6 +32,16 @@ const router = createBrowserRouter([
   },
   {
     path: "/",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <Index />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/ai-kitchen",
     element: (
       <ProtectedRoute>
         <MainLayout>

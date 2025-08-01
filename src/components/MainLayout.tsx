@@ -33,10 +33,10 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const isActive = (path: string) => location.pathname === path
 
   const navItems = [
-    { icon: Home, label: "AI Kitchen", path: "/" },
+    { icon: CalendarDays, label: "Meal Planner", path: "/" },
+    { icon: Home, label: "AI Kitchen", path: "/ai-kitchen" },
     { icon: Camera, label: "Detect Food", path: "/detected" },
     { icon: History, label: "History", path: "/history" },
-    { icon: CalendarDays, label: "Meal Planner", path: "/planner" },
   ]
 
   if (!isAuthenticated) {

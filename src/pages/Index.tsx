@@ -9,9 +9,34 @@ import MealPlanManager from '../components/MealPlanManager';
 import WeekSelector from '../components/WeekSelector';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
+import { useSicknessSettings } from '@/hooks/useSicknessSettings';
+
+// Countries list for the dropdown
+const countries = [
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+  'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+  'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia',
+  'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
+  'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador',
+  'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
+  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau',
+  'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
+  'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait',
+  'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+  'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
+  'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru',
+  'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+  'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
+  'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe',
+  'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
+  'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
+  'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey',
+  'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu',
+  'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
+];
 
 const Index = () => {
-  const [inputType, setInputType] = useState<'image' | 'ingredient_list'>('ingredient_list');
+  const [inputType, setInputType] = useState<'image' | 'ingredient_list' | 'auto_sick' | 'auto_healthy'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -24,19 +49,23 @@ const Index = () => {
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
-  const { 
-    currentPlan, 
-    saveMealPlan, 
-    updateMealPlan, 
-    generateWeekDates, 
-    savedPlans, 
-    selectMealPlan, 
-    clearAllPlans, 
-    refreshMealPlans 
+  const [location, setLocation] = useState('');
+  const [budget, setBudget] = useState('');
+  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
+
+  const {
+    currentPlan,
+    saveMealPlan,
+    updateMealPlan,
+    generateWeekDates,
+    savedPlans,
+    selectMealPlan,
+    clearAllPlans,
+    refreshMealPlans
   } = useMealPlans();
-  
+
   const { toast } = useToast();
+  const { getSicknessInfo } = useSicknessSettings();
 
   const prevShowPlanManager = useRef(showPlanManager);
   useEffect(() => {
@@ -105,38 +134,148 @@ const Index = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    
-    if (inputType === 'ingredient_list' && !ingredientList.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your ingredients list",
-        variant: "destructive",
-      });
-      return;
+
+    // Only validate ingredients/image if auto-generate is OFF
+    if (!isAutoGenerateEnabled) {
+      if (inputType === 'ingredient_list' && !ingredientList.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter your ingredients list",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (inputType === 'image' && !selectedImage) {
+        toast({
+          title: "Error",
+          description: "Please select an image to upload",
+          variant: "destructive",
+        });
+        return;
+      }
     }
-    
-    if (inputType === 'image' && !selectedImage) {
-      toast({
-        title: "Error", 
-        description: "Please select an image to upload",
-        variant: "destructive",
-      });
-      return;
+
+    // Validate auto-generate requirements
+    if (isAutoGenerateEnabled) {
+      if (getSicknessInfo()) {
+        // Sick user - validate location and budget
+        if (!location.trim() || !budget.trim()) {
+          toast({
+            title: "Information Required",
+            description: "Please provide both location and budget for auto-generation",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // Healthy user - validate location and budget
+        if (!location.trim() || !budget.trim()) {
+          toast({
+            title: "Information Required",
+            description: "Please provide both location and budget for auto-generation",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
     }
 
     setIsLoading(true);
-    
+
     try {
+      const sicknessInfo = getSicknessInfo();
       const formData = new FormData();
+
+      if (isAutoGenerateEnabled) {
+        if (getSicknessInfo()) {
+          // Auto generate based on sickness, location, and budget
+          formData.append('sickness', sicknessInfo!.sicknessType);
+          formData.append('location', location);
+          formData.append('budget', budget);
+          const response = await fetch('https://ai-utu2.onrender.com/auto_sick_smart_plan', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to generate meal plan');
+          }
+
+          const data = await response.json();
+          console.log('[Index] Auto Sick API Response:', data);
+          console.log('[Index] Meal Plan Data:', data.meal_plan);
+
+          // Save the new meal plan and await the result
+          const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+
+          setShowInputModal(false);
+          setIngredientList('');
+          setSelectedImage(null);
+          setImagePreview(null);
+          setLocation('');
+          setBudget('');
+          setIsAutoGenerateEnabled(false);
+
+          toast({
+            title: "Success!",
+            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
+          });
+          return;
+        } else {
+          // Auto generate based on location and budget only
+          formData.append('location', location);
+          formData.append('budget', budget);
+          const response = await fetch('https://ai-utu2.onrender.com/auto_generate_plan', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to generate meal plan');
+          }
+
+          const data = await response.json();
+          console.log('[Index] Auto Healthy API Response:', data);
+          console.log('[Index] Meal Plan Data:', data.meal_plan);
+
+          // Save the new meal plan and await the result
+          const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+
+          setShowInputModal(false);
+          setIngredientList('');
+          setSelectedImage(null);
+          setImagePreview(null);
+          setLocation('');
+          setBudget('');
+          setIsAutoGenerateEnabled(false);
+
+          toast({
+            title: "Success!",
+            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
+          });
+          return;
+        }
+      }
+
+      // Regular meal plan generation
       formData.append('image_or_ingredient_list', inputType);
-      
+
       if (inputType === 'ingredient_list') {
         formData.append('ingredient_list', ingredientList);
       } else {
         formData.append('image', selectedImage!);
       }
 
-      const response = await fetch('https://ai-utu2.onrender.com/smart_plan', {
+      // Add sickness information if user has sickness
+      if (sicknessInfo) {
+        formData.append('sickness', sicknessInfo.sicknessType);
+      }
+
+      // Use different endpoint based on sickness status
+      const endpoint = sicknessInfo ? 'http://127.0.0.1:5001/sick_smart_plan' : 'https://ai-utu2.onrender.com/smart_plan';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -148,15 +287,18 @@ const Index = () => {
       const data = await response.json();
       console.log('[Index] API Response:', data);
       console.log('[Index] Meal Plan Data:', data.meal_plan);
-      
+
       // Save the new meal plan and await the result
       const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
-      
+
       setShowInputModal(false);
       setIngredientList('');
       setSelectedImage(null);
       setImagePreview(null);
-      
+      setLocation('');
+      setBudget('');
+      setIsAutoGenerateEnabled(false);
+
       toast({
         title: "Success!",
         description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
@@ -195,11 +337,11 @@ const Index = () => {
           variant: "destructive",
         });
       } else {
-      toast({
-        title: "Error",
-        description: "Failed to generate meal plan. Please try again.",
-        variant: "destructive",
-      });
+        toast({
+          title: "Error",
+          description: "Failed to generate meal plan. Please try again.",
+          variant: "destructive",
+        });
       }
     } finally {
       setIsLoading(false);
@@ -208,14 +350,14 @@ const Index = () => {
 
   const handleRecipeClick = (recipeName: string, mealType: string) => {
     if (!currentPlan) return;
-    
+
     // Extract clean food name for tutorial content
     const cleanName = recipeName.replace(/\s*\(buy:[^)]*\)/, '').trim();
-    
+
     // Get ingredients for the selected meal type
     const dayPlan = currentPlan.mealPlan.find(plan => plan.day === selectedDay);
     let ingredients: string[] = [];
-    
+
     if (dayPlan) {
       switch (mealType) {
         case 'breakfast':
@@ -232,7 +374,7 @@ const Index = () => {
           break;
       }
     }
-    
+
     console.log('[Index] Recipe clicked:', { cleanName, mealType, ingredients });
     setSelectedRecipe(cleanName);
     setSelectedIngredients(ingredients);
@@ -267,39 +409,39 @@ const Index = () => {
       return cleanName;
     };
     const recipes = [
-      { 
-        title: extractFoodName(dayPlan.breakfast), 
-        type: 'breakfast', 
-        time: '15 mins', 
+      {
+        title: extractFoodName(dayPlan.breakfast),
+        type: 'breakfast',
+        time: '15 mins',
         rating: 5,
         originalTitle: dayPlan.breakfast // Keep original for display
       },
-      { 
-        title: extractFoodName(dayPlan.lunch), 
-        type: 'lunch', 
-        time: '25 mins', 
+      {
+        title: extractFoodName(dayPlan.lunch),
+        type: 'lunch',
+        time: '25 mins',
         rating: 4,
         originalTitle: dayPlan.lunch
       },
-      { 
-        title: extractFoodName(dayPlan.dinner), 
-        type: 'dinner', 
-        time: '35 mins', 
+      {
+        title: extractFoodName(dayPlan.dinner),
+        type: 'dinner',
+        time: '35 mins',
         rating: 5,
         originalTitle: dayPlan.dinner
       },
     ];
     if (dayPlan.snack) {
-      recipes.push({ 
-        title: extractFoodName(dayPlan.snack), 
-        type: 'snack', 
-        time: '5 mins', 
+      recipes.push({
+        title: extractFoodName(dayPlan.snack),
+        type: 'snack',
+        time: '5 mins',
         rating: 4,
         originalTitle: dayPlan.snack
       });
     }
-    return selectedMealType === 'all' 
-      ? recipes 
+    return selectedMealType === 'all'
+      ? recipes
       : recipes.filter(recipe => recipe.type === selectedMealType);
   };
 
@@ -338,7 +480,7 @@ const Index = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
       <header className="bg-white border-b border-[#e2e8f0] px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-2xl">🍓</div>
             <div>
@@ -368,12 +510,12 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto flex gap-6 p-6">
+      <div className="w-full flex gap-6 p-6">
         {/* Sidebar */}
         <div className="w-64 space-y-4">
           {/* Weekly Planner */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
-            <WeeklyPlanner 
+            <WeeklyPlanner
               selectedDay={selectedDay}
               onDaySelect={setSelectedDay}
               mealPlan={currentPlan?.mealPlan || []}
@@ -388,7 +530,15 @@ const Index = () => {
             <React.Fragment>
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
+                    {getSicknessInfo() && (
+                      <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                        Health-aware meal plan
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 text-lg font-semibold text-[#2D3436]">
                     <button
                       onClick={handlePrevWeek}
@@ -412,7 +562,7 @@ const Index = () => {
                     </button>
                   </div>
                 </div>
-                <MealTypeFilter 
+                <MealTypeFilter
                   selectedType={selectedMealType}
                   onTypeSelect={setSelectedMealType}
                 />
@@ -463,7 +613,7 @@ const Index = () => {
       {/* Plan Manager Modal */}
       {showPlanManager && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
               <button
@@ -488,7 +638,7 @@ const Index = () => {
       {/* Input Modal */}
       {showInputModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
               <button
@@ -515,45 +665,152 @@ const Index = () => {
               </p>
             </div>
 
-            {/* Toggle Buttons */}
-            <div className="flex gap-4 mb-6">
-              <button
-                onClick={() => setInputType('ingredient_list')}
-                className={`flex-1 p-4 rounded-xl border-2 transition-all ${
-                  inputType === 'ingredient_list'
-                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                }`}
-              >
-                <div className="flex items-center justify-center">
-                  <List className="w-5 h-5 mr-3" />
+            {/* Auto-Generate Toggle */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ChefHat className="w-5 h-5 text-[#2D3436]" />
                   <div>
-                    <div className="font-semibold">Type Ingredients</div>
-                    <div className="text-sm opacity-90">Enter manually</div>
+                    <h3 className="text-sm font-semibold text-[#2D3436]">Auto-Generate Meal Plan</h3>
+                    <p className="text-xs text-[#1e293b]">
+                      {getSicknessInfo()
+                        ? `Based on your health condition: ${getSicknessInfo()?.sicknessType}`
+                        : 'Based on location and budget preferences'
+                      }
+                    </p>
                   </div>
                 </div>
-              </button>
-
-              <button
-                onClick={() => setInputType('image')}
-                className={`flex-1 p-4 rounded-xl border-2 transition-all ${
-                  inputType === 'image'
-                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                }`}
-              >
-                <div className="flex items-center justify-center">
-                  <Camera className="w-5 h-5 mr-3" />
-                  <div>
-                    <div className="font-semibold">Upload Image</div>
-                    <div className="text-sm opacity-90">Take a photo</div>
-                  </div>
-                </div>
-              </button>
+                <button
+                  onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-[#FF6B6B]' : 'bg-gray-300'
+                    }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                  />
+                </button>
+              </div>
             </div>
 
+            {/* Sickness Indicator */}
+            {getSicknessInfo() && (
+              <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                  <span className="text-sm font-semibold text-orange-800">Health-aware meal planning</span>
+                </div>
+                <p className="text-sm text-orange-700">
+                  Your meal plan will be customized for your condition: <strong>{getSicknessInfo()?.sicknessType}</strong>
+                </p>
+              </div>
+            )}
+
+            {/* Toggle Buttons - Only show when auto-generate is OFF */}
+            {!isAutoGenerateEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <button
+                  onClick={() => setInputType('ingredient_list')}
+                  className={`p-4 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
+                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
+                    }`}
+                >
+                  <div className="flex items-center justify-center">
+                    <List className="w-5 h-5 mr-3" />
+                    <div>
+                      <div className="font-semibold">Type Ingredients</div>
+                      <div className="text-sm opacity-90">Enter manually</div>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setInputType('image')}
+                  className={`p-4 rounded-xl border-2 transition-all ${inputType === 'image'
+                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
+                    }`}
+                >
+                  <div className="flex items-center justify-center">
+                    <Camera className="w-5 h-5 mr-3" />
+                    <div>
+                      <div className="font-semibold">Upload Image</div>
+                      <div className="text-sm opacity-90">Take a photo</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
-              {inputType === 'ingredient_list' ? (
+              {isAutoGenerateEnabled ? (
+                // Auto-generate form
+                <div className="space-y-6">
+                  <div className={`p-4 border rounded-xl ${getSicknessInfo()
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-blue-50 border-blue-200'
+                    }`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      {getSicknessInfo() ? (
+                        <Utensils className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <ChefHat className="w-5 h-5 text-blue-600" />
+                      )}
+                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-blue-800'
+                        }`}>
+                        Auto-Generate Meal Plan
+                      </h3>
+                    </div>
+                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-blue-700'
+                      }`}>
+                      {getSicknessInfo()
+                        ? `We'll create a personalized meal plan based on your health condition: ${getSicknessInfo()?.sicknessType}`
+                        : 'We\'ll create a personalized meal plan based on your location and budget preferences.'
+                      }
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
+                        Your Location
+                      </label>
+                      <select
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                        disabled={isLoading}
+                      >
+                        <option value="">Select a country</option>
+                        {countries.map(country => (
+                          <option key={country} value={country}>{country}</option>
+                        ))}
+                      </select>
+                      <p className="text-sm text-[#1e293b] mt-1">
+                        This helps us suggest locally available ingredients
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
+                        Weekly Budget
+                      </label>
+                      <input
+                        type="number"
+                        value={budget}
+                        onChange={(e) => setBudget(e.target.value)}
+                        placeholder="e.g., 15000"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                        disabled={isLoading}
+                      />
+                      <p className="text-sm text-[#1e293b] mt-1">
+                        Your budget for the entire week
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : inputType === 'ingredient_list' ? (
                 <div>
                   <label className="block text-lg font-semibold text-[#2D3436] mb-3">
                     List your ingredients
@@ -566,7 +823,7 @@ const Index = () => {
                     disabled={isLoading}
                   />
                 </div>
-              ) : (
+              ) : inputType === 'image' ? (
                 <div>
                   <label className="block text-lg font-semibold text-[#2D3436] mb-3">
                     Upload an image of your ingredients
@@ -615,7 +872,7 @@ const Index = () => {
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               <button
                 type="submit"
@@ -625,12 +882,12 @@ const Index = () => {
                 {isLoading ? (
                   <>
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
-                    Generating Plan...
+                    {isAutoGenerateEnabled ? 'Auto-Generating Plan...' : 'Generating Plan...'}
                   </>
                 ) : (
                   <>
                     <Utensils className="w-6 h-6 mr-3" />
-                    Generate My Meal Plan
+                    {isAutoGenerateEnabled ? 'Auto-Generate Meal Plan' : 'Generate My Meal Plan'}
                   </>
                 )}
               </button>
