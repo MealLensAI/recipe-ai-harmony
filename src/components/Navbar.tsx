@@ -154,9 +154,9 @@ const Navbar = () => {
               <Utensils className="h-5 w-5" />
               <span>AI Kitchen</span>
             </Button>
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/detected")}
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/detected")}
               className="flex flex-col items-center justify-center h-16 text-xs space-y-1 text-gray-700 hover:text-orange-500 hover:bg-orange-50"
             >
               <Camera className="h-5 w-5" />
@@ -166,7 +166,7 @@ const Navbar = () => {
               variant="ghost"
               onClick={() => navigate("/history")}
               className="flex flex-col items-center justify-center h-16 text-xs space-y-1 text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-          >
+            >
               <User className="h-5 w-5" />
               <span>History</span>
             </Button>
@@ -177,7 +177,7 @@ const Navbar = () => {
             >
               <Settings className="h-5 w-5" />
               <span>Planner</span>
-          </Button>
+            </Button>
           </div>
         </div>
       </div>

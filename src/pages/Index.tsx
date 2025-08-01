@@ -456,7 +456,7 @@ const Index = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
       <header className="bg-white border-b border-[#e2e8f0] px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-2xl">🍓</div>
             <div>
@@ -486,7 +486,7 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto flex gap-6 p-6">
+      <div className="w-full flex gap-6 p-6">
         {/* Sidebar */}
         <div className="w-64 space-y-4">
           {/* Weekly Planner */}
@@ -589,7 +589,7 @@ const Index = () => {
       {/* Plan Manager Modal */}
       {showPlanManager && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
               <button
@@ -614,7 +614,7 @@ const Index = () => {
       {/* Input Modal */}
       {showInputModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
               <button
