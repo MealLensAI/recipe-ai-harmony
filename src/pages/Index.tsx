@@ -27,6 +27,7 @@ const Index = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [location, setLocation] = useState('');
   const [budget, setBudget] = useState('');
+  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
 
   const {
     currentPlan,
@@ -110,49 +111,50 @@ const Index = () => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (inputType === 'ingredient_list' && !ingredientList.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your ingredients list",
-        variant: "destructive",
-      });
-      return;
+    // Only validate ingredients/image if auto-generate is OFF
+    if (!isAutoGenerateEnabled) {
+      if (inputType === 'ingredient_list' && !ingredientList.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter your ingredients list",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (inputType === 'image' && !selectedImage) {
+        toast({
+          title: "Error",
+          description: "Please select an image to upload",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
-    if (inputType === 'image' && !selectedImage) {
-      toast({
-        title: "Error",
-        description: "Please select an image to upload",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (inputType === 'auto_sick' && !getSicknessInfo()) {
-      toast({
-        title: "Sickness Information Required",
-        description: "Please go to Settings and set your health condition to use auto-generation",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (inputType === 'auto_sick' && (!location.trim() || !budget.trim())) {
-      toast({
-        title: "Information Required",
-        description: "Please provide both location and budget for auto-generation",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (inputType === 'auto_healthy' && (!location.trim() || !budget.trim())) {
-      toast({
-        title: "Information Required",
-        description: "Please provide both location and budget for auto-generation",
-        variant: "destructive",
-      });
-      return;
+    // Validate auto-generate requirements
+    if (isAutoGenerateEnabled) {
+      if (getSicknessInfo()) {
+        // Sick user - validate location and budget
+        if (!location.trim() || !budget.trim()) {
+          toast({
+            title: "Information Required",
+            description: "Please provide both location and budget for auto-generation",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        // Healthy user - validate location and budget
+        if (!location.trim() || !budget.trim()) {
+          toast({
+            title: "Information Required",
+            description: "Please provide both location and budget for auto-generation",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
     }
 
     setIsLoading(true);
@@ -161,74 +163,76 @@ const Index = () => {
       const sicknessInfo = getSicknessInfo();
       const formData = new FormData();
 
-             if (inputType === 'auto_sick') {
-         // Auto generate based on sickness, location, and budget
-         formData.append('sickness', sicknessInfo!.sicknessType);
-         formData.append('location', location);
-         formData.append('budget', budget);
-         const response = await fetch('http://localhost:5001/auto_sick_smart_plan', {
-           method: 'POST',
-           body: formData,
-         });
-         
-         if (!response.ok) {
-           throw new Error('Failed to generate meal plan');
-         }
+      if (isAutoGenerateEnabled) {
+        if (getSicknessInfo()) {
+          // Auto generate based on sickness, location, and budget
+          formData.append('sickness', sicknessInfo!.sicknessType);
+          formData.append('location', location);
+          formData.append('budget', budget);
+          const response = await fetch('http://localhost:5001/auto_sick_smart_plan', {
+            method: 'POST',
+            body: formData,
+          });
 
-         const data = await response.json();
-         console.log('[Index] Auto Sick API Response:', data);
-         console.log('[Index] Meal Plan Data:', data.meal_plan);
-         
-         // Save the new meal plan and await the result
-         const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
-         
-         setShowInputModal(false);
-         setIngredientList('');
-         setSelectedImage(null);
-         setImagePreview(null);
-         setLocation('');
-         setBudget('');
-         
-         toast({
-           title: "Success!",
-           description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
-         });
-         return;
-       }
+          if (!response.ok) {
+            throw new Error('Failed to generate meal plan');
+          }
 
-       if (inputType === 'auto_healthy') {
-         // Auto generate based on location and budget only
-         formData.append('location', location);
-         formData.append('budget', budget);
-         const response = await fetch('http://localhost:5001/auto_generate_plan', {
-           method: 'POST',
-           body: formData,
-         });
-         
-         if (!response.ok) {
-           throw new Error('Failed to generate meal plan');
-         }
+          const data = await response.json();
+          console.log('[Index] Auto Sick API Response:', data);
+          console.log('[Index] Meal Plan Data:', data.meal_plan);
 
-         const data = await response.json();
-         console.log('[Index] Auto Healthy API Response:', data);
-         console.log('[Index] Meal Plan Data:', data.meal_plan);
-         
-         // Save the new meal plan and await the result
-         const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
-         
-         setShowInputModal(false);
-         setIngredientList('');
-         setSelectedImage(null);
-         setImagePreview(null);
-         setLocation('');
-         setBudget('');
-         
-         toast({
-           title: "Success!",
-           description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
-         });
-         return;
-       }
+          // Save the new meal plan and await the result
+          const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+
+          setShowInputModal(false);
+          setIngredientList('');
+          setSelectedImage(null);
+          setImagePreview(null);
+          setLocation('');
+          setBudget('');
+          setIsAutoGenerateEnabled(false);
+
+          toast({
+            title: "Success!",
+            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
+          });
+          return;
+        } else {
+          // Auto generate based on location and budget only
+          formData.append('location', location);
+          formData.append('budget', budget);
+          const response = await fetch('http://localhost:5001/auto_generate_plan', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to generate meal plan');
+          }
+
+          const data = await response.json();
+          console.log('[Index] Auto Healthy API Response:', data);
+          console.log('[Index] Meal Plan Data:', data.meal_plan);
+
+          // Save the new meal plan and await the result
+          const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+
+          setShowInputModal(false);
+          setIngredientList('');
+          setSelectedImage(null);
+          setImagePreview(null);
+          setLocation('');
+          setBudget('');
+          setIsAutoGenerateEnabled(false);
+
+          toast({
+            title: "Success!",
+            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
+          });
+          return;
+        }
+      }
 
       // Regular meal plan generation
       formData.append('image_or_ingredient_list', inputType);
@@ -269,6 +273,7 @@ const Index = () => {
       setImagePreview(null);
       setLocation('');
       setBudget('');
+      setIsAutoGenerateEnabled(false);
 
       toast({
         title: "Success!",
@@ -636,6 +641,34 @@ const Index = () => {
               </p>
             </div>
 
+            {/* Auto-Generate Toggle */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ChefHat className="w-5 h-5 text-[#2D3436]" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#2D3436]">Auto-Generate Meal Plan</h3>
+                    <p className="text-xs text-[#1e293b]">
+                      {getSicknessInfo()
+                        ? `Based on your health condition: ${getSicknessInfo()?.sicknessType}`
+                        : 'Based on location and budget preferences'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-[#FF6B6B]' : 'bg-gray-300'
+                    }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                  />
+                </button>
+              </div>
+            </div>
+
             {/* Sickness Indicator */}
             {getSicknessInfo() && (
               <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
@@ -649,78 +682,108 @@ const Index = () => {
               </div>
             )}
 
-            {/* Toggle Buttons */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <button
-                onClick={() => setInputType('ingredient_list')}
-                className={`p-4 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
-                  ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                  : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                  }`}
-              >
-                <div className="flex items-center justify-center">
-                  <List className="w-5 h-5 mr-3" />
-                  <div>
-                    <div className="font-semibold">Type Ingredients</div>
-                    <div className="text-sm opacity-90">Enter manually</div>
+            {/* Toggle Buttons - Only show when auto-generate is OFF */}
+            {!isAutoGenerateEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <button
+                  onClick={() => setInputType('ingredient_list')}
+                  className={`p-4 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
+                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
+                    }`}
+                >
+                  <div className="flex items-center justify-center">
+                    <List className="w-5 h-5 mr-3" />
+                    <div>
+                      <div className="font-semibold">Type Ingredients</div>
+                      <div className="text-sm opacity-90">Enter manually</div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
 
-              <button
-                onClick={() => setInputType('image')}
-                className={`p-4 rounded-xl border-2 transition-all ${inputType === 'image'
-                  ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                  : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                  }`}
-              >
-                <div className="flex items-center justify-center">
-                  <Camera className="w-5 h-5 mr-3" />
-                  <div>
-                    <div className="font-semibold">Upload Image</div>
-                    <div className="text-sm opacity-90">Take a photo</div>
+                <button
+                  onClick={() => setInputType('image')}
+                  className={`p-4 rounded-xl border-2 transition-all ${inputType === 'image'
+                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
+                    }`}
+                >
+                  <div className="flex items-center justify-center">
+                    <Camera className="w-5 h-5 mr-3" />
+                    <div>
+                      <div className="font-semibold">Upload Image</div>
+                      <div className="text-sm opacity-90">Take a photo</div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
+            )}
 
-              <button
-                onClick={() => setInputType('auto_sick')}
-                className={`p-4 rounded-xl border-2 transition-all ${inputType === 'auto_sick'
-                  ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                  : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                  }`}
-                disabled={!getSicknessInfo()}
-              >
-                <div className="flex items-center justify-center">
-                  <Utensils className="w-5 h-5 mr-3" />
-                  <div>
-                    <div className="font-semibold">Auto Generate</div>
-                    <div className="text-sm opacity-90">
-                      {getSicknessInfo() ? 'Based on sickness' : 'Set sickness in Settings'}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {isAutoGenerateEnabled ? (
+                // Auto-generate form
+                <div className="space-y-6">
+                  <div className={`p-4 border rounded-xl ${getSicknessInfo()
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-blue-50 border-blue-200'
+                    }`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      {getSicknessInfo() ? (
+                        <Utensils className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <ChefHat className="w-5 h-5 text-blue-600" />
+                      )}
+                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-blue-800'
+                        }`}>
+                        Auto-Generate Meal Plan
+                      </h3>
+                    </div>
+                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-blue-700'
+                      }`}>
+                      {getSicknessInfo()
+                        ? `We'll create a personalized meal plan based on your health condition: ${getSicknessInfo()?.sicknessType}`
+                        : 'We\'ll create a personalized meal plan based on your location and budget preferences.'
+                      }
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
+                        Your Location
+                      </label>
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="e.g., Lagos, Nigeria"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                        disabled={isLoading}
+                      />
+                      <p className="text-sm text-[#1e293b] mt-1">
+                        This helps us suggest locally available ingredients
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
+                        Weekly Budget (₦)
+                      </label>
+                      <input
+                        type="number"
+                        value={budget}
+                        onChange={(e) => setBudget(e.target.value)}
+                        placeholder="e.g., 15000"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                        disabled={isLoading}
+                      />
+                      <p className="text-sm text-[#1e293b] mt-1">
+                        Your budget for the entire week
+                      </p>
                     </div>
                   </div>
                 </div>
-              </button>
-
-              <button
-                onClick={() => setInputType('auto_healthy')}
-                className={`p-4 rounded-xl border-2 transition-all ${inputType === 'auto_healthy'
-                  ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                  : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                  }`}
-              >
-                <div className="flex items-center justify-center">
-                  <ChefHat className="w-5 h-5 mr-3" />
-                  <div>
-                    <div className="font-semibold">Auto Generate</div>
-                    <div className="text-sm opacity-90">For healthy users</div>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {inputType === 'ingredient_list' ? (
+              ) : inputType === 'ingredient_list' ? (
                 <div>
                   <label className="block text-lg font-semibold text-[#2D3436] mb-3">
                     List your ingredients
@@ -782,102 +845,6 @@ const Index = () => {
                     )}
                   </div>
                 </div>
-              ) : inputType === 'auto_sick' ? (
-                <div className="space-y-6">
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Utensils className="w-5 h-5 text-green-600" />
-                      <h3 className="text-lg font-semibold text-green-800">Auto-Generate Meal Plan</h3>
-                    </div>
-                    <p className="text-green-700 text-sm">
-                      We'll create a personalized meal plan based on your health condition: <strong>{getSicknessInfo()?.sicknessType}</strong>
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Your Location
-                      </label>
-                      <input
-                        type="text"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        placeholder="e.g., Lagos, Nigeria"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
-                        disabled={isLoading}
-                      />
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        This helps us suggest locally available ingredients
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Weekly Budget (₦)
-                      </label>
-                      <input
-                        type="number"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                        placeholder="e.g., 15000"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
-                        disabled={isLoading}
-                      />
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        Your budget for the entire week
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : inputType === 'auto_healthy' ? (
-                <div className="space-y-6">
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ChefHat className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold text-blue-800">Auto-Generate Meal Plan</h3>
-                    </div>
-                    <p className="text-blue-700 text-sm">
-                      We'll create a personalized meal plan based on your location and budget preferences.
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Your Location
-                      </label>
-                      <input
-                        type="text"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        placeholder="e.g., Lagos, Nigeria"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
-                        disabled={isLoading}
-                      />
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        This helps us suggest locally available ingredients
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Weekly Budget (₦)
-                      </label>
-                      <input
-                        type="number"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                        placeholder="e.g., 15000"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
-                        disabled={isLoading}
-                      />
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        Your budget for the entire week
-                      </p>
-                    </div>
-                  </div>
-                </div>
               ) : null}
 
               <button
@@ -888,12 +855,12 @@ const Index = () => {
                 {isLoading ? (
                   <>
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
-                    {(inputType === 'auto_sick' || inputType === 'auto_healthy') ? 'Auto-Generating Plan...' : 'Generating Plan...'}
+                    {isAutoGenerateEnabled ? 'Auto-Generating Plan...' : 'Generating Plan...'}
                   </>
                 ) : (
                   <>
                     <Utensils className="w-6 h-6 mr-3" />
-                    {(inputType === 'auto_sick' || inputType === 'auto_healthy') ? 'Auto-Generate Meal Plan' : 'Generate My Meal Plan'}
+                    {isAutoGenerateEnabled ? 'Auto-Generate Meal Plan' : 'Generate My Meal Plan'}
                   </>
                 )}
               </button>
