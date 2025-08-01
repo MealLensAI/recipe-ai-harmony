@@ -72,7 +72,14 @@ const Navbar = () => {
               onClick={() => navigate("/")}
               className="text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-colors"
             >
-              AI Kitchen
+              Meal Planner
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/ai-kitchen")}
+              className="text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-colors"
+            >
+              Ingredients Detector
             </Button>
             <Button
               variant="ghost"
@@ -88,13 +95,6 @@ const Navbar = () => {
               className="text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-colors"
             >
               History
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/planner")}
-              className="text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-            >
-              Meal Planner
             </Button>
           </div>
 

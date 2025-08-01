@@ -33,6 +33,16 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MainLayout>
+          <Index />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/ai-kitchen",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
           <AIResponsePage />
         </MainLayout>
       </ProtectedRoute>
