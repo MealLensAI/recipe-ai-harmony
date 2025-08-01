@@ -6,6 +6,7 @@ import { Upload, Loader2, Utensils } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import LoadingSpinner from "@/components/LoadingSpinner"
+import { useAPI } from "@/lib/api"
 
 const DetectFoodPage = () => {
   const navigate = useNavigate()
@@ -20,6 +21,7 @@ const DetectFoodPage = () => {
   const [showResults, setShowResults] = useState(false)
   const { toast } = useToast()
   const { token, isAuthenticated, loading } = useAuth()
+  const { api } = useAPI()
 
   if (loading) {
     return <LoadingSpinner />
@@ -99,18 +101,15 @@ const DetectFoodPage = () => {
       
       setInstructions(formattedInstructions)
       setDetectedFoods(data.food_detected || [])
-      console.log("[DetectFood] Detected foods:", data.food_detected)
-      
-      // Show results immediately after detection
       setShowResults(true)
       
-      // Save to detection history
-      if (token && data.food_detected && data.instructions) {
+      // Save to detection history if user is authenticated
+      if (token && data.analysis_id) {
         const payload = {
           recipe_type: "food_detection",
-          suggestion: data.food_detected.join(", "),
-          instructions: data.instructions,
-          ingredients: JSON.stringify(data.food_detected || []),
+          suggestion: data.food_detected?.join(", ") || "",
+          instructions: formattedInstructions,
+          ingredients: "",
           detected_foods: JSON.stringify(data.food_detected || []),
           analysis_id: data.analysis_id || "",
           youtube: "",
@@ -119,14 +118,7 @@ const DetectFoodPage = () => {
         };
         
         try {
-          await fetch("/api/food_detection/detection_history", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
+          await api.saveDetectionHistory(payload);
           console.log("[DetectFood] Saved to detection history");
         } catch (historyError) {
           console.error("[DetectFood] Error saving to history:", historyError);
@@ -169,14 +161,7 @@ const DetectFoodPage = () => {
               };
               
               try {
-                await fetch("/api/food_detection/food_detect_resources", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(updatePayload)
-                });
+                await api.updateDetectionHistoryWithResources(updatePayload);
                 console.log("[DetectFood] Updated history with resources");
               } catch (updateError) {
                 console.error("[DetectFood] Error updating history with resources:", updateError);

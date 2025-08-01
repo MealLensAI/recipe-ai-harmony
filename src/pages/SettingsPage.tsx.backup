@@ -1,0 +1,360 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { ArrowLeft, Bell, Globe, Shield, Palette, Download, Settings, Moon, Sun, Monitor, Zap, Eye, EyeOff, Mail } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useState } from "react"
+import { useToast } from "@/components/ui/use-toast"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+
+export default function SettingsPage() {
+  const { toast } = useToast()
+  const [notifications, setNotifications] = useState(true)
+  const [locationServices, setLocationServices] = useState(true)
+  const [dataSharing, setDataSharing] = useState(false)
+  const [theme, setTheme] = useState("light")
+  const [language, setLanguage] = useState("en")
+  const [timezone, setTimezone] = useState("UTC-5")
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [pushNotifications, setPushNotifications] = useState(true)
+  const [analytics, setAnalytics] = useState(true)
+
+  const handleSaveSettings = () => {
+    toast({
+      title: "Settings Saved",
+      description: "Your settings have been updated successfully.",
+    })
+  }
+
+  const handleExportData = () => {
+    toast({
+      title: "Data Export",
+      description: "Your data export has been initiated. You'll receive an email when it's ready.",
+    })
+  }
+
+  const getThemeIcon = () => {
+    switch (theme) {
+      case 'light': return <Sun className="h-4 w-4" />
+      case 'dark': return <Moon className="h-4 w-4" />
+      case 'auto': return <Monitor className="h-4 w-4" />
+      default: return <Sun className="h-4 w-4" />
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-rose-50 via-orange-50 to-red-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+          <Button
+            asChild
+            variant="ghost"
+              className="text-gray-600 hover:text-gray-800 hover:bg-white/50 transition-all duration-200"
+          >
+            <Link to="/">
+                <ArrowLeft className="h-5 w-5 mr-2" /> Back
+            </Link>
+          </Button>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                Settings
+              </h1>
+              <p className="text-gray-600">Customize your experience and preferences</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Settings */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Appearance */}
+            <Card className="overflow-hidden border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-6">
+                <CardTitle className="text-2xl font-bold flex items-center">
+                  <Palette className="h-6 w-6 mr-3" />
+                  Appearance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="theme" className="text-sm font-semibold text-gray-700">
+                        Theme
+                      </Label>
+                      <Select value={theme} onValueChange={setTheme}>
+                        <SelectTrigger className="w-40">
+                          <div className="flex items-center space-x-2">
+                            {getThemeIcon()}
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">
+                            <div className="flex items-center space-x-2">
+                              <Sun className="h-4 w-4" />
+                              <span>Light</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="dark">
+                            <div className="flex items-center space-x-2">
+                              <Moon className="h-4 w-4" />
+                              <span>Dark</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="auto">
+                            <div className="flex items-center space-x-2">
+                              <Monitor className="h-4 w-4" />
+                              <span>Auto</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="language" className="text-sm font-semibold text-gray-700">
+                        Language
+                      </Label>
+                      <Select value={language} onValueChange={setLanguage}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en">English</SelectItem>
+                          <SelectItem value="es">Español</SelectItem>
+                          <SelectItem value="fr">Français</SelectItem>
+                          <SelectItem value="de">Deutsch</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="timezone" className="text-sm font-semibold text-gray-700">
+                        Timezone
+                      </Label>
+                      <Select value={timezone} onValueChange={setTimezone}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UTC-5">UTC-5 (EST)</SelectItem>
+                          <SelectItem value="UTC-6">UTC-6 (CST)</SelectItem>
+                          <SelectItem value="UTC-7">UTC-7 (MST)</SelectItem>
+                          <SelectItem value="UTC-8">UTC-8 (PST)</SelectItem>
+                          <SelectItem value="UTC+0">UTC+0 (GMT)</SelectItem>
+                          <SelectItem value="UTC+1">UTC+1 (CET)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold text-gray-700">
+                        Animations
+                      </Label>
+                      <Switch
+                        checked={true}
+                        className="data-[state=checked]:bg-purple-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notifications */}
+            <Card className="overflow-hidden border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-6">
+                <CardTitle className="text-2xl font-bold flex items-center">
+                  <Bell className="h-6 w-6 mr-3" />
+                  Notifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Bell className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700">Push Notifications</Label>
+                        <p className="text-xs text-gray-500">Receive notifications on your device</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={pushNotifications}
+                      onCheckedChange={setPushNotifications}
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Mail className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700">Email Notifications</Label>
+                        <p className="text-xs text-gray-500">Get updates via email</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={emailNotifications}
+                      onCheckedChange={setEmailNotifications}
+                      className="data-[state=checked]:bg-blue-500"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Privacy & Data */}
+            <Card className="overflow-hidden border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-6">
+                <CardTitle className="text-2xl font-bold flex items-center">
+                  <Shield className="h-6 w-6 mr-3" />
+                  Privacy & Data
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Eye className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700">Location Services</Label>
+                        <p className="text-xs text-gray-500">Allow access to your location</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={locationServices}
+                      onCheckedChange={setLocationServices}
+                      className="data-[state=checked]:bg-blue-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Zap className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700">Data Sharing</Label>
+                        <p className="text-xs text-gray-500">Share data for improved experience</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={dataSharing}
+                      onCheckedChange={setDataSharing}
+                      className="data-[state=checked]:bg-purple-500"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Settings className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-gray-700">Analytics</Label>
+                        <p className="text-xs text-gray-500">Help improve the app with analytics</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={analytics}
+                      onCheckedChange={setAnalytics}
+                      className="data-[state=checked]:bg-orange-500"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Quick Actions */}
+            <Card className="overflow-hidden border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 p-4">
+                <CardTitle className="text-lg font-semibold text-gray-800">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <Button 
+                  onClick={handleSaveSettings}
+                  className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-semibold transition-all duration-200"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+            Save Settings
+          </Button>
+                <Button 
+                  onClick={handleExportData}
+                  variant="outline"
+                  className="w-full border-gray-300 hover:bg-gray-50 transition-all duration-200"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Data
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Current Settings Summary */}
+            <Card className="overflow-hidden border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 p-4">
+                <CardTitle className="text-lg font-semibold text-gray-800">Current Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Theme</span>
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Language</span>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    {language === 'en' ? 'English' : language.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">Notifications</span>
+                  <Badge variant="outline" className={pushNotifications ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}>
+                    {pushNotifications ? 'On' : 'Off'}
+                  </Badge>
+                </div>
+                <Separator />
+                <div className="text-xs text-gray-500 text-center">
+                  Settings are automatically saved
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Help & Support */}
+            <Card className="overflow-hidden border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 p-4">
+                <CardTitle className="text-lg font-semibold text-gray-800">Help & Support</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                  <Globe className="h-4 w-4 mr-2" />
+                  Documentation
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Privacy Policy
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full justify-start text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Terms of Service
+          </Button>
+        </CardContent>
+      </Card>
+          </div>
+        </div>
+      </div>
+    </main>
+  )
+}

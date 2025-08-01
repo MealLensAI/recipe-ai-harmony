@@ -15,7 +15,9 @@ import "./App.css"
 import HistoryPage from "./pages/History"
 import HistoryDetailPage from "./pages/HistoryDetailPage"
 import { AuthProvider } from "@/lib/AuthProvider"
-import Payment from "./pages/Payment";
+import Payment from "./pages/Payment"
+import ProfilePage from "./pages/ProfilePage"
+import SettingsPage from "./pages/SettingsPage"
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
@@ -83,6 +85,26 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout>
           <Payment />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/profile",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <ProfilePage />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/settings",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <SettingsPage />
         </MainLayout>
       </ProtectedRoute>
     )

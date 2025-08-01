@@ -1,0 +1,375 @@
+import React, { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/components/ui/use-toast';
+
+const FEATURES = [
+  'MealLensAI meal planner',
+  'MealLensAI cooked Food detection and cooking instructions',
+  'MealLensAI Ingredient detection with cooking instructions',
+  'Share your cooked meals with friends',
+];
+
+const MONTHLY_PLANS = [
+  {
+    label: '$1/week',
+    price: 1,
+    duration: '1 week',
+    paystackAmount: 1,
+    highlight: false,
+  },
+  {
+    label: '$2/two weeks',
+    price: 2,
+    duration: '2 weeks',
+    paystackAmount: 2,
+    highlight: false,
+  },
+  {
+    label: '$4/month',
+    price: 4,
+    duration: '1 month',
+    paystackAmount: 4,
+    highlight: true, // Most popular
+  },
+];
+
+const YEARLY_PLAN = {
+  label: '$47/year',
+  price: 47,
+  duration: '1 year',
+  paystackAmount: 47,
+  highlight: false,
+};
+
+interface UserProfile {
+  displayName: string | null;
+  email: string | null;
+  phoneNumber?: string | null;
+}
+
+const Payment: React.FC = () => {
+  const { toast } = useToast();
+  const [showModal, setShowModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'mpesa'>('paystack');
+  const [phone, setPhone] = useState('');
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUser({
+          displayName: user.displayName || user.email?.split('@')[0] || 'User',
+          email: user.email,
+          phoneNumber: user.phoneNumber
+        });
+        setPhone(user.phoneNumber || '');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  React.useEffect(() => {
+    if (!document.getElementById('paystack-script')) {
+      const script = document.createElement('script');
+      script.id = 'paystack-script';
+      script.src = 'https://js.paystack.co/v1/inline.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const openPaymentModal = (plan: any) => {
+    setSelectedPlan(plan);
+    setShowModal(true);
+  };
+
+  const processPayment = async () => {
+    if (!user?.email || !selectedPlan) {
+      toast({
+        title: "Error",
+        description: "Please make sure you're logged in and have selected a plan.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (paymentMethod === 'paystack') {
+      // @ts-ignore
+      const handler = window.PaystackPop && window.PaystackPop.setup({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_your_test_key',
+        email: user.email,
+        amount: Math.round(selectedPlan.paystackAmount * 100), // cents
+        currency: 'USD',
+        ref: `mealens-${Date.now()}`,
+        metadata: {
+          custom_fields: [
+            {
+              display_name: 'Name',
+              variable_name: 'name',
+              value: user.displayName || 'Customer',
+            },
+            {
+              display_name: 'Plan',
+              variable_name: 'plan',
+              value: selectedPlan.label,
+            },
+          ],
+        },
+        callback: function (response: any) {
+          toast({
+            title: "Payment Successful!",
+            description: `Reference: ${response.reference}`,
+          });
+          setShowModal(false);
+          setSelectedPlan(null);
+        },
+        onClose: function () {
+          toast({
+            title: "Payment Cancelled",
+            description: "You can complete your purchase later.",
+            variant: "default",
+          });
+        },
+      });
+      if (handler) handler.openIframe();
+    } else if (paymentMethod === 'mpesa') {
+      if (!phone || !phone.startsWith('254')) {
+        toast({
+          title: "Invalid Phone Number",
+          description: "Please enter a valid Kenyan phone number starting with 254",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        // Here you would typically call your backend API to initiate M-Pesa payment
+        // This is a placeholder for the actual implementation
+        const response = await fetch('/api/mpesa/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+          },
+          body: JSON.stringify({
+            phone: phone.startsWith('254') ? phone : `254${phone.substring(1)}`,
+            amount: selectedPlan.paystackAmount,
+            plan: selectedPlan.label,
+            reference: `mealens-mpesa-${Date.now()}`
+          })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          toast({
+            title: "Payment Request Sent",
+            description: "Please check your phone to complete the M-Pesa payment.",
+          });
+          setShowModal(false);
+          setSelectedPlan(null);
+        } else {
+          throw new Error(result.message || 'Failed to initiate M-Pesa payment');
+        }
+      } catch (error: any) {
+        toast({
+          title: "Payment Failed",
+          description: error.message || "An error occurred while processing your payment.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  return (
+    <section className="w-full min-h-screen flex flex-col items-center justify-center bg-[#f5f5f5] py-20">
+      <div className="max-w-2xl mx-auto text-center mb-8">
+        <h2 className="text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
+        <p className="text-gray-600 mb-6">Choose the plan that fits your needs. All plans include essential features to get you started, with options to scale as you grow. No hidden fees and the flexibility to change anytime.</p>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <button
+            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'monthly' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}
+            onClick={() => setBilling('monthly')}
+          >
+            Monthly
+          </button>
+          <button
+            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'yearly' ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-700'}`}
+            onClick={() => setBilling('yearly')}
+          >
+            Yearly
+          </button>
+        </div>
+        {billing === 'yearly' && (
+          <div className="text-blue-600 text-sm font-medium">Save 20% with annual billing!</div>
+        )}
+      </div>
+      <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch w-full max-w-5xl">
+        {billing === 'monthly' ? (
+          MONTHLY_PLANS.map((plan, idx) => (
+            <Card
+              key={plan.label}
+              className={`flex-1 flex flex-col justify-between items-center p-8 bg-white shadow-lg rounded-2xl border border-gray-200 relative ${plan.highlight ? 'ring-2 ring-yellow-400' : ''}`}
+            >
+              {plan.highlight && (
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-yellow-400 text-xs font-bold px-4 py-1 rounded-full shadow">Most Popular</div>
+              )}
+              <div className="mb-2 text-center">
+                <div className="text-2xl font-bold text-gray-900 mb-1">{plan.label}</div>
+                <div className="text-gray-500 text-sm mb-4">Billed {plan.duration}</div>
+              </div>
+              <ul className="mb-6 w-full text-gray-700 text-left space-y-2">
+                {FEATURES.map((feature, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="inline-block w-4 h-4 rounded-full bg-green-400 mr-2 flex-shrink-0" style={{minWidth: '1rem'}}></span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                className="w-full bg-gray-900 text-white hover:bg-gray-800 text-lg font-semibold rounded-lg py-3 mt-auto"
+                onClick={() => openPaymentModal(plan)}
+              >
+                Select plan
+              </Button>
+            </Card>
+          ))
+        ) : (
+          <Card
+            className="flex-1 flex flex-col justify-between items-center p-8 bg-white shadow-lg rounded-2xl border border-gray-200"
+          >
+            <div className="mb-2 text-center">
+              <div className="text-2xl font-bold text-gray-900 mb-1">{YEARLY_PLAN.label}</div>
+              <div className="text-gray-500 text-sm mb-4">Billed {YEARLY_PLAN.duration}</div>
+            </div>
+            <ul className="mb-6 w-full text-gray-700 text-left space-y-2">
+              {FEATURES.map((feature, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="inline-block w-4 h-4 rounded-full bg-green-400 mr-2 flex-shrink-0" style={{minWidth: '1rem'}}></span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="w-full bg-gray-900 text-white hover:bg-gray-800 text-lg font-semibold rounded-lg py-3 mt-auto"
+              onClick={() => openPaymentModal(YEARLY_PLAN)}
+            >
+              Select plan
+            </Button>
+          </Card>
+        )}
+      </div>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Your Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Tabs defaultValue="paystack" value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'paystack' | 'mpesa')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="paystack">Paystack</TabsTrigger>
+                <TabsTrigger value="mpesa">M-Pesa</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="paystack" className="space-y-4 mt-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Name</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
+                    value={user?.displayName || ''}
+                    disabled
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-1">Email</label>
+                  <input
+                    type="email"
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
+                    value={user?.email || ''}
+                    disabled
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="mpesa" className="space-y-4 mt-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-1">M-Pesa Number</label>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-gray-100 p-3 rounded-l-lg border border-r-0 border-gray-300">+254</span>
+                    <input
+                      type="tel"
+                      className="w-full p-3 border border-gray-300 rounded-r-lg focus:border-[#FF6B6B] focus:outline-none"
+                      value={phone}
+                      onChange={(e) => {
+                        // Format phone number to ensure it starts with 7 or 1 and is 9 digits
+                        const value = e.target.value.replace(/\D/g, '').substring(0, 9);
+                        setPhone(value);
+                      }}
+                      placeholder="7XXXXXXXX or 1XXXXXXXX"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Enter your Safaricom M-Pesa number</p>
+                </div>
+                <div className="bg-yellow-50 p-3 rounded-lg text-sm text-yellow-800">
+                  You will receive an M-Pesa payment request on your phone to complete the transaction.
+                </div>
+              </TabsContent>
+            </Tabs>
+            <div>
+              <label className="block text-sm font-semibold mb-1">Email</label>
+              <input
+                type="email"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+              />
+            </div>
+            <div className="text-lg font-semibold text-[#2D3436]">
+              Plan: <span className="text-[#FF6B6B]">{selectedPlan?.label}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowModal(false)}
+              className="border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#FF6B6B] text-white hover:bg-[#ff5252]"
+              onClick={processPayment}
+              disabled={loading || (paymentMethod === 'mpesa' && !phone)}
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                `Pay ${selectedPlan?.paystackAmount} ${paymentMethod === 'mpesa' ? 'via M-Pesa' : ''}`.trim()
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+};
+
+export default Payment;
+export default Payment; 

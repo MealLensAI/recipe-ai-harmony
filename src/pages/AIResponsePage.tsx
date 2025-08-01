@@ -1,15 +1,9 @@
 "use client"
 
-import type { FC } from "react"
-import { useState, useRef } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Users, ChefHat, Bookmark, Timer, Utensils, Loader2, Upload, ArrowLeft } from "lucide-react"
-import "@/styles/ai-response.css"
-import { useAuth } from "@/lib/utils"
-import LoadingSpinner from "@/components/LoadingSpinner"
+import React, { useState, useEffect, useRef, FC } from 'react';
+import { useAuth } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { useAPI } from '@/lib/api';
 
 interface Recipe {
   name: string
@@ -35,108 +29,138 @@ interface Recipe {
 }
 
 const AIResponsePage: FC = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [inputType, setInputType] = useState<"image" | "ingredient_list">("image")
-  const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [ingredientList, setIngredientList] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [detectedIngredients, setDetectedIngredients] = useState<string[]>([])
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [instructions, setInstructions] = useState<string>("")
-  const [resources, setResources] = useState<any>(null)
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [analysisId, setAnalysisId] = useState<string>("")
-  const [loadingResources, setLoadingResources] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const { token, isAuthenticated, loading } = useAuth()
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string>("");
+  const [inputType, setInputType] = useState<'image' | 'ingredient_list'>('ingredient_list');
+  const [ingredientList, setIngredientList] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [instructions, setInstructions] = useState('');
+  const [detectedIngredients, setDetectedIngredients] = useState<string[]>([]);
+  const [resources, setResources] = useState<any>(null);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [analysisId, setAnalysisId] = useState<string>('');
+  const { toast } = useToast();
+  const { token, isAuthenticated } = useAuth();
+  const { api } = useAPI();
 
-  if (loading) {
-    return <LoadingSpinner />
-  }
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
-            <Utensils className="h-8 w-8 text-white" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
-            <p className="text-gray-600">
-              Please log in to use the AI Kitchen feature and save your recipe discoveries to history.
-            </p>
-            <Button 
-              onClick={() => navigate('/login')}
-              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-            >
-              Go to Login
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Helper to get a valid token (backend only)
   const getAuthToken = async () => {
-    const backendToken = localStorage.getItem('access_token')
-    return backendToken
-  }
+    return token;
+  };
 
   const handleDiscoverRecipes = async () => {
-    setIsLoading(true)
-    setDetectedIngredients([])
-    setSuggestions([])
-    setInstructions("")
-    setResources(null)
-    setShowResults(false)
-    
-    const formData = new FormData()
-    if (inputType === "image" && selectedImage) {
-      formData.append("image_or_ingredient_list", "image")
-      formData.append("image", selectedImage)
-    } else if (inputType === "ingredient_list" && ingredientList.trim()) {
-      formData.append("image_or_ingredient_list", "ingredient_list")
-      formData.append("ingredient_list", ingredientList)
-    } else {
-      alert("Please provide an image or ingredient list")
-      setIsLoading(false)
-      return
+    if (!ingredientList.trim() && !selectedImage) {
+      toast({
+        title: "Input Required",
+        description: "Please provide ingredients or upload an image.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    setIsLoading(true);
+    setInstructions('');
+    setDetectedIngredients([]);
+    setResources(null);
+    setShowResults(false);
 
     try {
-    const response = await fetch("https://ai-utu2.onrender.com/process", {
-      method: "POST",
-      body: formData,
-    })
+      let detectedIngredients: string[] = [];
+      let analysisId = '';
 
-      if (!response.ok) {
-        throw new Error("Failed to process ingredients")
+      if (inputType === 'image' && selectedImage) {
+        // Handle image-based detection
+        const formData = new FormData();
+        formData.append('image', selectedImage);
+
+        const response = await fetch('https://ai-utu2.onrender.com/food_detect', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        detectedIngredients = data.food_detected || [];
+        analysisId = data.analysis_id || '';
+        setDetectedIngredients(detectedIngredients);
+        setAnalysisId(analysisId);
+      } else {
+        // Handle text-based input
+        detectedIngredients = ingredientList.split(',').map(item => item.trim()).filter(item => item);
+        setDetectedIngredients(detectedIngredients);
       }
 
-    const data = await response.json()
-      console.log("Process response:", data)
-
-      if (data.error) {
-        alert(data.error)
-        return
+      if (detectedIngredients.length === 0) {
+        throw new Error('No ingredients detected. Please try again.');
       }
 
-    setAnalysisId(data.analysis_id)
-    setDetectedIngredients(data.response || [])
-    setSuggestions(data.food_suggestions || [])
-      setShowResults(true)
+      // Get cooking instructions
+      const instructionsResponse = await fetch('https://ai-utu2.onrender.com/instructions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients: detectedIngredients }),
+      });
+
+      const instructionsData = await instructionsResponse.json();
+      
+      if (instructionsData.error) {
+        throw new Error(instructionsData.error);
+      }
+
+      let formattedInstructions = instructionsData.instructions || '';
+      formattedInstructions = formattedInstructions.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>');
+      formattedInstructions = formattedInstructions.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>');
+      formattedInstructions = formattedInstructions.replace(/(\d+\.)/g, '<br>$1');
+      
+      setInstructions(formattedInstructions);
+      setShowResults(true);
+
+      // Get resources
+      setLoadingResources(true);
+      try {
+        const resResponse = await fetch('https://ai-utu2.onrender.com/food_detect_resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ food_detected: detectedIngredients }),
+        });
+
+        if (resResponse.ok) {
+          const resData = await resResponse.json();
+          setResources(resData);
+        }
+      } catch (resourceError) {
+        console.error('Error fetching resources:', resourceError);
+      } finally {
+        setLoadingResources(false);
+      }
+
+      // Save to detection history if authenticated
+      if (token && detectedIngredients.length > 0) {
+        const payload = {
+          recipe_type: "ingredient_detection",
+          suggestion: detectedIngredients.join(", "),
+          instructions: formattedInstructions,
+          ingredients: JSON.stringify(detectedIngredients || []), // Use actual detected ingredients
+          detected_foods: JSON.stringify(detectedIngredients || []),
+          analysis_id: analysisId || "",
+          youtube: resData?.YoutubeSearch?.[0]?.link || "",
+          google: resData?.GoogleSearch?.[0]?.link || "",
+          resources: JSON.stringify(resData || {})
+        };
+        await api.saveDetectionHistory(payload);
+      }
     } catch (error) {
-      console.error("Error processing ingredients:", error)
-      alert("Failed to process ingredients. Please try again.")
+      console.error('Error fetching content:', error);
+      setInstructions('Failed to load instructions. Please try again.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
+      setLoadingResources(false);
     }
-  }
+  };
 
   const handleSuggestionClick = async (suggestion: string) => {
     setIsLoading(true)

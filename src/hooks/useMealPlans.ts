@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAPI } from '@/lib/api';
 
 export interface MealPlan {
   day: string;
@@ -26,25 +27,14 @@ export const useMealPlans = () => {
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
+  const { api } = useAPI();
 
   // Fetch all meal plans from backend API on mount
   useEffect(() => {
     const fetchPlans = async () => {
       setLoading(true);
       try {
-        const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
+        const result = await api.getMealPlansFromFlask();
         
         console.log('[DEBUG] Received meal plans response:', result);
         
@@ -74,7 +64,7 @@ export const useMealPlans = () => {
       setLoading(false);
     };
     fetchPlans();
-  }, []);
+  }, [api]);
 
   const generateWeekDates = (startDate: Date): { startDate: string; endDate: string; name: string } => {
     const endDate = new Date(startDate);
@@ -104,44 +94,26 @@ export const useMealPlans = () => {
 
       console.log('[DEBUG] Sending meal plan data:', planData);
 
-      const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        },
-        body: JSON.stringify(planData)
-      });
+      const result = await api.saveMealPlanToFlask(planData);
 
-      if (!response.ok) {
-        // Try to parse the error message from the response
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData && errorData.message) {
-            errorMessage = errorData.message;
-          }
-        } catch (e) {
-          // If we can't parse the response as JSON, use the generic error
+      if (result.status === 'success') {
+        console.log('[DEBUG] Meal plan saved successfully:', result);
+        
+        // Refresh the plans list
+        const refreshResult = await api.getMealPlansFromFlask();
+        if (refreshResult.status === 'success' && refreshResult.meal_plans) {
+          const plans = refreshResult.meal_plans.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.start_date,
+            endDate: plan.end_date,
+            mealPlan: plan.meal_plan,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          }));
+          setSavedPlans(plans);
+          if (plans.length > 0) setCurrentPlan(plans[0]);
         }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-      
-      if (result.status === 'success' && result.data) {
-        const newPlan: SavedMealPlan = {
-          id: result.data.id,
-          name: result.data.name,
-          startDate: result.data.startDate,
-          endDate: result.data.endDate,
-          mealPlan: result.data.mealPlan,
-          createdAt: result.data.createdAt,
-          updatedAt: result.data.updatedAt,
-        };
-        setSavedPlans(prev => [newPlan, ...prev]);
-        setCurrentPlan(newPlan);
-        return newPlan;
       } else {
         throw new Error(result.message || 'Failed to save meal plan');
       }
@@ -157,36 +129,41 @@ export const useMealPlans = () => {
     setLoading(true);
     try {
       const now = new Date();
-      const response = await fetch(`http://127.0.0.1:5000/api/meal_plans/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        },
-        body: JSON.stringify({ 
-          meal_plan: mealPlan, 
-          updated_at: now.toISOString() 
-        })
-      });
+      const planData = {
+        meal_plan: mealPlan,
+        updated_at: now.toISOString()
+      };
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      console.log('[DEBUG] Updating meal plan:', id, planData);
 
-      const result = await response.json();
-      
+      const result = await api.updateMealPlanInFlask(id, planData);
+
       if (result.status === 'success') {
-        // Update local state
-        setSavedPlans(prev => prev.map(plan => plan.id === id ? {
-          ...plan,
-          mealPlan: mealPlan,
-          updatedAt: now.toISOString(),
-        } : plan));
-        setCurrentPlan(prev => prev?.id === id ? {
-          ...prev,
-          mealPlan: mealPlan,
-          updatedAt: now.toISOString(),
-        } : prev);
+        console.log('[DEBUG] Meal plan updated successfully:', result);
+        
+        // Update the current plan if it's the one being updated
+        if (currentPlan && currentPlan.id === id) {
+          setCurrentPlan({
+            ...currentPlan,
+            mealPlan: mealPlan,
+            updatedAt: now.toISOString()
+          });
+        }
+        
+        // Update the plans list
+        const refreshResult = await api.getMealPlansFromFlask();
+        if (refreshResult.status === 'success' && refreshResult.meal_plans) {
+          const plans = refreshResult.meal_plans.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.start_date,
+            endDate: plan.end_date,
+            mealPlan: plan.meal_plan,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          }));
+          setSavedPlans(plans);
+        }
       } else {
         throw new Error(result.message || 'Failed to update meal plan');
       }
@@ -201,26 +178,32 @@ export const useMealPlans = () => {
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/meal_plans/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
-      });
+      console.log('[DEBUG] Deleting meal plan:', id);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const result = await api.deleteMealPlanFromFlask(id);
 
-      const result = await response.json();
-      
       if (result.status === 'success') {
-        setSavedPlans(prev => {
-          const remainingPlans = prev.filter(plan => plan.id !== id);
-          setCurrentPlan(remainingPlans.length > 0 ? remainingPlans[0] : null);
-          return remainingPlans;
-        });
+        console.log('[DEBUG] Meal plan deleted successfully:', result);
+        
+        // Remove from current plan if it's the one being deleted
+        if (currentPlan && currentPlan.id === id) {
+          setCurrentPlan(null);
+        }
+        
+        // Update the plans list
+        const refreshResult = await api.getMealPlansFromFlask();
+        if (refreshResult.status === 'success' && refreshResult.meal_plans) {
+          const plans = refreshResult.meal_plans.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.start_date,
+            endDate: plan.end_date,
+            mealPlan: plan.meal_plan,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          }));
+          setSavedPlans(plans);
+        }
       } else {
         throw new Error(result.message || 'Failed to delete meal plan');
       }
@@ -240,79 +223,72 @@ export const useMealPlans = () => {
   };
 
   const duplicateMealPlan = async (id: string, newStartDate: Date) => {
-    const originalPlan = savedPlans.find(p => p.id === id);
-    if (!originalPlan) return;
-    
-    const weekDates = generateWeekDates(newStartDate);
-    const now = new Date();
-    
-    const planData = {
-      name: weekDates.name,
-      start_date: weekDates.startDate,
-      end_date: weekDates.endDate,
-      meal_plan: originalPlan.mealPlan,
-      created_at: now.toISOString(),
-      updated_at: now.toISOString()
-    };
+    setLoading(true);
+    try {
+      const originalPlan = savedPlans.find(p => p.id === id);
+      if (!originalPlan) {
+        throw new Error('Original plan not found');
+      }
 
-    const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-      },
-      body: JSON.stringify(planData)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    if (result.status === 'success' && result.data) {
-      const duplicatedPlan: SavedMealPlan = {
-        id: result.data.id,
-        name: result.data.name,
-        startDate: result.data.startDate,
-        endDate: result.data.endDate,
-        mealPlan: result.data.mealPlan,
-        createdAt: result.data.createdAt,
-        updatedAt: result.data.updatedAt,
+      const weekDates = generateWeekDates(newStartDate);
+      const planData = {
+        name: weekDates.name,
+        start_date: weekDates.startDate,
+        end_date: weekDates.endDate,
+        meal_plan: originalPlan.mealPlan,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
-      setSavedPlans(prev => [duplicatedPlan, ...prev]);
-      setCurrentPlan(duplicatedPlan);
-      return duplicatedPlan;
-    } else {
-      throw new Error(result.message || 'Failed to duplicate meal plan');
+
+      console.log('[DEBUG] Duplicating meal plan:', planData);
+
+      const result = await api.saveMealPlanToFlask(planData);
+
+      if (result.status === 'success') {
+        console.log('[DEBUG] Meal plan duplicated successfully:', result);
+        
+        // Refresh the plans list
+        const refreshResult = await api.getMealPlansFromFlask();
+        if (refreshResult.status === 'success' && refreshResult.meal_plans) {
+          const plans = refreshResult.meal_plans.map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            startDate: plan.start_date,
+            endDate: plan.end_date,
+            mealPlan: plan.meal_plan,
+            createdAt: plan.created_at,
+            updatedAt: plan.updated_at,
+          }));
+          setSavedPlans(plans);
+          if (plans.length > 0) setCurrentPlan(plans[0]);
+        }
+      } else {
+        throw new Error(result.message || 'Failed to duplicate meal plan');
+      }
+    } catch (error) {
+      console.error('Error duplicating meal plan:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const clearAllPlans = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/meal_plans/clear', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
-      });
+      console.log('[DEBUG] Clearing all meal plans');
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const result = await api.clearAllMealPlansFromFlask();
 
-      const result = await response.json();
-      
       if (result.status === 'success') {
+        console.log('[DEBUG] All meal plans cleared successfully:', result);
         setSavedPlans([]);
         setCurrentPlan(null);
       } else {
         throw new Error(result.message || 'Failed to clear meal plans');
       }
     } catch (error) {
-      console.error('Error clearing all meal plans:', error);
+      console.error('Error clearing meal plans:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -322,19 +298,7 @@ export const useMealPlans = () => {
   const refreshMealPlans = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await api.getMealPlansFromFlask();
       
       if (result.status === 'success' && result.meal_plans) {
         const plans = result.meal_plans.map((plan: any) => ({
@@ -347,8 +311,9 @@ export const useMealPlans = () => {
           updatedAt: plan.updated_at,
         }));
         setSavedPlans(plans);
-        setCurrentPlan(plans.length > 0 ? plans[0] : null);
+        if (plans.length > 0) setCurrentPlan(plans[0]);
       } else {
+        console.error('Error refreshing meal plans:', result.message);
         setSavedPlans([]);
         setCurrentPlan(null);
       }
@@ -356,8 +321,9 @@ export const useMealPlans = () => {
       console.error('Error refreshing meal plans:', error);
       setSavedPlans([]);
       setCurrentPlan(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return {
@@ -370,7 +336,7 @@ export const useMealPlans = () => {
     selectMealPlan,
     duplicateMealPlan,
     clearAllPlans,
-    generateWeekDates,
     refreshMealPlans,
+    generateWeekDates
   };
 }; 
