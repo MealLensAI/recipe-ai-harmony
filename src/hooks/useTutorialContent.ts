@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSicknessSettings } from './useSicknessSettings';
 
 interface VideoResource {
   title: string;
@@ -16,6 +17,7 @@ interface WebResource {
 }
 
 export const useTutorialContent = () => {
+  const { getSicknessInfo } = useSicknessSettings();
   const [instructions, setInstructions] = useState('');
   const [youtubeVideos, setYoutubeVideos] = useState<VideoResource[]>([]);
   const [webResources, setWebResources] = useState<WebResource[]>([]);
@@ -35,27 +37,38 @@ export const useTutorialContent = () => {
     setInstructions('');
     setYoutubeVideos([]);
     setWebResources([]);
-    
-    try {
-      console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients });
+
+        try {
+      const sicknessInfo = getSicknessInfo();
+      console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients, sicknessInfo });
       
       // 1. Get cooking instructions first
-      const instrRes = await fetch('https://ai-utu2.onrender.com/meal_plan_instructions', {
+      const requestBody = { 
+        food_name: recipeName,
+        ingredients: ingredients || []
+      };
+
+      // Add sickness information if user has sickness
+      if (sicknessInfo) {
+        requestBody.sickness = sicknessInfo.sicknessType;
+      }
+
+      // Use different endpoint based on sickness status
+      const endpoint = sicknessInfo ? 'http://127.0.0.1:5001/sick_meal_plan_instructions' : 'https://ai-utu2.onrender.com/meal_plan_instructions';
+      
+      const instrRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          food_name: recipeName,
-          ingredients: ingredients || []
-        }),
+        body: JSON.stringify(requestBody),
       });
-      
+
       if (!instrRes.ok) {
         throw new Error(`HTTP error! status: ${instrRes.status}`);
       }
-      
+
       const instrData = await instrRes.json();
       console.log('[useTutorialContent] Instructions API response:', instrData);
-      
+
       // The API returns markdown, so convert to HTML (same as the HTML code)
       let htmlInstructions = instrData.instructions || '';
       htmlInstructions = htmlInstructions
@@ -75,11 +88,11 @@ export const useTutorialContent = () => {
         method: 'POST',
         body: formData,
       });
-      
+
       if (!resRes.ok) {
         throw new Error(`HTTP error! status: ${resRes.status}`);
       }
-      
+
       const resData = await resRes.json();
       console.log('[useTutorialContent] Resources API response:', resData);
 
@@ -101,7 +114,7 @@ export const useTutorialContent = () => {
         image: item.image || '',
       }));
       setWebResources(googleResults);
-      
+
     } catch (error) {
       console.error('[useTutorialContent] Error generating content:', error);
       setInstructions('Failed to load instructions. Please try again.');
