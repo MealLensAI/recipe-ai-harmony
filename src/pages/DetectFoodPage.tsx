@@ -39,7 +39,7 @@ const DetectFoodPage = () => {
             <p className="text-gray-600">
               Please log in to use the food detection feature and save your detections to history.
             </p>
-            <Button 
+            <Button
               onClick={() => navigate('/login')}
               className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
             >
@@ -65,7 +65,7 @@ const DetectFoodPage = () => {
 
   const handleSubmit = async () => {
     if (!selectedImage) return
-    
+
     setIsLoading(true)
     setInstructions("")
     setDetectedFoods([])
@@ -73,7 +73,7 @@ const DetectFoodPage = () => {
     setShowResults(false)
     const formData = new FormData()
     formData.append("image", selectedImage)
-    
+
     try {
       const response = await fetch("https://ai-utu2.onrender.com/food_detect", {
         method: "POST",
@@ -81,7 +81,7 @@ const DetectFoodPage = () => {
       })
       const data = await response.json()
       console.log("[DetectFood] /food_detect response:", data)
-      
+
       if (data.error) {
         toast({
           title: "Error",
@@ -90,19 +90,19 @@ const DetectFoodPage = () => {
         })
         return
       }
-      
+
       // Format instructions like in the HTML version
       let formattedInstructions = data.instructions || ""
-      
+
       // Apply the same formatting as in the HTML
       formattedInstructions = formattedInstructions.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
       formattedInstructions = formattedInstructions.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
       formattedInstructions = formattedInstructions.replace(/(\d+\.)/g, '<br>$1')
-      
+
       setInstructions(formattedInstructions)
       setDetectedFoods(data.food_detected || [])
       setShowResults(true)
-      
+
       // Save to detection history if user is authenticated
       if (token && data.analysis_id) {
         const payload = {
@@ -116,7 +116,7 @@ const DetectFoodPage = () => {
           google: "",
           resources: "{}"
         };
-        
+
         try {
           await api.saveDetectionHistory(payload);
           console.log("[DetectFood] Saved to detection history");
@@ -124,7 +124,7 @@ const DetectFoodPage = () => {
           console.error("[DetectFood] Error saving to history:", historyError);
         }
       }
-      
+
       // Fetch resources automatically when instructions are displayed
       if (data.food_detected && data.food_detected.length > 0) {
         setLoadingResources(true)
@@ -135,9 +135,9 @@ const DetectFoodPage = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ food_detected: data.food_detected }),
           })
-          
+
           console.log("[DetectFood] Resources response status:", resResponse.status)
-          
+
           if (!resResponse.ok) {
             console.error("[DetectFood] Resources response not ok:", resResponse.status, resResponse.statusText)
             toast({
@@ -150,7 +150,7 @@ const DetectFoodPage = () => {
             const resData = await resResponse.json()
             console.log("[DetectFood] Resources data received:", resData)
             setResources(resData)
-            
+
             // Update history with resources
             if (token && data.analysis_id) {
               const updatePayload = {
@@ -159,7 +159,7 @@ const DetectFoodPage = () => {
                 google_link: resData?.GoogleSearch?.[0]?.link || "",
                 resources_link: JSON.stringify(resData || {})
               };
-              
+
               try {
                 await api.updateDetectionHistoryWithResources(updatePayload);
                 console.log("[DetectFood] Updated history with resources");
@@ -205,7 +205,7 @@ const DetectFoodPage = () => {
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen p-8 text-[#2D3436] leading-[1.6]"
       style={{
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
@@ -221,14 +221,14 @@ const DetectFoodPage = () => {
       `}</style>
 
       <div className="max-w-[800px] mx-auto">
-        <div 
+        <div
           className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative"
         >
           {/* Header */}
           {/* Removed Home and Sign Out buttons */}
 
           {/* Title */}
-          <h1 
+          <h1
             className="text-[2.5rem] font-[800] text-center mb-8"
             style={{
               background: "linear-gradient(135deg, #FF6B6B, #FF8E53)",
@@ -243,31 +243,31 @@ const DetectFoodPage = () => {
 
           {/* Image Input */}
           <div className="mb-6">
-                <input
-                  type="file"
-                  id="fileInput"
-                  accept="image/*"
+            <input
+              type="file"
+              id="fileInput"
+              accept="image/*"
               className="w-full p-4 border-2 border-[rgba(0,0,0,0.1)] rounded-2xl text-[1.1rem] transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
               onChange={handleImageSelect}
             />
             <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
-              <img 
-                id="imagePreview" 
-                src={imagePreview || ""} 
-                alt="Image Preview" 
-                style={{ 
-                  display: imagePreview ? "block" : "none", 
-                  width: "400px", 
-                  height: "300px", 
-                  objectFit: "cover", 
-                  borderRadius: "1rem" 
+              <img
+                id="imagePreview"
+                src={imagePreview || ""}
+                alt="Image Preview"
+                style={{
+                  display: imagePreview ? "block" : "none",
+                  width: "400px",
+                  height: "300px",
+                  objectFit: "cover",
+                  borderRadius: "1rem"
                 }}
               />
             </div>
           </div>
 
           {/* Submit Button */}
-          <button 
+          <button
             onClick={handleSubmit}
             disabled={isLoading}
             className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-2xl py-4 px-8 text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -287,27 +287,27 @@ const DetectFoodPage = () => {
             <div className="mt-4">
               {/* Instructions Section */}
               {instructions && (
-                <div 
+                <div
                   className="mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                 >
                   <div className="p-4 mt-2.5">
                     <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
                       Cooking Instructions
                     </h5>
-                    <div 
+                    <div
                       className="leading-[1.4] m-0 text-left"
                       style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
                       dangerouslySetInnerHTML={{ __html: instructions }}
                     />
                   </div>
-              </div>
+                </div>
               )}
 
               {/* Resources Section */}
               {loadingResources && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                   {/* YouTube Resources Loading */}
-                  <div 
+                  <div
                     className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                   >
                     <div className="p-4 mt-2.5">
@@ -316,7 +316,7 @@ const DetectFoodPage = () => {
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
                       <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div 
+                        <div
                           className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
                           style={{
                             animation: 'loading-slide 1.5s ease-in-out infinite'
@@ -328,7 +328,7 @@ const DetectFoodPage = () => {
                   </div>
 
                   {/* Google Resources Loading */}
-                  <div 
+                  <div
                     className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                   >
                     <div className="p-4 mt-2.5">
@@ -337,7 +337,7 @@ const DetectFoodPage = () => {
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
                       <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div 
+                        <div
                           className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
                           style={{
                             animation: 'loading-slide 1.5s ease-in-out infinite'
@@ -346,15 +346,15 @@ const DetectFoodPage = () => {
                       </div>
                       <div className="text-center">Loading articles...</div>
                     </div>
-            </div>
-          </div>
-        )}
+                  </div>
+                </div>
+              )}
 
               {/* Resources Content */}
               {resources && !loadingResources && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                   {/* YouTube Resources */}
-                  <div 
+                  <div
                     className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                   >
                     <div className="p-4 mt-2.5">
@@ -371,7 +371,7 @@ const DetectFoodPage = () => {
                               console.warn('Invalid YouTube item:', item);
                               return null;
                             }
-                            
+
                             const videoId = getYouTubeVideoId(item.link);
                             return videoId ? (
                               <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -413,7 +413,7 @@ const DetectFoodPage = () => {
                   </div>
 
                   {/* Google Resources */}
-                  <div 
+                  <div
                     className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                   >
                     <div className="p-4 mt-2.5">
@@ -421,7 +421,7 @@ const DetectFoodPage = () => {
                         Google Resources
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                    {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
+                      {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
                         <div className="space-y-6">
                           {/* Flatten the nested arrays like in the HTML version */}
                           {resources.GoogleSearch.flat().map((item: any, idx: number) => (
@@ -430,27 +430,27 @@ const DetectFoodPage = () => {
                                 <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
                                 <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
                                 <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                                  href={item.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                   className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                        >
+                                >
                                   Read More
-                        </a>
+                                </a>
                               </div>
                             </div>
                           ))}
                         </div>
-                    ) : (
+                      ) : (
                         <p className="text-center text-gray-600">No articles available.</p>
-                    )}
+                      )}
                     </div>
                   </div>
-              </div>
-            )}
+                </div>
+              )}
             </div>
           )}
-          </div>
+        </div>
       </div>
     </div>
   )

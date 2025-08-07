@@ -20,7 +20,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
         title: "Signed out successfully",
         description: "You have been logged out of your account.",
       })
-      navigate("/login")
+      navigate("/")
     } catch (error: any) {
       toast({
         title: "Error",

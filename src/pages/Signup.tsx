@@ -32,7 +32,7 @@ const Signup = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || "/"
+      const from = location.state?.from?.pathname || "/app"
       navigate(from, { replace: true })
     }
   }, [isAuthenticated, navigate, location])
@@ -107,7 +107,7 @@ const Signup = () => {
         first_name: formData.firstName,
         last_name: formData.lastName
       })
-      
+
       if (registerResult.status !== 'success') {
         toast({
           title: "Signup Failed",
@@ -118,11 +118,11 @@ const Signup = () => {
       }
 
       // Auto-login after successful registration
-      const loginResult = await api.login({ 
-        email: formData.email, 
-        password: formData.password 
+      const loginResult = await api.login({
+        email: formData.email,
+        password: formData.password
       })
-      
+
       if (loginResult.status === 'success') {
         // Store the token in localStorage for future authenticated requests
         if (loginResult.access_token) {
@@ -130,7 +130,7 @@ const Signup = () => {
           if (loginResult.refresh_token) localStorage.setItem('supabase_refresh_token', loginResult.refresh_token)
           if (loginResult.session_id) localStorage.setItem('supabase_session_id', loginResult.session_id)
           if (loginResult.user_id) localStorage.setItem('supabase_user_id', loginResult.user_id)
-          
+
           // Store user data for auth context
           const userData = {
             uid: loginResult.user_id || loginResult.user_data?.id,
@@ -139,17 +139,17 @@ const Signup = () => {
             photoURL: null
           }
           localStorage.setItem('user_data', JSON.stringify(userData))
-          
+
           // Refresh auth context
           await refreshAuth()
-          
+
           toast({
             title: "Account Created!",
             description: "Welcome to MealLensAI! Your account has been successfully created.",
           })
-          
-          // Redirect to intended page or home
-          const from = location.state?.from?.pathname || "/"
+
+          // Redirect to intended page or app
+          const from = location.state?.from?.pathname || "/app"
           navigate(from, { replace: true })
         } else {
           toast({
@@ -313,17 +313,16 @@ const Signup = () => {
                     )}
                   </Button>
                 </div>
-                
+
                 {/* Password Strength Indicator */}
                 {formData.password && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">Password strength:</span>
-                      <span className={`font-medium ${
-                        passwordStrength.strength <= 25 ? 'text-red-600' :
+                      <span className={`font-medium ${passwordStrength.strength <= 25 ? 'text-red-600' :
                         passwordStrength.strength <= 50 ? 'text-yellow-600' :
-                        passwordStrength.strength <= 75 ? 'text-blue-600' : 'text-green-600'
-                      }`}>
+                          passwordStrength.strength <= 75 ? 'text-blue-600' : 'text-green-600'
+                        }`}>
                         {passwordStrength.label}
                       </span>
                     </div>
@@ -367,7 +366,7 @@ const Signup = () => {
                     )}
                   </Button>
                 </div>
-                
+
                 {/* Password Match Indicator */}
                 {formData.confirmPassword && (
                   <div className="flex items-center space-x-2 text-sm">

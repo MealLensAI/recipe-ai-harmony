@@ -19,9 +19,22 @@ import Payment from "./pages/Payment"
 import ProfilePage from "./pages/ProfilePage"
 import SettingsPage from "./pages/SettingsPage"
 import Settings from "./pages/Settings"
+import React from "react"
+
+// Landing page component that redirects to the HTML landing page
+const LandingPage = () => {
+  React.useEffect(() => {
+    window.location.href = '/landing.html';
+  }, []);
+  return <div>Redirecting to landing page...</div>;
+};
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <LandingPage />
+  },
   {
     path: "/login",
     element: <Login />
@@ -31,7 +44,7 @@ const router = createBrowserRouter([
     element: <Signup />
   },
   {
-    path: "/",
+    path: "/app",
     element: (
       <ProtectedRoute>
         <MainLayout>
