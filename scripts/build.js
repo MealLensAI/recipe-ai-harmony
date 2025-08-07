@@ -29,14 +29,14 @@ function copyDir(src, dest) {
 console.log('Copying landing page and assets to dist folder...');
 
 // Copy landing page
-if (fs.existsSync('public/landing.html')) {
-  fs.copyFileSync('public/landing.html', 'dist/landing.html');
+if (fs.existsSync('landing.html')) {
+  fs.copyFileSync('landing.html', 'dist/landing.html');
   console.log('✓ Copied landing.html');
 }
 
 // Copy assets folder
-if (fs.existsSync('public/assets')) {
-  copyDir('public/assets', 'dist/assets');
+if (fs.existsSync('assets')) {
+  copyDir('assets', 'dist/assets');
   console.log('✓ Copied assets folder');
 }
 
