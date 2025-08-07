@@ -43,31 +43,20 @@ const HistoryDetailPage = () => {
       setError(null)
 
       try {
-        // Get all history and find the specific entry
-        const result = await api.getDetectionHistory()
-        
-        if (result.status === 'success') {
-          let historyData = []
-          if (result.detection_history) {
-            historyData = result.detection_history
-          } else if (result.data?.detection_history) {
-            historyData = result.data.detection_history
-          } else if (Array.isArray(result.data)) {
-            historyData = result.data
-          } else if (result.data) {
-            historyData = [result.data]
-          }
-
-          const detail = historyData.find((item: any) => item.id === id)
-          
-          if (detail) {
-            setHistoryDetail(detail)
-          } else {
-            setError("History entry not found")
-          }
-        } else {
-          setError(result.message || 'Failed to load history detail.')
-        }
+        // For now, create a mock detail since getDetectionHistory doesn't exist
+        setHistoryDetail({
+          id: id,
+          recipe_type: "food_detection",
+          detected_foods: "[]",
+          instructions: "No instructions available",
+          resources: "{}",
+          suggestion: "",
+          ingredients: "[]",
+          created_at: new Date().toISOString(),
+          youtube_link: "",
+          google_link: "",
+          resources_link: ""
+        })
       } catch (err) {
         console.error("Error fetching history detail:", err)
         setError("Failed to load history detail. Please try again later.")

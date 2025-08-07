@@ -43,7 +43,7 @@ export const useTutorialContent = () => {
       console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients, sicknessInfo });
       
       // 1. Get cooking instructions first
-      const requestBody = { 
+      const requestBody: any = { 
         food_name: recipeName,
         ingredients: ingredients || []
       };

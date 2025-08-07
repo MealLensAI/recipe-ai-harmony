@@ -104,8 +104,7 @@ const Signup = () => {
       const registerResult = await api.register({
         email: formData.email,
         password: formData.password,
-        first_name: formData.firstName,
-        last_name: formData.lastName
+        name: `${formData.firstName} ${formData.lastName}`
       })
 
       if (registerResult.status !== 'success') {
@@ -125,16 +124,16 @@ const Signup = () => {
 
       if (loginResult.status === 'success') {
         // Store the token in localStorage for future authenticated requests
-        if (loginResult.access_token) {
-          localStorage.setItem('access_token', loginResult.access_token)
-          if (loginResult.refresh_token) localStorage.setItem('supabase_refresh_token', loginResult.refresh_token)
-          if (loginResult.session_id) localStorage.setItem('supabase_session_id', loginResult.session_id)
-          if (loginResult.user_id) localStorage.setItem('supabase_user_id', loginResult.user_id)
+        if (loginResult.data?.access_token) {
+          localStorage.setItem('access_token', loginResult.data.access_token)
+          if (loginResult.data.refresh_token) localStorage.setItem('supabase_refresh_token', loginResult.data.refresh_token)
+          if (loginResult.data.session_id) localStorage.setItem('supabase_session_id', loginResult.data.session_id)
+          if (loginResult.data.user_id) localStorage.setItem('supabase_user_id', loginResult.data.user_id)
 
           // Store user data for auth context
           const userData = {
-            uid: loginResult.user_id || loginResult.user_data?.id,
-            email: loginResult.user_data?.email || formData.email,
+            uid: loginResult.data.user_id || loginResult.data.user_data?.id,
+            email: loginResult.data.user_data?.email || formData.email,
             displayName: `${formData.firstName} ${formData.lastName}`,
             photoURL: null
           }

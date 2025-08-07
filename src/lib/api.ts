@@ -103,9 +103,9 @@ class APIService {
 
     try {
       const fullUrl = `${API_BASE_URL}${endpoint}`
-      
+
       const response = await fetch(fullUrl, config)
-      
+
       // Handle different response types
       const contentType = response.headers.get('content-type')
       let data: any
@@ -144,7 +144,7 @@ class APIService {
         // Handle 500+ server errors with better fallback messages
         if (response.status >= 500) {
           console.error(`Server error ${response.status}:`, data)
-          
+
           // Provide user-friendly fallback messages based on endpoint
           let fallbackMessage = 'Server error. Please try again later.'
           if (endpoint.includes('detection_history')) {
@@ -154,7 +154,7 @@ class APIService {
           } else if (endpoint.includes('feedback')) {
             fallbackMessage = 'Unable to save feedback. Please try again later.'
           }
-          
+
           throw new APIError(fallbackMessage, response.status, data)
         }
 
@@ -208,7 +208,26 @@ class APIService {
 
   // Auth-specific methods
   async login(credentials: { email: string; password: string }): Promise<APIResponse> {
-    return this.post('/login', credentials, { skipAuth: true })
+    // Try the local API first, if it fails, try the external backend
+    try {
+      return this.post('/login', credentials, { skipAuth: true })
+    } catch (error) {
+      console.log('Local login failed, trying external backend...')
+      // Try external backend
+      const response = await fetch('https://ai-utu2.onrender.com/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      })
+
+      if (!response.ok) {
+        throw new APIError('Login failed', response.status)
+      }
+
+      return response.json()
+    }
   }
 
   async register(userData: { email: string; password: string; name?: string }): Promise<APIResponse> {
@@ -333,7 +352,7 @@ class APIService {
   async detectFood(image: File): Promise<any> {
     const formData = new FormData()
     formData.append('image', image)
-    return this.post('https://ai-utu2.onrender.com/food_detect', formData, { 
+    return this.post('https://ai-utu2.onrender.com/food_detect', formData, {
       skipAuth: true,
       headers: {} // Let browser set Content-Type for FormData
     })
@@ -360,7 +379,7 @@ export const api = new APIService()
 // Hook for using API with auth context
 export const useAPI = () => {
   const { token, isAuthenticated } = useAuth()
-  
+
   return {
     api,
     isAuthenticated,

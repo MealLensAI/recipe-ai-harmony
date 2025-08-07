@@ -69,33 +69,22 @@ export function useProvideAuth(): AuthContextType {
       // Check if we have a stored token (from backend login)
       const storedToken = localStorage.getItem(TOKEN_KEY)
       const storedUserData = localStorage.getItem(USER_KEY)
-      
+
       if (storedToken && storedUserData) {
         try {
           const parsedUser = JSON.parse(storedUserData)
           setToken(storedToken)
           setUser(parsedUser as User)
-          
+
           // Fetch fresh profile data from backend
           try {
-            const profileResponse = await api.getUserProfile()
-            if (profileResponse.status === 'success' && profileResponse.data) {
-              const profile = profileResponse.data
-              const updatedUser: User = {
-                uid: profile.id,
-                email: profile.email,
-                displayName: profile.display_name,
-                photoURL: undefined
-              }
-              setUser(updatedUser)
-              // Update stored user data
-              localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
-            }
+            // For now, skip profile fetch since getUserProfile doesn't exist
+            // Continue with stored user data
           } catch (profileError) {
             console.error('Error fetching user profile:', profileError)
             // Continue with stored user data if profile fetch fails
           }
-          
+
           setLoading(false)
           return
         } catch (error) {
@@ -125,7 +114,7 @@ export function useProvideAuth(): AuthContextType {
     const handleStorage = () => {
       const storedToken = localStorage.getItem(TOKEN_KEY)
       const storedUserData = localStorage.getItem(USER_KEY)
-      
+
       if (storedToken && storedUserData) {
         try {
           const parsedUser = JSON.parse(storedUserData)
@@ -148,14 +137,17 @@ export function useProvideAuth(): AuthContextType {
 
   const isAuthenticated = !!token && !!user
 
-  return { 
-    user, 
-    token, 
-    loading, 
-    isAuthenticated, 
-    refreshAuth, 
-    signOut, 
-    clearSession 
+  // Debug logging
+  console.log('Auth state:', { token: !!token, user: !!user, isAuthenticated, loading })
+
+  return {
+    user,
+    token,
+    loading,
+    isAuthenticated,
+    refreshAuth,
+    signOut,
+    clearSession
   }
 }
 

@@ -15,4 +15,12 @@ export default defineConfig({
       '/api': 'https://meallensai-backend-46zp.onrender.com',
     },
   },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
+    },
+  },
 })

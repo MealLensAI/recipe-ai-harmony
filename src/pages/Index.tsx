@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Search, Plus, Calendar, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import MealTypeFilter from '../components/MealTypeFilter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CookingTutorialModal from '../components/CookingTutorialModal';
 import MealPlanManager from '../components/MealPlanManager';
-import WeekSelector from '../components/WeekSelector';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
@@ -56,11 +55,9 @@ const Index = () => {
   const {
     currentPlan,
     saveMealPlan,
-    updateMealPlan,
     generateWeekDates,
     savedPlans,
     selectMealPlan,
-    clearAllPlans,
     refreshMealPlans
   } = useMealPlans();
 
@@ -219,7 +216,7 @@ const Index = () => {
 
           toast({
             title: "Success!",
-            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
+            description: `Your auto-generated meal plan has been created and saved!`,
           });
           return;
         } else {
@@ -252,7 +249,7 @@ const Index = () => {
 
           toast({
             title: "Success!",
-            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
+            description: `Your auto-generated meal plan has been created and saved!`,
           });
           return;
         }
@@ -301,7 +298,7 @@ const Index = () => {
 
       toast({
         title: "Success!",
-        description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
+        description: `Your meal plan has been created and saved!`,
       });
     } catch (error: any) {
       // Log the error in detail

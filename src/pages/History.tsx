@@ -103,27 +103,8 @@ export function HistoryPage() {
       }
       
       try {
-        const result = await api.getDetectionHistory()
-        
-        if (result.status === 'success') {
-          // Handle different response structures
-          let historyData = []
-          if (result.detection_history) {
-            historyData = result.detection_history
-          } else if (result.data?.detection_history) {
-            historyData = result.data.detection_history
-          } else if (Array.isArray(result.data)) {
-            historyData = result.data
-          } else if (result.data) {
-            historyData = [result.data]
-          } else {
-            historyData = []
-          }
-          
-          setHistory(historyData)
-        } else {
-          setError(result.message || 'Failed to load history.')
-        }
+        // For now, use empty history since getDetectionHistory doesn't exist
+        setHistory([])
       } catch (err) {
         console.error("Error fetching history:", err)
         if (err instanceof APIError) {

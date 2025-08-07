@@ -47,18 +47,27 @@ const Login = () => {
       // Use centralized API service
       const result = await api.login({ email, password })
 
-      if (result.status === 'success' && result.access_token) {
+      console.log('Login API response:', result)
+
+      // Handle different response structures
+      const accessToken = result.data?.access_token || result.access_token
+      const refreshToken = result.data?.refresh_token || result.refresh_token || ''
+      const sessionId = result.data?.session_id || result.session_id || ''
+      const userId = result.data?.user_id || result.user_id || ''
+      const userName = result.data?.name || result.name || email.split('@')[0]
+
+      if (result.status === 'success' && accessToken) {
         // Store the token and user data
-        localStorage.setItem('access_token', result.access_token)
-        localStorage.setItem('supabase_refresh_token', result.refresh_token || '')
-        localStorage.setItem('supabase_session_id', result.session_id || '')
-        localStorage.setItem('supabase_user_id', result.user_id || '')
+        localStorage.setItem('access_token', accessToken)
+        localStorage.setItem('supabase_refresh_token', refreshToken)
+        localStorage.setItem('supabase_session_id', sessionId)
+        localStorage.setItem('supabase_user_id', userId)
 
         // Store user data
         const userData = {
-          uid: result.user_id || '',
+          uid: userId,
           email: email,
-          displayName: result.name || email.split('@')[0],
+          displayName: userName,
           photoURL: null
         }
         localStorage.setItem('user_data', JSON.stringify(userData))
@@ -66,14 +75,19 @@ const Login = () => {
         // Update auth context
         await refreshAuth()
 
-        toast({
-          title: "Welcome back!",
-          description: "You have been successfully logged in.",
-        })
+        // Add a small delay to ensure state is updated
+        setTimeout(() => {
+          console.log('Login successful, redirecting...')
+          toast({
+            title: "Welcome back!",
+            description: "You have been successfully logged in.",
+          })
 
-        // Redirect to intended page or app
-        const from = location.state?.from?.pathname || "/app"
-        navigate(from, { replace: true })
+          // Redirect to intended page or app
+          const from = location.state?.from?.pathname || "/app"
+          console.log('Redirecting to:', from)
+          navigate(from, { replace: true })
+        }, 100)
       } else {
         toast({
           title: "Login Failed",
@@ -205,6 +219,20 @@ const Login = () => {
                   Sign up here
                 </Link>
               </p>
+              
+              {/* Debug button for testing */}
+              <div className="text-center mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('Manual redirect test')
+                    navigate('/app', { replace: true })
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Debug: Go to App
+                </button>
+              </div>
             </div>
           </CardContent>
         </Card>
