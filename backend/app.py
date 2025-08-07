@@ -60,7 +60,7 @@ def create_app():
       app,
       resources={
           r"/api/*": {
-              "origins": ["http://localhost:5173", "http://localhost:5174"],
+              "origins": ["http://localhost:5173", "http://localhost:5174", "https://meallensai.com"],
               "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
               "allow_headers": ["Content-Type", "Authorization"],
               "supports_credentials": True,
@@ -78,7 +78,7 @@ def create_app():
       if 'Access-Control-Allow-Origin' not in response.headers:
           # Check the origin and set appropriate CORS header
           origin = request.headers.get('Origin')
-          if origin in ['http://localhost:5173', 'http://localhost:5174']:
+          if origin in ['http://localhost:5173', 'http://localhost:5174', 'https://meallensai.com']:
               response.headers.add('Access-Control-Allow-Origin', origin)
           else:
               response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
@@ -157,4 +157,4 @@ def create_app():
 
 if __name__ == '__main__':
   app = create_app()
-  app.run(debug=True)
+   app.run(debug=True,port = 8001)
