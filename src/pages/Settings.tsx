@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTrial } from '@/hooks/useTrial';
+import { Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +12,7 @@ import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 const Settings = () => {
   const { toast } = useToast();
   const { settings, loading, updateSettings, saveSettings } = useSicknessSettings();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
 
   const handleSicknessChange = (value: string) => {
     const hasSickness = value === 'yes';
@@ -35,7 +38,7 @@ const Settings = () => {
     }
 
     const result = await saveSettings(settings);
-    
+
     if (result.success) {
       toast({
         title: "Settings Saved",
@@ -58,6 +61,12 @@ const Settings = () => {
           <p className="text-muted-foreground mt-2">
             Manage your account settings and preferences
           </p>
+          {!hasActiveSubscription && (
+            <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+              <Clock className="h-3 w-3" />
+              {isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}
+            </div>
+          )}
         </div>
 
         <Card>
@@ -105,8 +114,8 @@ const Settings = () => {
               </div>
             )}
 
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               disabled={loading}
               className="w-full"
             >

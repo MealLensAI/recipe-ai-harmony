@@ -17,6 +17,8 @@ import HistoryDetailPage from "./pages/HistoryDetailPage"
 import { AuthProvider } from "@/lib/AuthProvider"
 import Payment from "./pages/Payment";
 import Settings from "./pages/Settings";
+import TrialBlocker from "./components/TrialBlocker";
+import TrialTest from "./pages/TrialTest";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
@@ -109,23 +111,30 @@ const router = createBrowserRouter([
     )
   },
   {
+    path: "/trial-test",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <TrialTest />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
     path: "*",
     element: <Navigate to="/" replace />
   }
-], {
-  future: {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true
-  }
-})
+])
 
 function App() {
   return (
     <AuthProvider>
-      <div className="App">
-        <RouterProvider router={router} />
-        <Toaster />
-      </div>
+      <TrialBlocker>
+        <div className="App">
+          <RouterProvider router={router} />
+          <Toaster />
+        </div>
+      </TrialBlocker>
     </AuthProvider>
   )
 }

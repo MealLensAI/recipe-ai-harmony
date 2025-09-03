@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useTrial } from '@/hooks/useTrial';
+import { Clock } from 'lucide-react';
+import { TrialService } from '@/lib/trialService';
 
 const FEATURES = [
   'MealLensAI meal planner',
@@ -43,6 +46,7 @@ const YEARLY_PLAN = {
 };
 
 const Payment: React.FC = () => {
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('');
@@ -92,6 +96,8 @@ const Payment: React.FC = () => {
       },
       callback: function (response: any) {
         alert('Thank you for your payment! Reference: ' + response.reference);
+        // Activate subscription after successful payment
+        TrialService.activateSubscription();
         setShowModal(false);
         setName('');
         setEmail('');
@@ -107,6 +113,13 @@ const Payment: React.FC = () => {
   return (
     <section className="w-full min-h-screen flex flex-col items-center justify-center bg-[#f5f5f5] py-20">
       <div className="max-w-2xl mx-auto text-center mb-8">
+        {/* Trial Status Banner */}
+        {!hasActiveSubscription && (
+          <div className={`mb-6 p-3 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+            <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
+            {isTrialExpired ? 'Your trial has ended. Upgrade to continue using MealLensAI.' : `Trial: ${formattedRemainingTime}`}
+          </div>
+        )}
         <h2 className="text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
         <p className="text-gray-600 mb-6">Choose the plan that fits your needs. All plans include essential features to get you started, with options to scale as you grow. No hidden fees and the flexibility to change anytime.</p>
         <div className="flex items-center justify-center gap-2 mb-2">
@@ -144,7 +157,7 @@ const Payment: React.FC = () => {
               <ul className="mb-6 w-full text-gray-700 text-left space-y-2">
                 {FEATURES.map((feature, i) => (
                   <li key={i} className="flex items-center gap-2">
-                    <span className="inline-block w-4 h-4 rounded-full bg-green-400 mr-2 flex-shrink-0" style={{minWidth: '1rem'}}></span>
+                    <span className="inline-block w-4 h-4 rounded-full bg-green-400 mr-2 flex-shrink-0" style={{ minWidth: '1rem' }}></span>
                     {feature}
                   </li>
                 ))}
@@ -168,7 +181,7 @@ const Payment: React.FC = () => {
             <ul className="mb-6 w-full text-gray-700 text-left space-y-2">
               {FEATURES.map((feature, i) => (
                 <li key={i} className="flex items-center gap-2">
-                  <span className="inline-block w-4 h-4 rounded-full bg-green-400 mr-2 flex-shrink-0" style={{minWidth: '1rem'}}></span>
+                  <span className="inline-block w-4 h-4 rounded-full bg-green-400 mr-2 flex-shrink-0" style={{ minWidth: '1rem' }}></span>
                   {feature}
                 </li>
               ))}
