@@ -256,6 +256,32 @@ def _validate_registration_data(data: dict) -> tuple[dict, int]:
     }, None, None
 
 
+def _check_user_exists(supabase: Client, email: str) -> Optional[str]:
+    """
+    Check if a user with the given email already exists.
+    Returns the user_id if found, otherwise None.
+    """
+    try:
+        # Check profiles table first
+        try:
+            profiles_result = supabase.table('profiles').select('id').eq('email', email).single().execute()
+            if profiles_result.data:
+                current_app.logger.info(f"User found in profiles: {email}")
+                return profiles_result.data['id']
+        except Exception as profiles_error:
+            # User not found in profiles
+            pass
+        
+        # Since we can't directly query auth.users, we'll rely on the error handling
+        # in the user creation process to catch existing users
+        current_app.logger.info(f"No existing user found in profiles for email: {email}")
+        return None
+        
+    except Exception as e:
+        current_app.logger.error(f"Error checking user existence: {str(e)}")
+        return None
+
+
 def _create_user_with_client_auth(supabase: Client, email: str, password: str, 
                                first_name: str, last_name: str) -> tuple[Optional[str], Optional[dict]]:
     """Attempt to create a user using client auth.
@@ -332,7 +358,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
     try:
         current_app.logger.info(f"Attempting admin API user creation for {email}")
         
-        # Prepare user data for admin API
+        # Prepare minimal user data for admin API (avoid unsupported fields)
         user_data = {
             'email': email,
             'password': str(password),
@@ -340,10 +366,6 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
             'user_metadata': {
                 'first_name': first_name or "",
                 'last_name': last_name or ""
-            },
-            'app_metadata': {
-                'provider': 'email',
-                'providers': ['email']
             }
         }
         
@@ -374,13 +396,31 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
         }
         
     except Exception as e:
-        current_app.logger.error(f"Admin API user creation failed: {str(e)}")
-        return None, {
-            'status': 'error',
-            'message': 'Failed to create user using admin API',
-            'error_type': 'auth_error',
-            'details': str(e)
-        }
+        error_msg = str(e)
+        current_app.logger.error(f"Admin API user creation failed: {error_msg}")
+        
+        # Provide better error messages for common cases
+        if 'already registered' in error_msg.lower() or 'already exists' in error_msg.lower():
+            return None, {
+                'status': 'error',
+                'message': 'An account with this email already exists. Please login instead.',
+                'error_type': 'user_already_exists',
+                'suggestion': 'login'
+            }
+        elif 'not allowed' in error_msg.lower():
+            return None, {
+                'status': 'error',
+                'message': 'User creation not allowed. This email may already be registered.',
+                'error_type': 'user_already_exists',
+                'suggestion': 'login'
+            }
+        else:
+            return None, {
+                'status': 'error',
+                'message': 'Failed to create user using admin API',
+                'error_type': 'auth_error',
+                'details': error_msg
+            }
 
 
 def _create_user_profile(supabase: Client, user_id: str, email: str, 
@@ -457,6 +497,17 @@ def register_user():
         last_name = validated_data['last_name']
         
         current_app.logger.info(f"Processing registration for email: {email}")
+        
+        # Check if user already exists before attempting creation
+        existing_user = _check_user_exists(supabase, email)
+        if existing_user:
+            current_app.logger.info(f"User already exists: {email}")
+            return jsonify({
+                'status': 'error',
+                'message': 'An account with this email already exists. Please login instead.',
+                'error_type': 'user_already_exists',
+                'suggestion': 'login'
+            }), 409
         
         # 1. Try to create user with client auth first
         user_id, error_response = _create_user_with_client_auth(

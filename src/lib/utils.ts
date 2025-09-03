@@ -69,22 +69,23 @@ export function useProvideAuth(): AuthContextType {
       // Check if we have a stored token (from backend login)
       const storedToken = localStorage.getItem(TOKEN_KEY)
       const storedUserData = localStorage.getItem(USER_KEY)
-      
+
       if (storedToken && storedUserData) {
         try {
           const parsedUser = JSON.parse(storedUserData)
           setToken(storedToken)
           setUser(parsedUser as User)
-          
+
           // Fetch fresh profile data from backend
           try {
             const profileResponse = await api.getUserProfile()
-            if (profileResponse.status === 'success' && profileResponse.data) {
-              const profile = profileResponse.data
+            const profilePayload: any = (profileResponse as any)
+            const profile = profilePayload.data ?? profilePayload.profile
+            if (profileResponse.status === 'success' && profile) {
               const updatedUser: User = {
                 uid: profile.id,
                 email: profile.email,
-                displayName: profile.display_name,
+                displayName: profile.display_name ?? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim(),
                 photoURL: undefined
               }
               setUser(updatedUser)
@@ -95,7 +96,7 @@ export function useProvideAuth(): AuthContextType {
             console.error('Error fetching user profile:', profileError)
             // Continue with stored user data if profile fetch fails
           }
-          
+
           setLoading(false)
           return
         } catch (error) {
@@ -125,7 +126,7 @@ export function useProvideAuth(): AuthContextType {
     const handleStorage = () => {
       const storedToken = localStorage.getItem(TOKEN_KEY)
       const storedUserData = localStorage.getItem(USER_KEY)
-      
+
       if (storedToken && storedUserData) {
         try {
           const parsedUser = JSON.parse(storedUserData)
@@ -148,14 +149,14 @@ export function useProvideAuth(): AuthContextType {
 
   const isAuthenticated = !!token && !!user
 
-  return { 
-    user, 
-    token, 
-    loading, 
-    isAuthenticated, 
-    refreshAuth, 
-    signOut, 
-    clearSession 
+  return {
+    user,
+    token,
+    loading,
+    isAuthenticated,
+    refreshAuth,
+    signOut,
+    clearSession
   }
 }
 

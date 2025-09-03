@@ -38,12 +38,12 @@ export const useTutorialContent = () => {
     setYoutubeVideos([]);
     setWebResources([]);
 
-        try {
+    try {
       const sicknessInfo = getSicknessInfo();
       console.log('[useTutorialContent] Generating content for:', { recipeName, ingredients, sicknessInfo });
-      
+
       // 1. Get cooking instructions first
-      const requestBody = { 
+      const requestBody = {
         food_name: recipeName,
         ingredients: ingredients || []
       };
@@ -54,8 +54,8 @@ export const useTutorialContent = () => {
       }
 
       // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? 'http://127.0.0.1:5001/sick_meal_plan_instructions' : 'https://ai-utu2.onrender.com/meal_plan_instructions';
-      
+      const endpoint = sicknessInfo ? 'https://ai-utu2.onrender.com/sick_meal_plan_instructions' : 'https://ai-utu2.onrender.com/meal_plan_instructions';
+
       const instrRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

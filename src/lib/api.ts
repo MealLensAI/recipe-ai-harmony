@@ -84,9 +84,9 @@ class APIService {
 
     try {
       const fullUrl = `${API_BASE_URL}${endpoint}`
-      
+
       const response = await fetch(fullUrl, config)
-      
+
       // Handle different response types
       const contentType = response.headers.get('content-type')
       let data: any
@@ -125,7 +125,7 @@ class APIService {
         // Handle 500+ server errors with better fallback messages
         if (response.status >= 500) {
           console.error(`Server error ${response.status}:`, data)
-          
+
           // Provide user-friendly fallback messages based on endpoint
           let fallbackMessage = 'Server error. Please try again later.'
           if (endpoint.includes('detection_history')) {
@@ -135,7 +135,7 @@ class APIService {
           } else if (endpoint.includes('feedback')) {
             fallbackMessage = 'Unable to save feedback. Please try again later.'
           }
-          
+
           throw new APIError(fallbackMessage, response.status, data)
         }
 
@@ -192,7 +192,7 @@ class APIService {
     return this.post('/login', credentials, { skipAuth: true })
   }
 
-  async register(userData: { email: string; password: string; name?: string }): Promise<APIResponse> {
+  async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string }): Promise<APIResponse> {
     return this.post('/register', userData, { skipAuth: true })
   }
 
@@ -243,7 +243,7 @@ export const api = new APIService()
 // Hook for using API with auth context
 export const useAPI = () => {
   const { token, isAuthenticated } = useAuth()
-  
+
   return {
     api,
     isAuthenticated,
