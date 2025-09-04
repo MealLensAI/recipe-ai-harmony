@@ -3,8 +3,19 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, Camera, Utensils, Heart, ShoppingCart, Calendar } from 'lucide-react';
+import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
 import { TrialService } from '@/lib/trialService';
+
+// Declare PaystackPop for TypeScript
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (options: any) => {
+        openIframe: () => void;
+      };
+    };
+  }
+}
 
 const FEATURES = [
   'MealLensAI meal planner',
@@ -18,11 +29,11 @@ const FEATURES = [
 // Pricing plans (USD). DurationDays controls subscription days after payment.
 const MONTHLY_PLANS = [
   {
-    label: '$2 / week',
-    price: 2,              // USD price
+    label: '$1 / week',
+    price: 1,              // USD price
     duration: '1 week',
     durationDays: 7,
-    paystackAmount: 2,     // USD amount for Paystack
+    paystackAmount: 1,     // USD amount for Paystack
     highlight: false,
     icon: <Camera className="h-8 w-8 text-blue-500" />,
   },
@@ -56,30 +67,50 @@ const YEARLY_PLAN = {
 };
 
 const Payment: React.FC = () => {
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, updateTrialInfo } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('daniel');
+  const [email, setEmail] = useState('danielsamueletukudo@gmail.com');
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
 
   React.useEffect(() => {
     if (!document.getElementById('paystack-script')) {
+      console.log('🔄 Loading Paystack script...');
       const script = document.createElement('script');
       script.id = 'paystack-script';
       script.src = 'https://js.paystack.co/v1/inline.js';
       script.async = true;
+      script.onload = () => {
+        console.log('✅ Paystack script loaded successfully');
+        console.log('🔍 PaystackPop available:', typeof window.PaystackPop !== 'undefined');
+        if (typeof window.PaystackPop !== 'undefined') {
+          console.log('🔍 PaystackPop methods:', Object.keys(window.PaystackPop));
+        }
+      };
+      script.onerror = (error) => {
+        console.error('❌ Failed to load Paystack script:', error);
+        console.error('❌ Script src:', script.src);
+      };
       document.body.appendChild(script);
+    } else {
+      console.log('✅ Paystack script already exists');
+      console.log('🔍 PaystackPop available:', typeof window.PaystackPop !== 'undefined');
     }
   }, []);
 
   const openPaymentModal = (plan: any) => {
+    console.log('🔍 Opening payment modal for plan:', plan);
+    console.log('🔍 PaystackPop available:', typeof window.PaystackPop !== 'undefined');
     setSelectedPlan(plan);
     setShowModal(true);
   };
 
   const processPayment = () => {
+    console.log('🔍 Starting payment process...');
+
     if (!name || !email || !selectedPlan) {
+      console.error('❌ Missing required fields:', { name: !!name, email: !!email, selectedPlan: !!selectedPlan });
       alert('Please fill in all fields');
       return;
     }
@@ -88,58 +119,120 @@ const Payment: React.FC = () => {
     const publicKey = 'pk_live_5f7de652daf3ea53dc685902c5f28f0a2063bc33';
 
     if (!publicKey || !publicKey.startsWith('pk_')) {
+      console.error('❌ Invalid Paystack public key:', publicKey);
       alert('Invalid Paystack public key configuration.');
       return;
     }
 
-    try {
-      // Log to verify which key is used (first 7 chars)
-      console.info(`[Paystack] Using key: ${publicKey.slice(0, 7)}...`);
-    } catch { }
-
-    // @ts-ignore
-    const handler = window.PaystackPop && window.PaystackPop.setup({
-      key: publicKey,
-      email: email,
-      amount: Math.round(selectedPlan.paystackAmount * 100), // Convert to cents (smallest USD unit)
-      currency: 'KES',
-      ref: '' + Math.floor(Math.random() * 1000000000 + 1),
-      metadata: {
-        custom_fields: [
-          {
-            display_name: 'Name',
-            variable_name: 'name',
-            value: name,
-          },
-          {
-            display_name: 'Plan',
-            variable_name: 'plan',
-            value: selectedPlan.label,
-          },
-        ],
-      },
-      callback: function (response: any) {
-        // Handle successful payment
-        alert('Thank you for your payment! Reference: ' + response.reference);
-
-        // Activate subscription for the plan duration
-        if (selectedPlan.durationDays) {
-          TrialService.activateSubscriptionForDays(selectedPlan.durationDays);
-        } else {
-          TrialService.activateSubscription();
-        }
-
-        setShowModal(false);
-        setName('');
-        setEmail('');
-        setSelectedPlan(null);
-      },
-      onClose: function () {
-        alert('Transaction was not completed, window closed.');
-      },
+    console.log(`✅ Using Paystack key: ${publicKey.slice(0, 7)}...`);
+    console.log('📋 Payment details:', {
+      email,
+      amount: selectedPlan.paystackAmount,
+      plan: selectedPlan.label
     });
 
-    if (handler) handler.openIframe();
+    // Check if PaystackPop is available
+    if (typeof window.PaystackPop === 'undefined') {
+      console.error('❌ PaystackPop is not available. Script may not have loaded.');
+      console.log('🔍 Checking if Paystack script exists:', document.getElementById('paystack-script'));
+      console.log('🔍 Window object keys:', Object.keys(window).filter(key => key.toLowerCase().includes('paystack')));
+      alert('Payment system is not ready. Please refresh the page and try again.');
+      return;
+    }
+
+    // Additional check for PaystackPop.setup method
+    if (typeof window.PaystackPop.setup !== 'function') {
+      console.error('❌ PaystackPop.setup is not a function');
+      console.log('🔍 PaystackPop object:', window.PaystackPop);
+      alert('Payment system is not properly initialized. Please refresh the page and try again.');
+      return;
+    }
+
+    try {
+      console.log('🔧 Setting up Paystack payment...');
+
+      const paymentOptions = {
+        key: publicKey,
+        email: email,
+        amount: Math.round(selectedPlan.paystackAmount * 100), // Convert to cents (smallest USD unit)
+        currency: 'KES',
+        ref: '' + Math.floor(Math.random() * 1000000000 + 1),
+        metadata: {
+          custom_fields: [
+            {
+              display_name: 'Name',
+              variable_name: 'name',
+              value: name,
+            },
+            {
+              display_name: 'Plan',
+              variable_name: 'plan',
+              value: selectedPlan.label,
+            },
+          ],
+        },
+        callback: function (response: any) {
+          console.log('✅ Payment successful:', response);
+          alert('Thank you for your payment! Reference: ' + response.reference);
+
+          // Handle subscription activation asynchronously
+          (async () => {
+            try {
+              // Activate subscription for the plan duration
+              if (selectedPlan.durationDays) {
+                console.log(`🔄 Activating subscription for ${selectedPlan.durationDays} days...`);
+                await TrialService.activateSubscriptionForDays(selectedPlan.durationDays);
+              } else {
+                console.log('🔄 Activating subscription...');
+                await TrialService.activateSubscription();
+              }
+
+              // Force refresh the trial status to update the UI
+              console.log('🔄 Updating trial info...');
+              await updateTrialInfo();
+
+              setShowModal(false);
+              setName('');
+              setEmail('');
+              setSelectedPlan(null);
+
+              console.log('✅ Payment and subscription activation completed successfully!');
+            } catch (error) {
+              console.error('❌ Error activating subscription:', error);
+              alert('Payment successful but there was an error activating your subscription. Please contact support.');
+            }
+          })();
+        },
+        onClose: function () {
+          console.log('❌ Payment window closed by user');
+          alert('Transaction was not completed, window closed.');
+        },
+      };
+
+      console.log('📋 Payment options:', paymentOptions);
+
+      const handler = window.PaystackPop.setup(paymentOptions);
+
+      console.log('✅ Paystack handler created:', handler);
+
+      console.log('🚀 Opening Paystack payment window...');
+      if (handler && typeof handler.openIframe === 'function') {
+        handler.openIframe();
+        console.log('✅ Paystack payment window opened successfully');
+      } else {
+        console.error('❌ Failed to create Paystack handler or openIframe method missing');
+        console.error('Handler object:', handler);
+        alert('Failed to initialize payment. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error setting up Paystack payment:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      alert(`Error setting up payment: ${error.message || 'Unknown error'}. Please try again.`);
+    }
   };
 
   return (
@@ -180,7 +273,7 @@ const Payment: React.FC = () => {
 
       <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch w-full max-w-6xl">
         {billing === 'monthly' ? (
-          MONTHLY_PLANS.map((plan, idx) => (
+          MONTHLY_PLANS.map((plan) => (
             <Card
               key={plan.label}
               className={`flex-1 flex flex-col justify-between items-center p-8 bg-white shadow-xl rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}

@@ -28,6 +28,18 @@ from routes.feedback_routes import feedback_bp
 from routes.meal_plan_routes import meal_plan_bp
 from routes.auth_routes import auth_bp
 from routes.ai_session_routes import ai_session_bp
+# Subscription routes import
+try:
+    from routes.subscription_routes import subscription_bp
+    SUBSCRIPTION_ROUTES_ENABLED = True
+    print("Subscription routes loaded successfully.")
+except ImportError as e:
+    SUBSCRIPTION_ROUTES_ENABLED = False
+    print(f"Subscription routes not available: {e}")
+except Exception as e:
+    SUBSCRIPTION_ROUTES_ENABLED = False
+    print(f"Subscription routes error: {e}")
+    print("Subscription endpoints will be disabled.")
 # Payment routes import
 try:
     from routes.payment_routes import payment_bp
@@ -140,6 +152,13 @@ def create_app():
   app.register_blueprint(auth_bp, url_prefix='/api')
   app.register_blueprint(ai_session_bp, url_prefix='/api')
   
+  # Register subscription routes
+  if SUBSCRIPTION_ROUTES_ENABLED:
+      app.register_blueprint(subscription_bp, url_prefix='/api/subscription')
+      print("Subscription routes registered.")
+  else:
+      print("Subscription routes disabled.")
+
   # Register payment routes
   if PAYMENT_ROUTES_ENABLED:
       app.register_blueprint(payment_bp, url_prefix='/api/payment')

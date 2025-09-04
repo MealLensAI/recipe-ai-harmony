@@ -8,7 +8,7 @@ interface TrialBlockerProps {
 
 const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   const [showTrialModal, setShowTrialModal] = useState(false);
-  const { canAccess, isTrialExpired } = useTrial();
+  const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired } = useTrial();
 
   // Track current path without relying on router hooks
   const [currentPath, setCurrentPath] = useState<string>(
@@ -48,11 +48,12 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Show modal if trial expired and user is on a restricted page
-    if (isTrialExpired && !allowedPaths.includes(currentPath)) {
+    // Show modal if trial expired OR subscription expired and user is on a restricted page
+    const shouldShowModal = (isTrialExpired || (hasActiveSubscription && isSubscriptionExpired)) && !allowedPaths.includes(currentPath);
+    if (shouldShowModal) {
       setShowTrialModal(true);
     }
-  }, [isTrialExpired, currentPath]);
+  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath]);
 
   // If user can't access and is on a restricted page, show blocking overlay
   if (!canAccess && !allowedPaths.includes(currentPath)) {
@@ -82,6 +83,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
         <TrialExpiredModal
           isOpen={showTrialModal}
           onClose={() => setShowTrialModal(false)}
+          isSubscriptionExpired={hasActiveSubscription && isSubscriptionExpired}
         />
         {children}
       </>
@@ -94,6 +96,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
       <TrialExpiredModal
         isOpen={showTrialModal}
         onClose={() => setShowTrialModal(false)}
+        isSubscriptionExpired={hasActiveSubscription && isSubscriptionExpired}
       />
     </>
   );
