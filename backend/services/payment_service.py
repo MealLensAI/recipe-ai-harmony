@@ -174,8 +174,8 @@ class PaymentService:
                 'user_id': user_id,
                 'paystack_transaction_id': transaction_data.get('id'),
                 'paystack_reference': transaction_data.get('reference'),
-                'amount': float(transaction_data.get('amount', 0)) / 100,  # Convert from kobo to naira
-                'currency': transaction_data.get('currency', 'NGN'),
+                'amount': float(transaction_data.get('amount', 0)) / 100,  # Convert from kobo to KES
+                'currency': transaction_data.get('currency', 'KES'),
                 'status': transaction_data.get('status', 'pending'),
                 'payment_method': transaction_data.get('channel'),
                 'description': transaction_data.get('description', ''),

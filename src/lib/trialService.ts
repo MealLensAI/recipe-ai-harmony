@@ -9,9 +9,34 @@ export interface TrialInfo {
 }
 
 export class TrialService {
-  private static TRIAL_DURATION = 30 * 60 * 1000; // 24 hours in milliseconds  24 * 60 * 60 * 1000
-  private static TRIAL_KEY = 'meallensai_trial_start';
-  private static SUBSCRIPTION_KEY = 'meallensai_subscription_status';
+  // Trial duration. For production use 24 * 60 * 60 * 1000.
+  private static TRIAL_DURATION = 10 * 60 * 1000;
+
+  // Time unit used for subscription testing. Set to 'days' for normal use,
+  // change to 'minutes' to speed up testing.
+  private static SUBSCRIPTION_TIME_UNIT: 'days' | 'minutes' =
+    (import.meta as any)?.env?.VITE_SUB_TIME_UNIT === 'minutes' ? 'minutes' : 'days';
+
+  // Base keys (per-user suffix is appended internally)
+  private static TRIAL_KEY_BASE = 'meallensai_trial_start';
+  private static SUBSCRIPTION_STATUS_KEY_BASE = 'meallensai_subscription_status';
+  private static SUBSCRIPTION_EXPIRES_KEY_BASE = 'meallensai_subscription_expires_at';
+
+  // Helpers to build per-user keys
+  private static getCurrentUserId(): string {
+    try {
+      const raw = localStorage.getItem('user_data');
+      if (!raw) return 'anon';
+      const user = JSON.parse(raw);
+      return user?.uid || user?.id || user?.email || 'anon';
+    } catch {
+      return 'anon';
+    }
+  }
+
+  private static k(base: string): string {
+    return `${base}:${this.getCurrentUserId()}`;
+  }
 
   /**
    * Initialize trial for a new user
@@ -20,7 +45,7 @@ export class TrialService {
     const existingTrial = this.getTrialInfo();
     if (!existingTrial) {
       const startDate = new Date();
-      localStorage.setItem(this.TRIAL_KEY, startDate.toISOString());
+      localStorage.setItem(this.k(this.TRIAL_KEY_BASE), startDate.toISOString());
       console.log('Trial initialized for user');
     }
   }
@@ -29,7 +54,7 @@ export class TrialService {
    * Get current trial information
    */
   static getTrialInfo(): TrialInfo | null {
-    const trialStartStr = localStorage.getItem(this.TRIAL_KEY);
+    const trialStartStr = localStorage.getItem(this.k(this.TRIAL_KEY_BASE));
     if (!trialStartStr) {
       return null;
     }
@@ -63,8 +88,12 @@ export class TrialService {
    * Check if user has an active subscription
    */
   static hasActiveSubscription(): boolean {
-    const subscriptionStatus = localStorage.getItem(this.SUBSCRIPTION_KEY);
-    return subscriptionStatus === 'active';
+    const expiresAtIso = localStorage.getItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE));
+    if (!expiresAtIso) {
+      return false;
+    }
+    const expiresAt = new Date(expiresAtIso).getTime();
+    return Date.now() < expiresAt;
   }
 
   /**
@@ -99,16 +128,35 @@ export class TrialService {
    * Mark subscription as active (called after successful payment)
    */
   static activateSubscription(): void {
-    localStorage.setItem(this.SUBSCRIPTION_KEY, 'active');
-    console.log('Subscription activated');
+    // Legacy: mark as active for 5 years
+    const expiresAt = new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000);
+    localStorage.setItem(this.k(this.SUBSCRIPTION_STATUS_KEY_BASE), 'active');
+    localStorage.setItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE), expiresAt.toISOString());
+    console.log('Subscription activated (5y)');
+  }
+
+  /**
+   * Activate subscription for a number of days (or minutes if testing).
+   * Example: activateSubscriptionForDays(7) -> 7 days (or 7 minutes in test mode)
+   */
+  static activateSubscriptionForDays(days: number): void {
+    const unit = this.SUBSCRIPTION_TIME_UNIT;
+    const durationMs = unit === 'minutes'
+      ? days * 60 * 1000
+      : days * 24 * 60 * 60 * 1000;
+    const expiresAt = new Date(Date.now() + durationMs);
+    localStorage.setItem(this.k(this.SUBSCRIPTION_STATUS_KEY_BASE), 'active');
+    localStorage.setItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE), expiresAt.toISOString());
+    console.log(`Subscription activated for ${days} ${unit}`);
   }
 
   /**
    * Reset trial (for testing purposes)
    */
   static resetTrial(): void {
-    localStorage.removeItem(this.TRIAL_KEY);
-    localStorage.removeItem(this.SUBSCRIPTION_KEY);
+    localStorage.removeItem(this.k(this.TRIAL_KEY_BASE));
+    localStorage.removeItem(this.k(this.SUBSCRIPTION_STATUS_KEY_BASE));
+    localStorage.removeItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE));
     console.log('Trial reset');
   }
 

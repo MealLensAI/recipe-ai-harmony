@@ -14,15 +14,13 @@ from flask_cors import CORS, cross_origin # Import CORS
 # Import services
 from services.auth_service import AuthService
 from services.supabase_service import SupabaseService
-# Payment service import (commented out to prevent errors)
-# try:
-#     from services.payment_service import PaymentService
-#     PAYMENT_ENABLED = True
-# except ImportError:
-#     PAYMENT_ENABLED = False
-#     print("Payment service not available - payment features will be disabled")
-PAYMENT_ENABLED = False
-print("Payment service disabled - payment features will be unavailable")
+# Payment service import
+try:
+    from services.payment_service import PaymentService
+    PAYMENT_ENABLED = True
+except ImportError:
+    PAYMENT_ENABLED = False
+    print("Payment service not available - payment features will be disabled")
 
 # Import blueprints for routes
 from routes.food_detection_routes import food_detection_bp
@@ -30,24 +28,22 @@ from routes.feedback_routes import feedback_bp
 from routes.meal_plan_routes import meal_plan_bp
 from routes.auth_routes import auth_bp
 from routes.ai_session_routes import ai_session_bp
-# Payment routes import (commented out to prevent errors)
-# try:
-#     from routes.payment_routes import payment_bp
-#     PAYMENT_ROUTES_ENABLED = True
-#     print("Payment routes loaded successfully.")
-# except ImportError as e:
-#     PAYMENT_ROUTES_ENABLED = False
-#     print(f"Payment routes not available: {e}")
-# except SyntaxError as e:
-#     PAYMENT_ROUTES_ENABLED = False
-#     print(f"Payment routes have syntax errors: {e}")
-#     print("Payment endpoints will be disabled.")
-# except Exception as e:
-#     PAYMENT_ROUTES_ENABLED = False
-#     print(f"Payment routes error: {e}")
-#     print("Payment endpoints will be disabled.")
-PAYMENT_ROUTES_ENABLED = False
-print("Payment routes disabled.")
+# Payment routes import
+try:
+    from routes.payment_routes import payment_bp
+    PAYMENT_ROUTES_ENABLED = True
+    print("Payment routes loaded successfully.")
+except ImportError as e:
+    PAYMENT_ROUTES_ENABLED = False
+    print(f"Payment routes not available: {e}")
+except SyntaxError as e:
+    PAYMENT_ROUTES_ENABLED = False
+    print(f"Payment routes have syntax errors: {e}")
+    print("Payment endpoints will be disabled.")
+except Exception as e:
+    PAYMENT_ROUTES_ENABLED = False
+    print(f"Payment routes error: {e}")
+    print("Payment endpoints will be disabled.")
 
 def create_app():
   """
@@ -97,24 +93,23 @@ def create_app():
   # Create Supabase client with service role key for admin operations
   app.supabase_service = SupabaseService(supabase_url, supabase_service_role_key)
   
-  # Initialize PaymentService (commented out to prevent errors)
+  # Initialize PaymentService
   app.payment_service = None
-  # if PAYMENT_ENABLED:
-  #     try:
-  #         # Only initialize if Paystack keys are provided
-  #         paystack_secret = os.environ.get("PAYSTACK_SECRET_KEY")
-  #         if paystack_secret:
-  #             app.payment_service = PaymentService(app.supabase_service.supabase)
-  #             print("Payment service initialized successfully.")
-  #         else:
-  #             print("Payment service disabled - PAYSTACK_SECRET_KEY not provided")
-  #     except Exception as e:
-  #         print(f"Warning: Failed to initialize PaymentService: {str(e)}")
-  #         print("Payment features will be disabled.")
-  #         app.payment_service = None
-  # else:
-  #     print("Payment service disabled - payment features will be unavailable")
-  print("Payment service disabled - payment features will be unavailable")
+  if PAYMENT_ENABLED:
+      try:
+          # Only initialize if Paystack keys are provided
+          paystack_secret = os.environ.get("PAYSTACK_SECRET_KEY")
+          if paystack_secret:
+              app.payment_service = PaymentService(app.supabase_service.supabase)
+              print("Payment service initialized successfully.")
+          else:
+              print("Payment service disabled - PAYSTACK_SECRET_KEY not provided")
+      except Exception as e:
+          print(f"Warning: Failed to initialize PaymentService: {str(e)}")
+          print("Payment features will be disabled.")
+          app.payment_service = None
+  else:
+      print("Payment service disabled - payment features will be unavailable")
   
   # Initialize AuthService with regular Supabase client
   firebase_creds = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
@@ -145,13 +140,12 @@ def create_app():
   app.register_blueprint(auth_bp, url_prefix='/api')
   app.register_blueprint(ai_session_bp, url_prefix='/api')
   
-  # Register payment routes (commented out to prevent errors)
-  # if PAYMENT_ROUTES_ENABLED:
-  #     app.register_blueprint(payment_bp, url_prefix='/api/payment')
-  #     print("Payment routes registered.")
-  # else:
-  #     print("Payment routes disabled.")
-  print("Payment routes disabled.")
+  # Register payment routes
+  if PAYMENT_ROUTES_ENABLED:
+      app.register_blueprint(payment_bp, url_prefix='/api/payment')
+      print("Payment routes registered.")
+  else:
+      print("Payment routes disabled.")
 
   return app
 

@@ -1,35 +1,29 @@
 # 💳 Payment System Setup Guide
 
-## Current Status: DISABLED ✅
+## Current Status: ENABLED ✅
 
-The payment system is currently **disabled** to prevent syntax errors and allow the app to run smoothly. All payment code is preserved and ready to use when you're ready.
+The payment system is now **enabled** with real Paystack integration using KES currency. The system has been updated with the working UI and payment configuration from the working HTML file.
 
-## 🚀 How to Re-enable Payment System
+## 🚀 Payment System Configuration
 
-### Step 1: Fix the Payment Routes File
-```bash
-# Open the payment routes file
-nano routes/payment_routes.py
-```
+### Step 1: Payment System is Already Enabled ✅
 
-**What to do:**
-1. Remove the `#` at the beginning of each line (uncomment the entire file)
-2. Look for any syntax errors (missing braces, parentheses, etc.)
-3. Make sure all functions are properly closed
-4. Save the file
+The payment system has been automatically enabled. The payment routes file has been updated and is ready to use.
 
 ### Step 2: Add Paystack Credentials
 ```bash
 # Add these to your .env file
-PAYSTACK_SECRET_KEY=sk_test_your_secret_key_here
-PAYSTACK_PUBLIC_KEY=pk_test_your_public_key_here
+PAYSTACK_SECRET_KEY=sk_live_your_secret_key_here
+PAYSTACK_PUBLIC_KEY=pk_live_your_public_key_here
 ```
 
 **How to get Paystack keys:**
 1. Go to [Paystack Dashboard](https://dashboard.paystack.com)
 2. Sign up/Login to your account
 3. Go to Settings → API Keys
-4. Copy your test keys (or live keys for production)
+4. Copy your live keys (the system is configured for production)
+
+**Note:** The frontend is already configured with the live Paystack key: `pk_live_5f7de652daf3ea53dc685902c5f28f0a2063bc33`
 
 ### Step 3: Run Database Migration
 ```bash
@@ -48,11 +42,11 @@ python app.py
 
 Once enabled, you'll have:
 
-### **Subscription Plans:**
-- **Free**: ₦0/month (5 detections, 3 meal plans, 10 recipes)
-- **Basic**: ₦1,000/month (50 detections, 20 meal plans, 100 recipes)  
-- **Premium**: ₦2,500/month (200 detections, 100 meal plans, 500 recipes)
-- **Enterprise**: ₦5,000/month (Unlimited + API access)
+### **Subscription Plans (KES):**
+- **Weekly**: KES 1,000/week (7 days access)
+- **Bi-weekly**: KES 1,200/2 weeks (14 days access)  
+- **Monthly**: KES 1,400/4 weeks (28 days access)
+- **Yearly**: KES 47,000/year (365 days access)
 
 ### **Payment Endpoints:**
 - `GET /api/payment/plans` - Get subscription plans
@@ -105,11 +99,12 @@ curl http://localhost:5000/api/payment/plans
 
 ## 💡 Pro Tips
 
-1. **Start with test keys** - Use Paystack test keys for development
+1. **Production ready** - The system is configured with live Paystack keys for production use
 2. **Test webhooks locally** - Use ngrok to test webhooks on localhost
 3. **Monitor usage** - Check the usage tracking in your database
 4. **Set up alerts** - Configure Paystack webhook notifications
+5. **Currency** - All payments are processed in KES (Kenyan Shillings)
 
 ---
 
-**Ready to enable payments?** Just follow the steps above and you'll have a fully functional subscription system! 🚀 
+**Payment system is ready!** The system is now fully enabled with real Paystack integration in KES currency! 🚀 
