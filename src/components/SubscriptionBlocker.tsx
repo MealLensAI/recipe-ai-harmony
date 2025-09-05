@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useTrial } from '@/hooks/useTrial';
+import { useBackendSubscription } from '@/hooks/useBackendSubscription';
 import TrialExpiredModal from './TrialExpiredModal';
 
 interface SubscriptionBlockerProps {
@@ -8,7 +8,7 @@ interface SubscriptionBlockerProps {
 
 const SubscriptionBlocker: React.FC<SubscriptionBlockerProps> = ({ children }) => {
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-    const { canAccess, isSubscriptionExpired, hasActiveSubscription } = useTrial();
+    const { canAccessApp, isSubscriptionExpired, hasActiveSubscription, isLoading } = useBackendSubscription();
 
     // Track current path without relying on router hooks
     const [currentPath, setCurrentPath] = useState<string>(
@@ -49,13 +49,22 @@ const SubscriptionBlocker: React.FC<SubscriptionBlockerProps> = ({ children }) =
 
     useEffect(() => {
         // Show modal if subscription expired and user is on a restricted page
-        if (hasActiveSubscription && isSubscriptionExpired && !allowedPaths.includes(currentPath)) {
+        if (hasActiveSubscription && isSubscriptionExpired() && !allowedPaths.includes(currentPath)) {
             setShowSubscriptionModal(true);
         }
     }, [isSubscriptionExpired, hasActiveSubscription, currentPath]);
 
+    // Show loading state while checking subscription
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B]"></div>
+            </div>
+        );
+    }
+
     // If user has subscription but it's expired and is on a restricted page, show blocking overlay
-    if (hasActiveSubscription && isSubscriptionExpired && !allowedPaths.includes(currentPath)) {
+    if (hasActiveSubscription && isSubscriptionExpired() && !allowedPaths.includes(currentPath)) {
         return (
             <>
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">

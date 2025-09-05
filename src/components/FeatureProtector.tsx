@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useBackendSubscription } from '@/hooks/useBackendSubscription';
 import { FeatureBlocker } from './SubscriptionBlocker';
 
 interface FeatureProtectorProps {
@@ -15,9 +15,31 @@ export const FeatureProtector: React.FC<FeatureProtectorProps> = ({
     requiredPlan,
     fallback
 }) => {
-    const { canAccessFeature, planType, isLoading } = useSubscription();
+    const { canAccessApp, hasActiveSubscription, isLoading, checkFeatureAccess } = useBackendSubscription();
+    const [canAccess, setCanAccess] = React.useState(false);
+    const [featureCheckLoading, setFeatureCheckLoading] = React.useState(false);
 
-    if (isLoading) {
+    // Check feature access when component mounts or dependencies change
+    React.useEffect(() => {
+        const checkAccess = async () => {
+            if (!isLoading) {
+                setFeatureCheckLoading(true);
+                try {
+                    const hasAccess = await checkFeatureAccess(featureName);
+                    setCanAccess(hasAccess);
+                } catch (error) {
+                    console.error('Error checking feature access:', error);
+                    setCanAccess(false);
+                } finally {
+                    setFeatureCheckLoading(false);
+                }
+            }
+        };
+
+        checkAccess();
+    }, [featureName, isLoading, checkFeatureAccess]);
+
+    if (isLoading || featureCheckLoading) {
         return (
             <div className="flex items-center justify-center min-h-[200px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B6B]"></div>
@@ -26,7 +48,7 @@ export const FeatureProtector: React.FC<FeatureProtectorProps> = ({
     }
 
     // Check if user can access this feature
-    if (!canAccessFeature(featureName)) {
+    if (!canAccess || !canAccessApp) {
         if (fallback) {
             return <>{fallback}</>;
         }
@@ -39,28 +61,10 @@ export const FeatureProtector: React.FC<FeatureProtectorProps> = ({
     }
 
     // If specific plan is required, check if user has that plan or higher
-    if (requiredPlan) {
-        const planHierarchy = {
-            'weekly': 1,
-            'biweekly': 2,
-            'monthly': 3,
-            'yearly': 4
-        };
-
-        const userPlanLevel = planType ? planHierarchy[planType] || 0 : 0;
-        const requiredPlanLevel = planHierarchy[requiredPlan];
-
-        if (userPlanLevel < requiredPlanLevel) {
-            if (fallback) {
-                return <>{fallback}</>;
-            }
-
-            return (
-                <FeatureBlocker featureName={featureName} requiredPlan={requiredPlan}>
-                    {children}
-                </FeatureBlocker>
-            );
-        }
+    if (requiredPlan && hasActiveSubscription) {
+        // For now, if user has any active subscription, allow access
+        // You can enhance this to check specific plan types based on your backend data
+        return <>{children}</>;
     }
 
     return <>{children}</>;

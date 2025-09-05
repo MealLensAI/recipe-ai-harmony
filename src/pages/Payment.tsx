@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
-import { TrialService } from '@/lib/trialService';
+// import { TrialService } from '@/lib/trialService'; // No longer needed
 
 // Declare PaystackPop for TypeScript
 declare global {
@@ -67,7 +67,7 @@ const YEARLY_PLAN = {
 };
 
 const Payment: React.FC = () => {
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('daniel');
@@ -178,23 +178,61 @@ const Payment: React.FC = () => {
           // Handle subscription activation asynchronously
           (async () => {
             try {
-              // Activate subscription for the plan duration
-              if (selectedPlan.durationDays) {
-                console.log(`🔄 Activating subscription for ${selectedPlan.durationDays} days...`);
-                await TrialService.activateSubscriptionForDays(selectedPlan.durationDays, {
-                  reference: response.reference,
-                  transaction_id: response.transaction_id,
-                  amount: selectedPlan.paystackAmount,
-                  plan: selectedPlan.label
-                });
-              } else {
-                console.log('🔄 Activating subscription...');
-                await TrialService.activateSubscription();
+              // Get current user info
+              const userData = localStorage.getItem('user_data');
+              let firebaseUid = 'anonymous';
+
+              if (userData) {
+                try {
+                  const user = JSON.parse(userData);
+                  firebaseUid = user.uid || user.id || user.email || 'anonymous';
+                } catch (e) {
+                  console.error('Error parsing user data:', e);
+                }
               }
 
-              // Force refresh the trial status to update the UI
-              console.log('🔄 Updating trial info...');
-              await updateTrialInfo();
+              console.log(`🔄 Calling backend to activate subscription...`);
+              console.log(`👤 User: ${firebaseUid}`);
+              console.log(`📧 Email: ${email}`);
+              console.log(`📋 Plan: ${selectedPlan.label}`);
+              console.log(`⏰ Duration: ${selectedPlan.durationDays} days`);
+
+              // Call backend payment success endpoint
+              const backendResponse = await fetch('http://127.0.0.1:8083/api/payment/success', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  firebase_uid: firebaseUid,
+                  email: email,
+                  plan_name: selectedPlan.label,
+                  plan_duration_days: selectedPlan.durationDays || 30,
+                  paystack_data: {
+                    reference: response.reference,
+                    transaction_id: response.transaction_id,
+                    amount: selectedPlan.paystackAmount,
+                    plan: selectedPlan.label,
+                    status: response.status
+                  }
+                })
+              });
+
+              if (backendResponse.ok) {
+                const result = await backendResponse.json();
+                console.log('✅ Backend response:', result);
+
+                if (result.success) {
+                  console.log('✅ Subscription activated successfully via backend!');
+                  alert('Payment successful! Your subscription has been activated.');
+                } else {
+                  console.error('❌ Backend failed to activate subscription:', result.error);
+                  alert('Payment successful but subscription activation failed. Please contact support.');
+                }
+              } else {
+                console.error('❌ Backend request failed:', backendResponse.status);
+                alert('Payment successful but subscription activation failed. Please contact support.');
+              }
 
               setShowModal(false);
               setName('');
@@ -231,12 +269,16 @@ const Payment: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error setting up Paystack payment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      const errorName = error instanceof Error ? error.name : undefined;
+
       console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+        message: errorMessage,
+        stack: errorStack,
+        name: errorName
       });
-      alert(`Error setting up payment: ${error.message || 'Unknown error'}. Please try again.`);
+      alert(`Error setting up payment: ${errorMessage}. Please try again.`);
     }
   };
 

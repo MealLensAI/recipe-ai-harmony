@@ -108,11 +108,23 @@ class SubscriptionService {
                 return result.data;
             } else {
                 console.error('Failed to get subscription status:', result.error);
-                return null;
+                // Return a default status that blocks access
+                return {
+                    has_active_subscription: false,
+                    subscription: null,
+                    trial: null,
+                    can_access_app: false
+                };
             }
         } catch (error) {
             console.error('Error getting subscription status:', error);
-            return null;
+            // Return a default status that blocks access when backend is unavailable
+            return {
+                has_active_subscription: false,
+                subscription: null,
+                trial: null,
+                can_access_app: false
+            };
         }
     }
 

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from services.payment_service import PaymentService
 from services.auth_service import AuthService
+from services.subscription_service import SubscriptionService
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -478,4 +479,82 @@ def payment_status():
         ],
         'currency': 'KES',
         'payment_provider': 'Paystack'
-    }), 200 
+    }), 200
+
+@payment_bp.route('/success', methods=['POST'])
+def handle_payment_success():
+    """
+    Handle successful payment and activate subscription
+    """
+    try:
+        print("🎉 PAYMENT SUCCESS WEBHOOK RECEIVED!")
+        print("=" * 60)
+        
+        # Get payment data from request
+        data = request.get_json()
+        if not data:
+            print("❌ No payment data received")
+            return jsonify({'success': False, 'error': 'No payment data'}), 400
+        
+        # Extract payment information
+        firebase_uid = data.get('firebase_uid')
+        email = data.get('email')
+        plan_name = data.get('plan_name')
+        plan_duration_days = data.get('plan_duration_days', 30)
+        paystack_data = data.get('paystack_data', {})
+        
+        print(f"👤 User Firebase UID: {firebase_uid}")
+        print(f"📧 User Email: {email}")
+        print(f"📋 Plan Name: {plan_name}")
+        print(f"⏰ Plan Duration: {plan_duration_days} days")
+        print(f"💳 Paystack Data: {paystack_data}")
+        print("-" * 60)
+        
+        if not firebase_uid or not email or not plan_name:
+            print("❌ Missing required fields")
+            return jsonify({
+                'success': False, 
+                'error': 'Missing required fields: firebase_uid, email, plan_name'
+            }), 400
+        
+        # Initialize subscription service
+        subscription_service = SubscriptionService()
+        
+        # Activate subscription for the user
+        print(f"🔄 Activating subscription for user {firebase_uid}...")
+        result = subscription_service.activate_subscription_for_days(
+            user_id=None,  # We'll use firebase_uid
+            duration_days=plan_duration_days,
+            paystack_data=paystack_data,
+            firebase_uid=firebase_uid
+        )
+        
+        if result['success']:
+            print("✅ SUBSCRIPTION ACTIVATED SUCCESSFULLY!")
+            print(f"📊 Subscription ID: {result['data']['subscription_id']}")
+            print(f"📅 Start Date: {result['data']['start_date']}")
+            print(f"📅 End Date: {result['data']['end_date']}")
+            print(f"⏰ Duration: {result['data']['duration_days']} days")
+            print("=" * 60)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Subscription activated successfully',
+                'data': result['data']
+            }), 200
+        else:
+            print(f"❌ FAILED TO ACTIVATE SUBSCRIPTION: {result['error']}")
+            print("=" * 60)
+            
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        print(f"💥 ERROR IN PAYMENT SUCCESS HANDLER: {str(e)}")
+        print("=" * 60)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500 

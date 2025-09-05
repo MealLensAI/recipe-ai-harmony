@@ -1,146 +1,167 @@
 import { useState, useEffect, useCallback } from 'react';
-import { subscriptionService, SubscriptionStatus, FeatureAccess } from '@/lib/subscriptionService';
+import { subscriptionService, SubscriptionStatus } from '@/lib/subscriptionService';
+
+export interface BackendSubscriptionInfo {
+    hasActiveSubscription: boolean;
+    canAccessApp: boolean;
+    subscription: SubscriptionStatus['subscription'];
+    trial: SubscriptionStatus['trial'];
+    isLoading: boolean;
+    error: string | null;
+}
 
 export const useBackendSubscription = () => {
-    const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [subscriptionInfo, setSubscriptionInfo] = useState<BackendSubscriptionInfo>({
+        hasActiveSubscription: false,
+        canAccessApp: false,
+        subscription: null,
+        trial: null,
+        isLoading: true,
+        error: null
+    });
 
-    const updateSubscriptionStatus = useCallback(async () => {
+    const fetchSubscriptionStatus = useCallback(async () => {
         try {
-            setIsLoading(true);
-            setError(null);
+            setSubscriptionInfo(prev => ({ ...prev, isLoading: true, error: null }));
 
             const status = await subscriptionService.getSubscriptionStatus();
-            setSubscriptionStatus(status);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to get subscription status');
-            console.error('Error updating subscription status:', err);
-        } finally {
-            setIsLoading(false);
+
+            if (status) {
+                setSubscriptionInfo({
+                    hasActiveSubscription: status.has_active_subscription,
+                    canAccessApp: status.can_access_app,
+                    subscription: status.subscription,
+                    trial: status.trial,
+                    isLoading: false,
+                    error: null
+                });
+            } else {
+                setSubscriptionInfo({
+                    hasActiveSubscription: false,
+                    canAccessApp: false,
+                    subscription: null,
+                    trial: null,
+                    isLoading: false,
+                    error: 'Failed to fetch subscription status'
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching subscription status:', error);
+            setSubscriptionInfo({
+                hasActiveSubscription: false,
+                canAccessApp: false,
+                subscription: null,
+                trial: null,
+                isLoading: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
         }
     }, []);
 
-    useEffect(() => {
-        // Initial update
-        updateSubscriptionStatus();
-
-        // Update every minute
-        const interval = setInterval(updateSubscriptionStatus, 60000);
-
-        return () => clearInterval(interval);
-    }, [updateSubscriptionStatus]);
-
-    const canAccessFeature = useCallback(async (featureName: string): Promise<FeatureAccess | null> => {
+    const checkFeatureAccess = useCallback(async (featureName: string): Promise<boolean> => {
         try {
-            return await subscriptionService.canUseFeature(featureName);
-        } catch (err) {
-            console.error('Error checking feature access:', err);
-            return null;
+            const access = await subscriptionService.canUseFeature(featureName);
+            return access?.can_use || false;
+        } catch (error) {
+            console.error('Error checking feature access:', error);
+            return false; // Block access on error
         }
     }, []);
 
     const recordFeatureUsage = useCallback(async (featureName: string, count: number = 1): Promise<boolean> => {
         try {
             return await subscriptionService.recordFeatureUsage(featureName, count);
-        } catch (err) {
-            console.error('Error recording feature usage:', err);
+        } catch (error) {
+            console.error('Error recording feature usage:', error);
             return false;
         }
     }, []);
 
     const createTrial = useCallback(async (durationDays: number = 7): Promise<boolean> => {
         try {
-            return await subscriptionService.createTrial(durationDays);
-        } catch (err) {
-            console.error('Error creating trial:', err);
+            const success = await subscriptionService.createTrial(durationDays);
+            if (success) {
+                // Refresh subscription status after creating trial
+                await fetchSubscriptionStatus();
+            }
+            return success;
+        } catch (error) {
+            console.error('Error creating trial:', error);
             return false;
         }
-    }, []);
+    }, [fetchSubscriptionStatus]);
 
     const activateSubscription = useCallback(async (planName: string, paystackData: any): Promise<boolean> => {
         try {
-            return await subscriptionService.activateSubscription(planName, paystackData);
-        } catch (err) {
-            console.error('Error activating subscription:', err);
+            const success = await subscriptionService.activateSubscription(planName, paystackData);
+            if (success) {
+                // Refresh subscription status after activating subscription
+                await fetchSubscriptionStatus();
+            }
+            return success;
+        } catch (error) {
+            console.error('Error activating subscription:', error);
             return false;
         }
-    }, []);
+    }, [fetchSubscriptionStatus]);
 
-    const verifyPayment = useCallback(async (reference: string): Promise<any> => {
-        try {
-            return await subscriptionService.verifyPayment(reference);
-        } catch (err) {
-            console.error('Error verifying payment:', err);
-            return { success: false, error: 'Verification failed' };
+    const getFormattedRemainingTime = useCallback(() => {
+        if (subscriptionInfo.subscription) {
+            return subscriptionService.getFormattedRemainingTime(subscriptionInfo as any);
+        } else if (subscriptionInfo.trial) {
+            return subscriptionService.getFormattedRemainingTime(subscriptionInfo as any);
         }
-    }, []);
+        return 'No active subscription';
+    }, [subscriptionInfo]);
 
-    const getUsageStats = useCallback(async (): Promise<any[]> => {
-        try {
-            return await subscriptionService.getUsageStats();
-        } catch (err) {
-            console.error('Error getting usage stats:', err);
-            return [];
+    const getPlanDisplayName = useCallback(() => {
+        if (subscriptionInfo.subscription) {
+            return subscriptionInfo.subscription.plan_display_name;
+        } else if (subscriptionInfo.trial) {
+            return 'Free Trial';
         }
-    }, []);
+        return 'No Plan';
+    }, [subscriptionInfo]);
 
-    const hasAppAccess = useCallback(async (): Promise<boolean> => {
-        try {
-            return await subscriptionService.hasAppAccess();
-        } catch (err) {
-            console.error('Error checking app access:', err);
-            return false;
+    const isSubscriptionExpired = useCallback(() => {
+        if (subscriptionInfo.subscription) {
+            return subscriptionService.isSubscriptionExpired(subscriptionInfo as any);
         }
-    }, []);
+        return true;
+    }, [subscriptionInfo]);
 
-    // Computed values
-    const canAccess = subscriptionStatus?.can_access_app ?? false;
-    const hasActiveSubscription = subscriptionStatus?.has_active_subscription ?? false;
-    const isTrialExpired = subscriptionStatus?.trial ?
-        subscriptionService.isTrialExpired(subscriptionStatus) : true;
-    const isSubscriptionExpired = subscriptionStatus?.subscription ?
-        subscriptionService.isSubscriptionExpired(subscriptionStatus) : true;
+    const isTrialExpired = useCallback(() => {
+        if (subscriptionInfo.trial) {
+            return subscriptionService.isTrialExpired(subscriptionInfo as any);
+        }
+        return true;
+    }, [subscriptionInfo]);
 
-    const formattedRemainingTime = subscriptionStatus ?
-        subscriptionService.getFormattedRemainingTime(subscriptionStatus) : 'No subscription';
+    useEffect(() => {
+        // Initial fetch
+        fetchSubscriptionStatus();
 
-    const planDisplayName = subscriptionStatus ?
-        subscriptionService.getPlanDisplayName(subscriptionStatus) : 'No Plan';
+        // Set up periodic refresh every 5 minutes
+        const interval = setInterval(fetchSubscriptionStatus, 5 * 60 * 1000);
 
-    const progress = subscriptionStatus?.subscription?.progress_percentage ??
-        subscriptionStatus?.trial?.progress_percentage ?? 100;
+        return () => clearInterval(interval);
+    }, [fetchSubscriptionStatus]);
 
     return {
-        // State
-        subscriptionStatus,
-        isLoading,
-        error,
-
-        // Computed values
-        canAccess,
-        hasActiveSubscription,
-        isTrialExpired,
-        isSubscriptionExpired,
-        formattedRemainingTime,
-        planDisplayName,
-        progress,
-
-        // Actions
-        updateSubscriptionStatus,
-        canAccessFeature,
+        ...subscriptionInfo,
+        fetchSubscriptionStatus,
+        checkFeatureAccess,
         recordFeatureUsage,
         createTrial,
         activateSubscription,
-        verifyPayment,
-        getUsageStats,
-        hasAppAccess,
-
-        // Raw data
-        subscription: subscriptionStatus?.subscription,
-        trial: subscriptionStatus?.trial
+        getFormattedRemainingTime,
+        getPlanDisplayName,
+        isSubscriptionExpired,
+        isTrialExpired,
+        // Convenience getters
+        hasActiveSubscription: subscriptionInfo.hasActiveSubscription,
+        canAccessApp: subscriptionInfo.canAccessApp,
+        isLoading: subscriptionInfo.isLoading,
+        error: subscriptionInfo.error
     };
 };
-
-
-
