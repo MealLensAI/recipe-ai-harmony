@@ -48,15 +48,32 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Show modal if trial expired OR subscription expired and user is on a restricted page
-    const shouldShowModal = (isTrialExpired || (hasActiveSubscription && isSubscriptionExpired)) && !allowedPaths.includes(currentPath);
+    // Only show modal if user has NO active subscription AND trial is expired
+    // If user has active subscription, NEVER show the modal
+    const shouldShowModal = !hasActiveSubscription && isTrialExpired && !allowedPaths.includes(currentPath);
+
+    console.log('🔍 TrialBlocker status check:', {
+      isTrialExpired,
+      hasActiveSubscription,
+      isSubscriptionExpired,
+      canAccess,
+      currentPath,
+      shouldShowModal,
+      reason: hasActiveSubscription ? 'User has active subscription - no modal' :
+        isTrialExpired ? 'Trial expired and no subscription - show modal' :
+          'Trial still active - no modal'
+    });
+
     if (shouldShowModal) {
       setShowTrialModal(true);
+    } else {
+      setShowTrialModal(false);
     }
-  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath]);
+  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess]);
 
   // If user can't access and is on a restricted page, show blocking overlay
-  if (!canAccess && !allowedPaths.includes(currentPath)) {
+  // But only if they don't have an active subscription
+  if (!canAccess && !hasActiveSubscription && !allowedPaths.includes(currentPath)) {
     return (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">

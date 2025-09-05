@@ -67,7 +67,7 @@ const YEARLY_PLAN = {
 };
 
 const Payment: React.FC = () => {
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, updateTrialInfo } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('daniel');
@@ -181,7 +181,12 @@ const Payment: React.FC = () => {
               // Activate subscription for the plan duration
               if (selectedPlan.durationDays) {
                 console.log(`🔄 Activating subscription for ${selectedPlan.durationDays} days...`);
-                await TrialService.activateSubscriptionForDays(selectedPlan.durationDays);
+                await TrialService.activateSubscriptionForDays(selectedPlan.durationDays, {
+                  reference: response.reference,
+                  transaction_id: response.transaction_id,
+                  amount: selectedPlan.paystackAmount,
+                  plan: selectedPlan.label
+                });
               } else {
                 console.log('🔄 Activating subscription...');
                 await TrialService.activateSubscription();
@@ -238,8 +243,16 @@ const Payment: React.FC = () => {
   return (
     <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-20">
       <div className="max-w-2xl mx-auto text-center mb-8">
-        {/* Trial Status Banner */}
-        {!hasActiveSubscription && (
+        {/* Status Banner */}
+        {hasActiveSubscription ? (
+          <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isSubscriptionExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+            <Clock className={`h-4 w-4 ${isSubscriptionExpired ? 'text-red-600' : 'text-green-600'}`} />
+            {isSubscriptionExpired
+              ? 'Your subscription has ended. Renew to continue using MealLensAI.'
+              : `Active Subscription: ${subscriptionInfo?.formattedRemainingTime || formattedRemainingTime} remaining`
+            }
+          </div>
+        ) : (
           <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
             <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
             {isTrialExpired ? 'Your trial has ended. Upgrade to continue using MealLensAI.' : `Trial: ${formattedRemainingTime}`}

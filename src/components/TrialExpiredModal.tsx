@@ -6,14 +6,33 @@ import { Clock, Lock, CreditCard, Star } from 'lucide-react';
 interface TrialExpiredModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isSubscriptionExpired?: boolean;
 }
 
-const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose }) => {
+const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, isSubscriptionExpired = false }) => {
   const handleUpgrade = () => {
     // Navigate without relying on React Router context
     window.location.href = '/payment';
     onClose();
   };
+
+  // Debug logging
+  console.log('🔍 TrialExpiredModal render:', {
+    isOpen,
+    isSubscriptionExpired,
+    shouldShow: isOpen
+  });
+
+  // Don't render the modal if it's not supposed to be open
+  if (!isOpen) {
+    return null;
+  }
+
+  // NEVER show trial modal if user has active subscription
+  if (isSubscriptionExpired === false) {
+    console.log('🔍 TrialExpiredModal: User has active subscription, not showing modal');
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -21,7 +40,7 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose }
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold text-red-600">
             <Lock className="h-6 w-6" />
-            Trial Period Expired
+            {isSubscriptionExpired ? 'Subscription Expired' : 'Trial Period Expired'}
           </DialogTitle>
         </DialogHeader>
 
@@ -35,11 +54,13 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose }
 
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Your 24-Hour Trial Has Ended
+                {isSubscriptionExpired ? 'Your Subscription Has Ended' : 'Your 24-Hour Trial Has Ended'}
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
-                We hope you enjoyed exploring MealLensAI! To continue using all the amazing features,
-                please upgrade to one of our premium plans.
+                {isSubscriptionExpired
+                  ? 'Your subscription period has ended. To continue using all the amazing features, please renew your subscription.'
+                  : 'We hope you enjoyed exploring MealLensAI! To continue using all the amazing features, please upgrade to one of our premium plans.'
+                }
               </p>
             </div>
           </div>
@@ -64,7 +85,7 @@ const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose }
               className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3"
             >
               <CreditCard className="h-4 w-4 mr-2" />
-              Upgrade Now - Starting at $1/week
+              {isSubscriptionExpired ? 'Renew Subscription' : 'Upgrade Now - Starting at $1/week'}
             </Button>
 
             <Button

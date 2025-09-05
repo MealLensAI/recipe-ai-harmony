@@ -90,22 +90,37 @@ export class TrialService {
   static hasActiveSubscription(): boolean {
     const expiresAtIso = localStorage.getItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE));
     if (!expiresAtIso) {
+      console.log('🔍 No subscription expiration found in localStorage');
       return false;
     }
     const expiresAt = new Date(expiresAtIso).getTime();
-    return Date.now() < expiresAt;
+    const isActive = Date.now() < expiresAt;
+    console.log('🔍 Subscription status:', {
+      expiresAtIso,
+      expiresAt: new Date(expiresAt),
+      now: new Date(),
+      isActive
+    });
+    return isActive;
   }
 
   /**
    * Check if user can access the app (either trial active or subscription active)
    */
   static canAccessApp(): boolean {
-    if (this.hasActiveSubscription()) {
-      return true;
-    }
-
+    const hasSubscription = this.hasActiveSubscription();
     const trialInfo = this.getTrialInfo();
-    return trialInfo ? !trialInfo.isExpired : false;
+    const trialActive = trialInfo ? !trialInfo.isExpired : false;
+    const canAccess = hasSubscription || trialActive;
+
+    console.log('🔍 Access check:', {
+      hasSubscription,
+      trialActive,
+      canAccess,
+      trialInfo: trialInfo ? { isExpired: trialInfo.isExpired, remainingTime: trialInfo.remainingTime } : null
+    });
+
+    return canAccess;
   }
 
   /**
@@ -139,15 +154,67 @@ export class TrialService {
    * Activate subscription for a number of days (or minutes if testing).
    * Example: activateSubscriptionForDays(7) -> 7 days (or 7 minutes in test mode)
    */
-  static activateSubscriptionForDays(days: number): void {
-    const unit = this.SUBSCRIPTION_TIME_UNIT;
-    const durationMs = unit === 'minutes'
-      ? days * 60 * 1000
-      : days * 24 * 60 * 60 * 1000;
-    const expiresAt = new Date(Date.now() + durationMs);
-    localStorage.setItem(this.k(this.SUBSCRIPTION_STATUS_KEY_BASE), 'active');
-    localStorage.setItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE), expiresAt.toISOString());
-    console.log(`Subscription activated for ${days} ${unit}`);
+  static async activateSubscriptionForDays(days: number, paystackData?: any): Promise<boolean> {
+    try {
+      // Try backend first
+      const firebaseUid = this.getCurrentFirebaseUid();
+      if (firebaseUid) {
+        const response = await fetch(`${this.API_BASE_URL}/api/subscription/activate-days`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            firebase_uid: firebaseUid,
+            duration_days: days,
+            paystack_data: paystackData || {}
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            console.log(`✅ Backend subscription activated for ${days} days`);
+            // Clear local cache to force refresh
+            this.clearUserAccessStatusCache();
+            return true;
+          }
+        }
+      }
+
+      // Fallback to local storage
+      const unit = this.SUBSCRIPTION_TIME_UNIT;
+      const durationMs = unit === 'minutes'
+        ? days * 60 * 1000
+        : days * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + durationMs);
+      localStorage.setItem(this.k(this.SUBSCRIPTION_STATUS_KEY_BASE), 'active');
+      localStorage.setItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE), expiresAt.toISOString());
+      console.log(`Subscription activated locally for ${days} ${unit}`);
+      return true;
+    } catch (error) {
+      console.error('Error activating subscription for days:', error);
+      // Fallback to local storage
+      const unit = this.SUBSCRIPTION_TIME_UNIT;
+      const durationMs = unit === 'minutes'
+        ? days * 60 * 1000
+        : days * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + durationMs);
+      localStorage.setItem(this.k(this.SUBSCRIPTION_STATUS_KEY_BASE), 'active');
+      localStorage.setItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE), expiresAt.toISOString());
+      console.log(`Subscription activated locally for ${days} ${unit}`);
+      return true;
+    }
+  }
+
+  /**
+   * Clear user access status cache
+   */
+  private static clearUserAccessStatusCache(): void {
+    try {
+      localStorage.removeItem(this.USER_ACCESS_STATUS_KEY);
+      console.log('✅ User access status cache cleared');
+    } catch (error) {
+      console.error('Error clearing user access status cache:', error);
+    }
   }
 
   /**

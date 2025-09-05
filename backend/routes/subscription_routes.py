@@ -188,6 +188,45 @@ def activate_subscription():
             'error': str(e)
         }), 500
 
+@subscription_bp.route('/activate-days', methods=['POST'])
+@cross_origin()
+def activate_subscription_for_days():
+    """
+    Activate a subscription for a specific number of days
+    """
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        firebase_uid = data.get('firebase_uid')
+        duration_days = data.get('duration_days')
+        paystack_data = data.get('paystack_data', {})
+        
+        if not duration_days:
+            return jsonify({
+                'success': False,
+                'error': 'Duration days required'
+            }), 400
+        
+        if not user_id and not firebase_uid:
+            return jsonify({
+                'success': False,
+                'error': 'User ID or Firebase UID required'
+            }), 400
+        
+        # Activate subscription for days
+        result = subscription_service.activate_subscription_for_days(user_id, duration_days, paystack_data, firebase_uid)
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @subscription_bp.route('/plans', methods=['GET'])
 @cross_origin()
 def get_subscription_plans():

@@ -238,46 +238,198 @@ class SubscriptionService:
     
     def activate_subscription(self, user_id: str, plan_name: str, paystack_data: Dict[str, Any], firebase_uid: str = None) -> Dict[str, Any]:
         """
-        Activate a subscription for a user after successful payment
+        Activate a subscription for a user and mark trial as used
         """
         try:
-            # Try to get user from Supabase auth first
-            if user_id and user_id != 'anon':
-                result = self.supabase.rpc(
-                    'activate_user_subscription',
-                    {'p_user_id': user_id, 'p_plan_name': plan_name, 'p_paystack_data': paystack_data}
-                ).execute()
-                
-                if result.data and result.data.get('success'):
-                    return {
-                        'success': True,
-                        'data': result.data
-                    }
+            # Get the plan details
+            plan_result = self.supabase.table('subscription_plans').select('*').eq('name', plan_name).execute()
+            if not plan_result.data:
+                return {
+                    'success': False,
+                    'error': f'Plan {plan_name} not found'
+                }
             
-            # Fallback to Firebase UID if Supabase user not found
-            if firebase_uid:
+            plan = plan_result.data[0]
+            duration_days = plan.get('duration_days', 30)
+            
+            # Calculate subscription end date
+            start_date = datetime.now()
+            end_date = start_date + timedelta(days=duration_days)
+            
+            # Try to get user from Supabase auth first
+            supabase_user_id = None
+            if user_id and user_id != 'anon':
+                supabase_user_id = user_id
+            elif firebase_uid:
+                # Get user profile by Firebase UID
                 profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                
                 if profile_result.data:
                     supabase_user_id = profile_result.data[0]['id']
-                    result = self.supabase.rpc(
-                        'activate_user_subscription',
-                        {'p_user_id': supabase_user_id, 'p_plan_name': plan_name, 'p_paystack_data': paystack_data}
-                    ).execute()
-                    
-                    if result.data and result.data.get('success'):
-                        return {
-                            'success': True,
-                            'data': result.data
-                        }
+            
+            if not supabase_user_id:
+                return {
+                    'success': False,
+                    'error': 'User not found'
+                }
+            
+            # Create subscription record
+            subscription_data = {
+                'user_id': supabase_user_id,
+                'plan_id': plan['id'],
+                'status': 'active',
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'auto_renew': False,
+                'firebase_uid': firebase_uid
+            }
+            
+            subscription_result = self.supabase.table('user_subscriptions').insert(subscription_data).execute()
+            
+            if not subscription_result.data:
+                return {
+                    'success': False,
+                    'error': 'Failed to create subscription record'
+                }
+            
+            # Mark trial as used (if exists)
+            trial_result = self.supabase.table('user_trials').update({
+                'is_used': True,
+                'updated_at': datetime.now().isoformat()
+            }).eq('user_id', supabase_user_id).execute()
+            
+            # Create payment transaction record
+            payment_data = {
+                'user_id': supabase_user_id,
+                'subscription_id': subscription_result.data[0]['id'],
+                'plan_id': plan['id'],
+                'amount': plan.get('price_usd', 0),
+                'currency': 'USD',
+                'payment_method': 'paystack',
+                'payment_reference': paystack_data.get('reference', ''),
+                'status': 'completed',
+                'paystack_reference': paystack_data.get('reference', ''),
+                'paystack_transaction_id': paystack_data.get('transaction_id', ''),
+                'metadata': paystack_data
+            }
+            
+            payment_result = self.supabase.table('payment_transactions').insert(payment_data).execute()
             
             return {
-                'success': False,
-                'error': 'User not found or activation failed'
+                'success': True,
+                'data': {
+                    'subscription_id': subscription_result.data[0]['id'],
+                    'plan_name': plan_name,
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'duration_days': duration_days,
+                    'trial_marked_used': len(trial_result.data) > 0 if trial_result.data else False
+                }
             }
             
         except Exception as e:
             print(f"Error activating subscription: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def activate_subscription_for_days(self, user_id: str, duration_days: int, paystack_data: Dict[str, Any], firebase_uid: str = None) -> Dict[str, Any]:
+        """
+        Activate a subscription for a specific number of days and mark trial as used
+        """
+        try:
+            # Calculate subscription end date
+            start_date = datetime.now()
+            end_date = start_date + timedelta(days=duration_days)
+            
+            # Try to get user from Supabase auth first
+            supabase_user_id = None
+            if user_id and user_id != 'anon':
+                supabase_user_id = user_id
+            elif firebase_uid:
+                # Get user profile by Firebase UID
+                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
+                if profile_result.data:
+                    supabase_user_id = profile_result.data[0]['id']
+            
+            if not supabase_user_id:
+                return {
+                    'success': False,
+                    'error': 'User not found'
+                }
+            
+            # Get or create a default plan for custom duration
+            plan_result = self.supabase.table('subscription_plans').select('*').eq('duration_days', duration_days).execute()
+            if not plan_result.data:
+                # Create a temporary plan for this duration
+                plan_data = {
+                    'name': f'custom_{duration_days}_days',
+                    'display_name': f'{duration_days} Days',
+                    'price_usd': 0,  # Will be updated with actual payment amount
+                    'duration_days': duration_days,
+                    'features': ['Full app access'],
+                    'is_active': True
+                }
+                plan_result = self.supabase.table('subscription_plans').insert(plan_data).execute()
+            
+            plan = plan_result.data[0]
+            
+            # Create subscription record
+            subscription_data = {
+                'user_id': supabase_user_id,
+                'plan_id': plan['id'],
+                'status': 'active',
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'auto_renew': False,
+                'firebase_uid': firebase_uid
+            }
+            
+            subscription_result = self.supabase.table('user_subscriptions').insert(subscription_data).execute()
+            
+            if not subscription_result.data:
+                return {
+                    'success': False,
+                    'error': 'Failed to create subscription record'
+                }
+            
+            # Mark trial as used (if exists)
+            trial_result = self.supabase.table('user_trials').update({
+                'is_used': True,
+                'updated_at': datetime.now().isoformat()
+            }).eq('user_id', supabase_user_id).execute()
+            
+            # Create payment transaction record
+            payment_data = {
+                'user_id': supabase_user_id,
+                'subscription_id': subscription_result.data[0]['id'],
+                'plan_id': plan['id'],
+                'amount': paystack_data.get('amount', 0),
+                'currency': 'USD',
+                'payment_method': 'paystack',
+                'payment_reference': paystack_data.get('reference', ''),
+                'status': 'completed',
+                'paystack_reference': paystack_data.get('reference', ''),
+                'paystack_transaction_id': paystack_data.get('transaction_id', ''),
+                'metadata': paystack_data
+            }
+            
+            payment_result = self.supabase.table('payment_transactions').insert(payment_data).execute()
+            
+            return {
+                'success': True,
+                'data': {
+                    'subscription_id': subscription_result.data[0]['id'],
+                    'plan_name': plan['name'],
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'duration_days': duration_days,
+                    'trial_marked_used': len(trial_result.data) > 0 if trial_result.data else False
+                }
+            }
+            
+        except Exception as e:
+            print(f"Error activating subscription for days: {str(e)}")
             return {
                 'success': False,
                 'error': str(e)
