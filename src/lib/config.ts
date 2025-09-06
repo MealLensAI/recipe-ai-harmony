@@ -1,3 +1,8 @@
+
+
+
+
+
 // Centralized configuration for MealLens AI
 export const APP_CONFIG = {
     // App Information
@@ -20,7 +25,7 @@ export const APP_CONFIG = {
         {
             id: 'free',
             name: 'free',
-            display_name: 'Free Plan',
+            display_name: 'Free 2 days trial',
             price_weekly: 0,
             price_two_weeks: 0,
             price_monthly: 0,
@@ -36,8 +41,8 @@ export const APP_CONFIG = {
                 ai_kitchen_requests: 5
             },
             is_active: true,
-            duration_days: 30,
-            billing_cycle: 'monthly'
+            duration_days: 2,
+            billing_cycle: 'weekly'
         },
         {
             id: 'weekly',
@@ -48,9 +53,12 @@ export const APP_CONFIG = {
             price_monthly: 10.00,
             currency: 'USD',
             features: [
-                'Unlimited Food Detection',
-                'Unlimited AI Kitchen Assistant',
-                'Unlimited Meal Planning',
+                'Smart Ingredient Recognition',
+                'Recipe Suggestions & Cooking Instructions',
+                'Smart Food Detection',
+                'AI Meal Planning',
+                'AI Meal Plan for Chronic Sickness',
+                'Budget & Location Based Meal Plans',
                 'Full History Access'
             ],
             limits: {
@@ -71,9 +79,12 @@ export const APP_CONFIG = {
             price_monthly: 10.00,
             currency: 'USD',
             features: [
-                'Unlimited Food Detection',
-                'Unlimited AI Kitchen Assistant',
-                'Unlimited Meal Planning',
+                'Smart Ingredient Recognition',
+                'Recipe Suggestions & Cooking Instructions',
+                'Smart Food Detection',
+                'AI Meal Planning',
+                'AI Meal Plan for Chronic Sickness',
+                'Budget & Location Based Meal Plans',
                 'Full History Access'
             ],
             limits: {
@@ -94,9 +105,12 @@ export const APP_CONFIG = {
             price_monthly: 10.00,
             currency: 'USD',
             features: [
-                'Unlimited Food Detection',
-                'Unlimited AI Kitchen Assistant',
-                'Unlimited Meal Planning',
+                'Smart Ingredient Recognition',
+                'Recipe Suggestions & Cooking Instructions',
+                'Smart Food Detection',
+                'AI Meal Planning',
+                'AI Meal Plan for Chronic Sickness',
+                'Budget & Location Based Meal Plans',
                 'Full History Access',
                 'Priority Support'
             ],
@@ -108,7 +122,36 @@ export const APP_CONFIG = {
             is_active: true,
             duration_days: 30,
             billing_cycle: 'monthly'
+        },
+        {
+            id: 'yearly',
+            name: 'yearly',
+            display_name: 'Yearly Plan',
+            price_weekly: 2.50,
+            price_two_weeks: 5.00,
+            price_monthly: 10.00,
+            price_yearly: 100.00,
+            currency: 'USD',
+            features: [
+                'Smart Ingredient Recognition',
+                'Recipe Suggestions & Cooking Instructions',
+                'Smart Food Detection',
+                'AI Meal Planning',
+                'AI Meal Plan for Chronic Sickness',
+                'Budget & Location Based Meal Plans',
+                'Full History Access',
+                'Priority Support'
+            ],
+            limits: {
+                detections_per_day: -1,
+                meal_plans_per_month: -1,
+                ai_kitchen_requests: -1
+            },
+            is_active: true,
+            duration_days: 366,
+            billing_cycle: 'yearly'
         }
+
     ],
 
     // Features
@@ -285,6 +328,8 @@ export const getPlanPrice = (planName: string, billingCycle: string): number => 
             return plan.price_two_weeks;
         case 'monthly':
             return plan.price_monthly;
+        case 'yearly':
+            return plan.price_yearly || 100.00;
         default:
             return plan.price_monthly;
     }
@@ -303,6 +348,8 @@ export const getPlanDurationText = (billingCycle: string): string => {
             return 'per 2 weeks';
         case 'monthly':
             return 'per month';
+        case 'yearly':
+            return 'per year';
         default:
             return 'per month';
     }
@@ -353,7 +400,7 @@ export const getProvidersForCurrency = (currency: string) => {
         }, {} as Record<string, any>);
 };
 
-export const getBestProviderForCurrency = (currency: string): string | null => {
+export const getBestProviderForCurrency = (_currency: string): string | null => {
     // Force Paystack for all currencies - only provider we support
     return 'paystack';
 };

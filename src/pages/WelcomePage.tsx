@@ -21,10 +21,8 @@ import {
     Play,
     Menu,
     X,
-    Target,
-    TrendingUp,
     Calendar,
-    History
+    Lightbulb
 } from 'lucide-react';
 import { APP_CONFIG, getPlanPrice, getPlanDisplayName, getPlanDurationText, getPlanFeatures } from '../lib/config';
 
@@ -84,49 +82,57 @@ const WelcomePage: React.FC = () => {
     const features = [
         {
             icon: <Camera className="h-8 w-8 text-white" />,
-            title: "Food Detection",
-            description: "Identify food items from photos instantly with AI-powered recognition",
+            title: "Smart Ingredient Recognition",
+            description: "Snap a picture or upload an image of your ingredients, and let MealLensAI identify them instantly using cutting-edge AI technology.",
             gradient: "from-orange-500 to-orange-400"
         },
+
         {
-            icon: <ChefHat className="h-8 w-8 text-white" />,
-            title: "AI Kitchen Assistant",
-            description: "Get personalized recipe suggestions and cooking instructions",
+            icon: <Lightbulb className="h-8 w-8 text-white" />,
+            title: "Recipe Suggestions and cooking instructions",
+            description: "Discover recipes based on your ingredients, get quick meal ideas, and missing ingredients. Step-by-step instructions to cook your meal, with youtube and google resources.",
+            gradient: "from-orange-500 to-orange-400"
+        },
+
+        {
+            icon: <Lightbulb className="h-8 w-8 text-white" />,
+            title: "Smart Food Detection",
+            description: "Capture a photo of any prepared meal, and let our AI, driven by cutting-edge technology, identify the dish and provide the full recipe with an ingredient list and step-by-step cooking instructions",
+            gradient: "from-orange-500 to-orange-400"
+        },
+
+
+        {
+            icon: <Calendar className="h-8 w-8 text-white" />,
+            title: "Meal Planning",
+            description: "Take a picture of your food items or enter them manually, and let our AI generate a personalized 7-day meal plan  including breakfast, lunch, dinner, and dessert along with step-by-step cooking instructions for each meal.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
             icon: <Calendar className="h-8 w-8 text-white" />,
-            title: "Meal Planning",
-            description: "Create personalized meal plans based on your preferences and dietary needs",
+            title: "AI Meal Plan for Chronic Sickness Conditions",
+            description: "Upload a picture or list your ingredients, and let our AI create a 7-day meal plan tailored to your chronic sickness, suggesting meals that help manage symptoms and support healing, while providing step-by-step instructions on how to cook each meal to promote better health and well-being.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
-            icon: <History className="h-8 w-8 text-white" />,
-            title: "History & Tracking",
-            description: "Keep track of your food discoveries and favorite recipes",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
-            icon: <Target className="h-8 w-8 text-white" />,
-            title: "Health Tracking",
-            description: "Monitor your nutrition and get health-conscious meal suggestions",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
-            icon: <TrendingUp className="h-8 w-8 text-white" />,
-            title: "Progress Analytics",
-            description: "Track your cooking journey and see your improvement over time",
+            icon: <ChefHat className="h-8 w-8 text-white" />,
+            title: "Budget & Location based meal plans",
+            description: "Enter your budget and location , and let our AI create a 7-day meal plan tailored to your location and budget, suggesting meals that are affordable and accessible to you. This is also accessible to healthy users and chronic sickness users.",
             gradient: "from-orange-500 to-orange-400"
         }
+
+
     ];
 
     const benefits = [
-        "7-day free trial for all features",
+        "2-day free trial for all features",
         "Unlimited food detection",
         "AI-powered recipe suggestions",
+        "AI-powered budget & location based meal plans",
         "Personalized meal planning",
         "Cross-platform compatibility",
-        "Secure and private"
+        "AI-powered meal plan for chronic sickness conditions"
+
     ];
 
     useEffect(() => {
@@ -336,10 +342,16 @@ const WelcomePage: React.FC = () => {
             </section>
 
             {/* Features Section */}
-            <section id="features" className="py-16 sm:py-20 bg-white">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <section id="features" className="py-16 sm:py-20 bg-gradient-to-br from-gray-50 to-white relative overflow-hidden">
+                {/* Background decoration */}
+                <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute top-20 -right-20 w-96 h-96 bg-orange-100/30 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-20 -left-20 w-96 h-96 bg-orange-100/30 rounded-full blur-3xl"></div>
+                </div>
+
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                     <div className="text-center mb-12 sm:mb-16">
-                        <Badge className="mb-4 bg-orange-50 text-orange-500 border-orange-200">
+                        <Badge className="mb-4 bg-orange-50 text-orange-500 border-orange-200 shadow-sm">
                             <Sparkles className="h-3 w-3 mr-2" />
                             Powerful Features
                         </Badge>
@@ -347,28 +359,36 @@ const WelcomePage: React.FC = () => {
                             Everything You Need for
                             <span className="text-orange-500 block">Smart Cooking</span>
                         </h2>
-                        <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
-                            From ingredient detection to personalized meal planning, we've got you covered with AI-powered features.
+                        <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                            From ingredient detection to personalized meal planning, we've got you covered with AI-powered features that transform your culinary experience.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                         {features.map((feature, index) => (
-                            <Card key={index} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-lg">
-                                <CardHeader className="text-center pb-4">
-                                    <div className="flex justify-center mb-4">
-                                        <div className={`w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                                            {feature.icon}
+                            <div key={index} className="group relative">
+                                <Card className="h-full border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-2xl overflow-hidden">
+                                    <CardHeader className="text-center p-8">
+                                        <div className="flex justify-center mb-6">
+                                            <div className={`w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-lg`}>
+                                                {feature.icon}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <CardTitle className="text-xl font-semibold text-gray-900">{feature.title}</CardTitle>
-                                    <CardDescription className="text-gray-600">
-                                        {feature.description}
-                                    </CardDescription>
-                                </CardHeader>
-                            </Card>
+                                        <CardTitle className="text-xl font-bold text-gray-900 mb-4 leading-tight">
+                                            {feature.title}
+                                        </CardTitle>
+                                        <CardDescription className="text-gray-600 leading-relaxed text-sm">
+                                            {feature.description}
+                                        </CardDescription>
+                                    </CardHeader>
+
+                                    {/* Subtle hover effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 to-orange-400/0 group-hover:from-orange-500/5 group-hover:to-orange-400/5 transition-all duration-300 rounded-2xl"></div>
+                                </Card>
+                            </div>
                         ))}
                     </div>
+
                 </div>
             </section>
 
@@ -387,7 +407,7 @@ const WelcomePage: React.FC = () => {
 
                         <div className="grid md:grid-cols-2 gap-8">
                             <div className="space-y-6">
-                                {benefits.slice(0, 3).map((benefit, index) => (
+                                {benefits.slice(0, 4).map((benefit, index) => (
                                     <div key={index} className="flex items-start gap-3">
                                         <CheckCircle className="h-6 w-6 text-orange-500 mt-1 flex-shrink-0" />
                                         <span className="text-gray-700">{benefit}</span>
@@ -408,7 +428,7 @@ const WelcomePage: React.FC = () => {
             </section>
 
             {/* Pricing Section with Real Data */}
-            <section id="pricing" className="py-16 sm:py-20 bg-white">
+            <section id="pricing" className="py-16 sm:py-20 bg-gradient-to-br from-gray-50 to-white">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-12 sm:mb-16">
                         <Badge className="mb-4 bg-orange-50 text-orange-500 border-orange-200">
@@ -420,43 +440,65 @@ const WelcomePage: React.FC = () => {
                             <span className="text-orange-500 block">Plan</span>
                         </h2>
                         <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
-                            Start with a 7-day free trial, then choose the plan that works best for you. All plans are billed in USD.
+                            Start with a 2-day free trial, then choose the plan that works best for you. All plans include the same features - only the duration differs.
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 max-w-7xl mx-auto">
                         {APP_CONFIG.subscriptionPlans.map((plan: any) => (
-                            <Card key={plan.id} className="relative border-2 hover:shadow-xl transition-all duration-300">
+                            <Card key={plan.id} className={`relative border-2 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 ${plan.id === 'monthly' ? 'border-orange-500 shadow-lg' : 'border-gray-200'
+                                }`}>
                                 {plan.id === 'monthly' && (
-                                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                                        <Badge className="bg-orange-500 text-white px-4 py-1">Most Popular</Badge>
+                                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                                        <Badge className="bg-orange-500 text-white px-3 py-1 text-xs font-semibold shadow-lg">
+                                            Most Popular
+                                        </Badge>
                                     </div>
                                 )}
-                                <CardHeader className="text-center pb-4">
-                                    <CardTitle className="text-2xl font-bold text-gray-900">
+                                {plan.id === 'yearly' && (
+                                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                                        <Badge className="bg-green-500 text-white px-3 py-1 text-xs font-semibold shadow-lg">
+                                            Best Value
+                                        </Badge>
+                                    </div>
+                                )}
+                                <CardHeader className="text-center pb-4 pt-6">
+                                    <CardTitle className="text-lg font-bold text-gray-900 mb-2">
                                         {getPlanDisplayName(plan.id)}
                                     </CardTitle>
                                     <div className="mt-4">
-                                        <span className="text-4xl font-bold text-orange-500">
-                                            ${getPlanPrice(plan.id, plan.billing_cycle).toFixed(2)}
-                                        </span>
-                                        <span className="text-gray-600 ml-2">
+                                        <div className="flex items-baseline justify-center">
+                                            <span className="text-3xl font-bold text-orange-500">
+                                                ${getPlanPrice(plan.id, plan.billing_cycle).toFixed(2)}
+                                            </span>
+                                        </div>
+                                        <span className="text-sm text-gray-600 mt-1 block">
                                             {getPlanDurationText(plan.billing_cycle)}
                                         </span>
+                                        {plan.id === 'yearly' && (
+                                            <div className="mt-2">
+                                                <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full">
+                                                    Save $20/year
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <ul className="space-y-3">
+                                <CardContent className="space-y-4 px-4 pb-6">
+                                    <ul className="space-y-2">
                                         {getPlanFeatures(plan.id).map((feature: string, index: number) => (
-                                            <li key={index} className="flex items-center gap-3">
-                                                <CheckCircle className="h-5 w-5 text-orange-500 flex-shrink-0" />
-                                                <span className="text-gray-700">{feature}</span>
+                                            <li key={index} className="flex items-start gap-2">
+                                                <CheckCircle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                                                <span className="text-xs text-gray-700 leading-relaxed">{feature}</span>
                                             </li>
                                         ))}
                                     </ul>
                                     <Button
                                         onClick={handleGetStarted}
-                                        className="w-full bg-orange-500 hover:bg-orange-600 text-white mt-6"
+                                        className={`w-full mt-4 text-sm font-semibold py-2 ${plan.id === 'monthly'
+                                            ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                                            : 'bg-gray-100 hover:bg-orange-500 hover:text-white text-gray-700 transition-all duration-300'
+                                            }`}
                                     >
                                         Get Started
                                     </Button>
@@ -466,9 +508,27 @@ const WelcomePage: React.FC = () => {
                     </div>
 
                     <div className="text-center mt-12">
-                        <p className="text-gray-600">
-                            All plans include a 7-day free trial. Cancel anytime.
-                        </p>
+                        <div className="bg-white rounded-lg p-6 shadow-lg max-w-2xl mx-auto">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">All Plans Include:</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-orange-500" />
+                                    <span>2-day free trial</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-orange-500" />
+                                    <span>Cancel anytime</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-orange-500" />
+                                    <span>All features included</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-orange-500" />
+                                    <span>No hidden fees</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
