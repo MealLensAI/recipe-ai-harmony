@@ -35,6 +35,21 @@ const HistoryDetailPage = () => {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
 
+  // Reuse the Detect Food page formatting for instructions
+  const formatInstructionsForDisplay = (raw: string) => {
+    if (!raw) return ''
+    let html = raw
+    // Bold sections wrapped in ** ** with line breaks around
+    html = html.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
+    // Bullet-like lines wrapped in * * into paragraph tags
+    html = html.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
+    // Ensure numbered steps start on new lines
+    html = html.replace(/(\d+\.)/g, '<br>$1')
+    // Newlines to <br>
+    html = html.replace(/\n/g, '<br>')
+    return html
+  }
+
   useEffect(() => {
     const fetchHistoryDetail = async () => {
       if (!id) {
@@ -220,45 +235,48 @@ const HistoryDetailPage = () => {
             {historyDetail.recipe_type === "food_detection" ? "Food Detection Result" : "Ingredient Detection Result"}
           </h1>
 
-          {/* Detected Foods/Ingredients */}
-          {historyDetail.detected_foods && (
-            <div className="mb-6 p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-              <div className="p-4 mt-2.5">
-                <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                  {historyDetail.recipe_type === "food_detection" ? "Detected Foods" : "Ingredients"}
-                </h5>
-                <div className="flex flex-wrap gap-2">
-                  {(() => {
-                    try {
-                      const foods = JSON.parse(historyDetail.detected_foods)
-                      return foods.map((food: string, index: number) => (
-                        <span
-                          key={index}
-                          className="inline-block px-3 py-1 bg-gradient-to-r from-red-100 to-orange-100 text-red-700 border border-red-200 rounded-full text-sm font-medium"
-                        >
-                          {food}
-                        </span>
-                      ))
-                    } catch {
-                      return <span className="text-gray-600">No foods detected</span>
-                    }
-                  })()}
+          {/* Side-by-side: Recipe Suggestion (left) and Ingredients (right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left: Recipe Suggestion */}
+            {historyDetail.suggestion && (
+              <div className="p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+                <div className="p-4 mt-2.5">
+                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                    Recipe Suggestion
+                  </h5>
+                  <p className="text-lg font-medium text-red-600">{historyDetail.suggestion}</p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Recipe Suggestion */}
-          {historyDetail.suggestion && (
-            <div className="mb-6 p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-              <div className="p-4 mt-2.5">
-                <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                  Recipe Suggestion
-                </h5>
-                <p className="text-lg font-medium text-red-600">{historyDetail.suggestion}</p>
+            {/* Right: Ingredients/Detected Foods */}
+            {historyDetail.detected_foods && (
+              <div className="p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+                <div className="p-4 mt-2.5">
+                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                    {historyDetail.recipe_type === "food_detection" ? "Detected Foods" : "Ingredients"}
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      try {
+                        const foods = JSON.parse(historyDetail.detected_foods)
+                        return foods.map((food: string, index: number) => (
+                          <span
+                            key={index}
+                            className="inline-block px-3 py-1 bg-gradient-to-r from-red-100 to-orange-100 text-red-700 border border-red-200 rounded-full text-sm font-medium"
+                          >
+                            {food}
+                          </span>
+                        ))
+                      } catch {
+                        return <span className="text-gray-600">No foods detected</span>
+                      }
+                    })()}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Instructions */}
           {historyDetail.instructions && (
@@ -270,7 +288,7 @@ const HistoryDetailPage = () => {
                 <div
                   className="leading-[1.4] m-0 text-left"
                   style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
-                  dangerouslySetInnerHTML={{ __html: historyDetail.instructions }}
+                  dangerouslySetInnerHTML={{ __html: formatInstructionsForDisplay(historyDetail.instructions) }}
                 />
               </div>
             </div>
