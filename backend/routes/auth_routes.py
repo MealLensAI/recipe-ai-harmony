@@ -626,3 +626,59 @@ def get_user_profile():
     except Exception as e:
         current_app.logger.error(f"Error fetching user profile: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Failed to fetch profile'}), 500
+
+
+@auth_bp.route('/change-password', methods=['POST'])
+def change_password():
+    """
+    Change current user's password.
+    Requires Authorization header. Validates current password before update.
+    """
+    try:
+        user_id, error = get_user_id_from_token()
+        if error:
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        # Parse body
+        data = request.get_json() or {}
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not current_password or not new_password or len(str(new_password)) < 6:
+            return jsonify({'status': 'error', 'message': 'Invalid parameters'}), 400
+
+        # Get clients
+        admin_client = get_supabase_client(use_admin=True)
+        client = get_supabase_client(use_admin=False)
+        if not admin_client or not client:
+            return jsonify({'status': 'error', 'message': 'Database service not available'}), 500
+
+        # Fetch email from profiles
+        profile_res = admin_client.table('profiles').select('email').eq('id', user_id).single().execute()
+        if not profile_res.data or not profile_res.data.get('email'):
+            return jsonify({'status': 'error', 'message': 'Email not found for user'}), 404
+
+        email = profile_res.data['email']
+
+        # Validate current password by signing in with anon client
+        try:
+            auth_res = client.auth.sign_in_with_password({
+                'email': email,
+                'password': str(current_password)
+            })
+            if not getattr(auth_res, 'user', None):
+                return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 401
+        except Exception:
+            return jsonify({'status': 'error', 'message': 'Current password is incorrect'}), 401
+
+        # Update password using admin API
+        try:
+            admin_client.auth.admin.update_user_by_id(user_id, { 'password': str(new_password) })
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Failed to update password: {str(e)}'}), 500
+
+        return jsonify({'status': 'success', 'message': 'Password updated. Please sign in again.'}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error changing password: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Server error'}), 500

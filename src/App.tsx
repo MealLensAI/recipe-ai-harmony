@@ -17,6 +17,7 @@ import HistoryDetailPage from "./pages/HistoryDetailPage"
 import { AuthProvider } from "@/lib/AuthProvider"
 import Payment from "./pages/Payment";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import TrialBlocker from "./components/TrialBlocker";
 import TrialTest from "./pages/TrialTest";
 
@@ -96,6 +97,16 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout>
           <Payment />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/profile",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <Profile />
         </MainLayout>
       </ProtectedRoute>
     )

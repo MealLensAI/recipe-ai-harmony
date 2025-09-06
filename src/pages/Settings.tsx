@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +8,28 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
+import { api } from '@/lib/api';
 
 const Settings = () => {
   const { toast } = useToast();
   const { settings, loading, updateSettings, saveSettings } = useSicknessSettings();
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
+
+  // Profile info & password change state
+  const [email, setEmail] = useState<string>(() => {
+    try {
+      const userData = localStorage.getItem('user_data');
+      if (userData) {
+        const u = JSON.parse(userData);
+        return u?.email || '';
+      }
+    } catch { }
+    return '';
+  });
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changing, setChanging] = useState(false);
 
   const handleSicknessChange = (value: string) => {
     const hasSickness = value === 'yes';
@@ -50,6 +67,48 @@ const Settings = () => {
         description: "Failed to save settings. Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: 'Error', description: 'Fill all password fields.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: 'Error', description: 'New password must be at least 6 characters.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Error', description: 'New passwords do not match.', variant: 'destructive' });
+      return;
+    }
+    try {
+      setChanging(true);
+      const res: any = await api.post('/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword
+      });
+      if (res.status === 'success') {
+        toast({ title: 'Password Updated', description: 'Please sign in again.' });
+        // Proactively clear session to avoid stale gating
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('supabase_refresh_token');
+        localStorage.removeItem('supabase_session_id');
+        localStorage.removeItem('supabase_user_id');
+        localStorage.removeItem('meallensai_user_access_status');
+        localStorage.removeItem('meallensai_trial_start');
+        localStorage.removeItem('meallensai_subscription_status');
+        localStorage.removeItem('meallensai_subscription_expires_at');
+        window.location.href = '/login';
+      } else {
+        toast({ title: 'Error', description: res.message || 'Failed to update password.', variant: 'destructive' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e?.message || 'Failed to update password.', variant: 'destructive' });
+    } finally {
+      setChanging(false);
     }
   };
 
