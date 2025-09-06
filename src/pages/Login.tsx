@@ -26,7 +26,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || "/"
+      const from = location.state?.from?.pathname || "/ai-kitchen"
       navigate(from, { replace: true })
     }
   }, [isAuthenticated, navigate, location])
@@ -71,8 +71,8 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
-        // Redirect to intended page or home
-        const from = location.state?.from?.pathname || "/"
+        // Redirect to intended page or main app
+        const from = location.state?.from?.pathname || "/ai-kitchen"
         navigate(from, { replace: true })
       } else {
         toast({

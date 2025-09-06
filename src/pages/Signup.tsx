@@ -148,8 +148,8 @@ const Signup = () => {
             description: "Welcome to MealLensAI! Your account has been successfully created.",
           })
 
-          // Redirect to intended page or home
-          const from = location.state?.from?.pathname || "/"
+          // Redirect to intended page or main app
+          const from = location.state?.from?.pathname || "/ai-kitchen"
           navigate(from, { replace: true })
         } else {
           toast({
@@ -320,8 +320,8 @@ const Signup = () => {
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">Password strength:</span>
                       <span className={`font-medium ${passwordStrength.strength <= 25 ? 'text-red-600' :
-                          passwordStrength.strength <= 50 ? 'text-yellow-600' :
-                            passwordStrength.strength <= 75 ? 'text-blue-600' : 'text-green-600'
+                        passwordStrength.strength <= 50 ? 'text-yellow-600' :
+                          passwordStrength.strength <= 75 ? 'text-blue-600' : 'text-green-600'
                         }`}>
                         {passwordStrength.label}
                       </span>
