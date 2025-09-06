@@ -626,37 +626,3 @@ def get_user_profile():
     except Exception as e:
         current_app.logger.error(f"Error fetching user profile: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Failed to fetch profile'}), 500
-
-
-@auth_bp.route('/update-password', methods=['POST'])
-def update_password():
-    """
-    Update the current user's password. Requires authentication.
-    """
-    try:
-        user_id, error = get_user_id_from_token()
-        if error:
-            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
-
-        data = request.get_json() or {}
-        new_password = str(data.get('new_password', '')).strip()
-
-        if not new_password or len(new_password) < 6:
-            return jsonify({'status': 'error', 'message': 'Password must be at least 6 characters'}), 400
-
-        supabase_admin = get_supabase_client(use_admin=True)
-        if not supabase_admin:
-            return jsonify({'status': 'error', 'message': 'Database service not available'}), 500
-
-        # Update password via Admin API
-        try:
-            res = supabase_admin.auth.admin.update_user_by_id(user_id, { 'password': new_password })
-        except Exception as e:
-            current_app.logger.error(f"Supabase admin update_user_by_id failed: {e}")
-            return jsonify({'status': 'error', 'message': 'Failed to update password'}), 500
-
-        return jsonify({'status': 'success', 'message': 'Password updated successfully'}), 200
-
-    except Exception as e:
-        current_app.logger.error(f"Error updating password: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Failed to update password'}), 500

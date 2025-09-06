@@ -64,9 +64,21 @@ export class TrialService {
 
   private static getAuthHeaders(): HeadersInit {
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('supabase_token');
+    const token = localStorage.getItem('supabase_token') || localStorage.getItem('access_token');
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
+  }
+
+  // Force-refresh access status (used after login)
+  static async refreshAccessStatus(): Promise<void> {
+    try {
+      // Clear cache first
+      this.clearUserAccessStatusCache();
+      // Trigger a background fetch to warm cache
+      await this.getUserAccessStatus();
+    } catch {
+      // no-op
+    }
   }
 
   private static k(base: string): string {
@@ -287,9 +299,20 @@ export class TrialService {
       // Optional: use lightweight cache window to reduce calls
       if (cachedRaw) {
         const cached = JSON.parse(cachedRaw);
-        if (cached.userId === userId && now - (cached.cachedAt || 0) < 30_000) {
+        if (cached.userId === userId && now - (cached.cachedAt || 0) < 5_000) {
           return cached.value as UserAccessStatus;
         }
+      }
+
+      // If we don't yet have a user id (fresh login), don't block access; try again shortly
+      if (!userId || userId === 'anon') {
+        return {
+          canAccess: true,
+          hasActiveSubscription: false,
+          isTrialExpired: false,
+          isSubscriptionExpired: false,
+          subscriptionInfo: null
+        };
       }
 
       // Query backend status

@@ -43,6 +43,11 @@ export function useProvideAuth(): AuthContextType {
     localStorage.removeItem('supabase_refresh_token')
     localStorage.removeItem('supabase_session_id')
     localStorage.removeItem('supabase_user_id')
+    // Also clear subscription/trial caches to avoid stale gating after logout
+    localStorage.removeItem('meallensai_user_access_status')
+    localStorage.removeItem('meallensai_trial_start')
+    localStorage.removeItem('meallensai_subscription_status')
+    localStorage.removeItem('meallensai_subscription_expires_at')
     setUser(null)
     setToken(null)
   }, [])
