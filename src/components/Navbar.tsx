@@ -133,10 +133,7 @@ const Navbar = () => {
                   <span className="mr-2">💳</span>
                   <span>Payment</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/trial-test")}>
-                  <span className="mr-2">🧪</span>
-                  <span>Trial Test</span>
-                </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
