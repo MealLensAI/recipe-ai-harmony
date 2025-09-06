@@ -3,6 +3,7 @@ from typing import Optional
 import os
 import json
 from services.auth_service import AuthService
+from services.subscription_service import SubscriptionService
 from supabase import Client
 from utils.auth_utils import get_user_id_from_token
 
@@ -529,6 +530,17 @@ def register_user():
         # For initial registration, do not manually insert into profiles.
 
         current_app.logger.info(f"Successfully completed registration for user {user_id}")
+        # Create a trial for the new user in Supabase (non-blocking best-effort)
+        try:
+            subscription_service = SubscriptionService()
+            trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=7)
+            if not trial_result.get('success'):
+                current_app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")
+            else:
+                current_app.logger.info(f"Trial created for user {user_id}: {trial_result}")
+        except Exception as trial_err:
+            current_app.logger.warning(f"Error creating trial for user {user_id}: {str(trial_err)}")
+
         return jsonify({
             'status': 'success',
             'message': 'User registered successfully',

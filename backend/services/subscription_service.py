@@ -22,45 +22,103 @@ class SubscriptionService:
         Get comprehensive subscription status for a user
         """
         try:
-            # Try to get user from Supabase auth first
+            supabase_user_id = None
+            
+            # Use provided user_id directly (we're using Supabase auth, not Firebase)
             if user_id and user_id != 'anon':
-                result = self.supabase.rpc(
-                    'get_user_subscription_status',
-                    {'p_user_id': user_id}
-                ).execute()
-                
-                if result.data:
-                    return {
-                        'success': True,
-                        'data': result.data
+                supabase_user_id = user_id
+                print(f"✅ Using provided user ID: {supabase_user_id}")
+            elif firebase_uid:
+                # Fallback: try to find user by email if we have firebase_uid
+                print(f"⚠️ Firebase UID provided but we use Supabase auth. Please use user_id instead.")
+                return {
+                    'success': True,
+                    'data': {
+                        'has_active_subscription': False,
+                        'subscription': None,
+                        'trial': None,
+                        'can_access_app': False
                     }
+                }
             
-            # Fallback to Firebase UID if Supabase user not found
-            if firebase_uid:
-                # Get user profile by Firebase UID
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
+            if not supabase_user_id:
+                return {
+                    'success': True,
+                    'data': {
+                        'has_active_subscription': False,
+                        'subscription': None,
+                        'trial': None,
+                        'can_access_app': False
+                    }
+                }
+            
+            # Get active subscription directly from table
+            print(f"🔍 Looking for subscriptions for user ID: {supabase_user_id}")
+            subscription_result = self.supabase.table('user_subscriptions').select(
+                'id, plan_id, status, current_period_start, current_period_end, created_at, updated_at'
+            ).eq('user_id', supabase_user_id).eq('status', 'active').execute()
+            print(f"🔍 Subscription query result: {subscription_result.data}")
+            
+            subscription = None
+            has_active_subscription = False
+            
+            if subscription_result.data:
+                # Check if subscription is still active (not expired)
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc)
                 
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
-                    result = self.supabase.rpc(
-                        'get_user_subscription_status',
-                        {'p_user_id': supabase_user_id}
-                    ).execute()
-                    
-                    if result.data:
-                        return {
-                            'success': True,
-                            'data': result.data
-                        }
+                for sub in subscription_result.data:
+                    end_date_str = sub.get('current_period_end')
+                    if end_date_str:
+                        end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                        if end_date > now:
+                            subscription = {
+                                'id': sub['id'],
+                                'plan_id': sub['plan_id'],
+                                'plan_name': 'Unknown',  # We'll get this separately if needed
+                                'status': sub['status'],
+                                'start_date': sub['current_period_start'],
+                                'end_date': sub['current_period_end'],
+                                'created_at': sub['created_at'],
+                                'updated_at': sub['updated_at']
+                            }
+                            has_active_subscription = True
+                            break
             
-            # Return default status if no user found
+            # Get trial info
+            trial_result = self.supabase.table('user_trials').select('*').eq('user_id', supabase_user_id).order('created_at', desc=True).limit(1).execute()
+            
+            trial = None
+            trial_active = False
+            if trial_result.data:
+                trial_data = trial_result.data[0]
+                trial = {
+                    'id': trial_data['id'],
+                    'start_date': trial_data['start_date'],
+                    'end_date': trial_data['end_date'],
+                    'is_used': trial_data['is_used'],
+                    'created_at': trial_data['created_at']
+                }
+                # Determine trial active
+                try:
+                    from datetime import datetime, timezone
+                    if trial_data.get('end_date'):
+                        trial_end = datetime.fromisoformat(str(trial_data['end_date']).replace('Z', '+00:00'))
+                        now_dt = datetime.now(timezone.utc)
+                        trial_active = trial_end > now_dt
+                except Exception:
+                    trial_active = False
+            
+            # Determine if user can access app (subscription OR active trial)
+            can_access_app = has_active_subscription or trial_active
+            
             return {
                 'success': True,
                 'data': {
-                    'has_active_subscription': False,
-                    'subscription': None,
-                    'trial': None,
-                    'can_access_app': False
+                    'has_active_subscription': has_active_subscription,
+                    'subscription': subscription,
+                    'trial': trial,
+                    'can_access_app': can_access_app
                 }
             }
             
@@ -277,10 +335,8 @@ class SubscriptionService:
                 'user_id': supabase_user_id,
                 'plan_id': plan['id'],
                 'status': 'active',
-                'start_date': start_date.isoformat(),
-                'end_date': end_date.isoformat(),
-                'auto_renew': False,
-                'firebase_uid': firebase_uid
+                'current_period_start': start_date.isoformat(),
+                'current_period_end': end_date.isoformat(),
             }
             
             subscription_result = self.supabase.table('user_subscriptions').insert(subscription_data).execute()
@@ -305,7 +361,6 @@ class SubscriptionService:
                 'amount': plan.get('price_usd', 0),
                 'currency': 'USD',
                 'payment_method': 'paystack',
-                'payment_reference': paystack_data.get('reference', ''),
                 'status': 'completed',
                 'paystack_reference': paystack_data.get('reference', ''),
                 'paystack_transaction_id': paystack_data.get('transaction_id', ''),
@@ -333,7 +388,7 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def activate_subscription_for_days(self, user_id: str, duration_days: int, paystack_data: Dict[str, Any], firebase_uid: str = None) -> Dict[str, Any]:
+    def activate_subscription_for_days(self, user_id: str, duration_days: int, paystack_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Activate a subscription for a specific number of days and mark trial as used
         """
@@ -342,15 +397,8 @@ class SubscriptionService:
             start_date = datetime.now()
             end_date = start_date + timedelta(days=duration_days)
             
-            # Try to get user from Supabase auth first
-            supabase_user_id = None
-            if user_id and user_id != 'anon':
-                supabase_user_id = user_id
-            elif firebase_uid:
-                # Get user profile by Firebase UID
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
+            # Use provided user_id (Supabase auth)
+            supabase_user_id = user_id if user_id and user_id != 'anon' else None
             
             if not supabase_user_id:
                 return {
@@ -379,10 +427,8 @@ class SubscriptionService:
                 'user_id': supabase_user_id,
                 'plan_id': plan['id'],
                 'status': 'active',
-                'start_date': start_date.isoformat(),
-                'end_date': end_date.isoformat(),
-                'auto_renew': False,
-                'firebase_uid': firebase_uid
+                'current_period_start': start_date.isoformat(),
+                'current_period_end': end_date.isoformat(),
             }
             
             subscription_result = self.supabase.table('user_subscriptions').insert(subscription_data).execute()
@@ -443,8 +489,7 @@ class SubscriptionService:
             # Prepare transaction data
             transaction_data = {
                 'user_id': user_id,
-                'firebase_uid': firebase_uid,
-                'paystack_transaction_id': paystack_data.get('id'),
+                'paystack_transaction_id': paystack_data.get('transaction_id', paystack_data.get('id')),
                 'paystack_reference': paystack_data.get('reference'),
                 'amount': float(paystack_data.get('amount', 0)) / 100,  # Convert from kobo to naira
                 'currency': paystack_data.get('currency', 'NGN'),

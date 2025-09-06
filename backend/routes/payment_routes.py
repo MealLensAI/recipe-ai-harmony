@@ -497,36 +497,38 @@ def handle_payment_success():
             return jsonify({'success': False, 'error': 'No payment data'}), 400
         
         # Extract payment information
-        firebase_uid = data.get('firebase_uid')
+        user_id = data.get('user_id')
         email = data.get('email')
         plan_name = data.get('plan_name')
         plan_duration_days = data.get('plan_duration_days', 30)
         paystack_data = data.get('paystack_data', {})
         
-        print(f"👤 User Firebase UID: {firebase_uid}")
+        print(f"👤 User ID: {user_id}")
         print(f"📧 User Email: {email}")
         print(f"📋 Plan Name: {plan_name}")
         print(f"⏰ Plan Duration: {plan_duration_days} days")
         print(f"💳 Paystack Data: {paystack_data}")
         print("-" * 60)
         
-        if not firebase_uid or not email or not plan_name:
+        if not user_id or not email or not plan_name:
             print("❌ Missing required fields")
             return jsonify({
                 'success': False, 
-                'error': 'Missing required fields: firebase_uid, email, plan_name'
+                'error': 'Missing required fields: user_id, email, plan_name'
             }), 400
         
         # Initialize subscription service
         subscription_service = SubscriptionService()
         
-        # Activate subscription for the user
-        print(f"🔄 Activating subscription for user {firebase_uid}...")
+        # Use the provided user_id directly (we're using Supabase auth)
+        print(f"✅ Using provided user ID: {user_id}")
+        
+        # Now activate subscription for the user
+        print(f"🔄 Activating subscription for user ID: {user_id}...")
         result = subscription_service.activate_subscription_for_days(
-            user_id=None,  # We'll use firebase_uid
+            user_id=user_id,  # Use the actual user ID from profiles table
             duration_days=plan_duration_days,
-            paystack_data=paystack_data,
-            firebase_uid=firebase_uid
+            paystack_data=paystack_data
         )
         
         if result['success']:
@@ -543,13 +545,30 @@ def handle_payment_success():
                 'data': result['data']
             }), 200
         else:
-            print(f"❌ FAILED TO ACTIVATE SUBSCRIPTION: {result['error']}")
-            print("=" * 60)
-            
-            return jsonify({
-                'success': False,
-                'error': result['error']
-            }), 500
+            # Check if it's a duplicate subscription error
+            if 'duplicate key' in str(result['error']).lower() and 'active' in str(result['error']).lower():
+                print("⚠️ User already has an active subscription")
+                print("✅ Payment processed successfully - subscription already active")
+                print("=" * 60)
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Payment processed successfully - subscription already active',
+                    'data': {
+                        'subscription_id': 'existing',
+                        'plan_name': plan_name,
+                        'duration_days': plan_duration_days,
+                        'status': 'already_active'
+                    }
+                }), 200
+            else:
+                print(f"❌ FAILED TO ACTIVATE SUBSCRIPTION: {result['error']}")
+                print("=" * 60)
+                
+                return jsonify({
+                    'success': False,
+                    'error': result['error']
+                }), 500
             
     except Exception as e:
         print(f"💥 ERROR IN PAYMENT SUCCESS HANDLER: {str(e)}")

@@ -127,7 +127,7 @@ BEGIN
         'plan_name', sp.name,
         'status', us.status,
         'start_date', us.start_date,
-        'end_date', us.end_date,
+        'end_date', us.current_period_end,
         'auto_renew', us.auto_renew,
         'created_at', us.created_at,
         'updated_at', us.updated_at
@@ -136,7 +136,7 @@ BEGIN
     JOIN public.subscription_plans sp ON us.plan_id = sp.id
     WHERE us.user_id = v_user_id 
     AND us.status = 'active'
-    AND (us.end_date IS NULL OR us.end_date > NOW())
+    AND (us.current_period_end IS NULL OR us.current_period_end > NOW())
     ORDER BY us.created_at DESC
     LIMIT 1;
     

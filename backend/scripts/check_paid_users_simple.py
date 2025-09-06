@@ -16,10 +16,10 @@ load_dotenv()
 def get_supabase_client() -> Client:
     """Initialize Supabase client"""
     supabase_url = os.getenv('SUPABASE_URL')
-    supabase_key = os.getenv('SUPABASE_ANON_KEY')
+    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
     
     if not supabase_url or not supabase_key:
-        print("❌ Error: SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env file")
+        print("❌ Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env file")
         sys.exit(1)
     
     return create_client(supabase_url, supabase_key)
@@ -37,9 +37,7 @@ def check_paid_users():
         print("-" * 40)
         
         # Get active subscriptions with plan details
-        subscription_result = supabase.table('user_subscriptions').select(
-            '*, subscription_plans(*)'
-        ).eq('status', 'active').gte('end_date', datetime.now().isoformat()).execute()
+        subscription_result = supabase.table('user_subscriptions').select('*').eq('status', 'active').execute()
         
         if subscription_result.data:
             print(f"✅ Found {len(subscription_result.data)} active subscriptions:")

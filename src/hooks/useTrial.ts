@@ -13,7 +13,8 @@ export const useTrial = () => {
       // Get comprehensive user access status
       const accessStatus = await TrialService.getUserAccessStatus();
       const info = TrialService.getTrialInfo();
-      const hasAccess = TrialService.canAccessApp();
+      // Prefer backend-derived access
+      const hasAccess = accessStatus?.canAccess ?? TrialService.canAccessApp();
 
       setTrialInfo(info);
       setSubscriptionInfo(accessStatus.subscriptionInfo);
@@ -86,9 +87,9 @@ export const useTrial = () => {
     userAccessStatus,
     canAccess,
     isLoading,
-    isTrialExpired: trialInfo?.isExpired ?? false,
+    isTrialExpired: userAccessStatus?.isTrialExpired ?? (trialInfo?.isExpired ?? false),
     hasActiveSubscription,
-    isSubscriptionExpired,
+    isSubscriptionExpired: userAccessStatus?.isSubscriptionExpired ?? isSubscriptionExpired,
     remainingTime: trialInfo?.remainingTime ?? 0,
     remainingHours: trialInfo?.remainingHours ?? 0,
     remainingMinutes: trialInfo?.remainingMinutes ?? 0,

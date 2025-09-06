@@ -1,4 +1,4 @@
-import { getAuth } from 'firebase/auth';
+// Removed Firebase import - using Supabase auth instead
 
 export interface SubscriptionStatus {
     has_active_subscription: boolean;
@@ -55,30 +55,42 @@ class SubscriptionService {
     }
 
     private async getAuthHeaders(): Promise<HeadersInit> {
-        const auth = getAuth();
-        const user = auth.currentUser;
+        // Get Supabase token from localStorage
+        const supabaseToken = localStorage.getItem('supabase_token');
+        const supabaseUserId = localStorage.getItem('supabase_user_id');
 
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
         };
 
-        if (user) {
-            // Add Firebase UID to headers
-            headers['X-Firebase-UID'] = user.uid;
+        if (supabaseToken) {
+            // Add Supabase token to headers
+            headers['Authorization'] = `Bearer ${supabaseToken}`;
+        }
+
+        if (supabaseUserId) {
+            // Add Supabase user ID to headers
+            headers['X-User-ID'] = supabaseUserId;
         }
 
         return headers;
     }
 
     private async getCurrentUser(): Promise<{ uid: string; email: string | null } | null> {
-        const auth = getAuth();
-        const user = auth.currentUser;
+        // Get user from localStorage (Supabase auth)
+        const userData = localStorage.getItem('user_data');
+        const supabaseUserId = localStorage.getItem('supabase_user_id');
 
-        if (user) {
-            return {
-                uid: user.uid,
-                email: user.email
-            };
+        if (userData) {
+            try {
+                const user = JSON.parse(userData);
+                return {
+                    uid: user.uid || user.id || supabaseUserId || 'anonymous',
+                    email: user.email
+                };
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+            }
         }
 
         return null;
@@ -89,12 +101,23 @@ class SubscriptionService {
      */
     async getSubscriptionStatus(): Promise<SubscriptionStatus | null> {
         try {
-            const user = await this.getCurrentUser();
-            if (!user) return null;
+            // First check localStorage fallback - if user has active subscription locally, use it
+            const localFallback = this.getLocalStorageFallback();
+            if (localFallback.has_active_subscription) {
+                console.log('✅ Using localStorage subscription status (active subscription found)');
+                return localFallback;
+            }
+
+            // Get user ID from localStorage (Supabase auth)
+            const supabaseUserId = localStorage.getItem('supabase_user_id');
+            if (!supabaseUserId) {
+                console.log('No Supabase user ID found in localStorage');
+                return localFallback;
+            }
 
             const headers = await this.getAuthHeaders();
             const response = await fetch(
-                `${this.baseUrl}/subscription/status?firebase_uid=${user.uid}`,
+                `${this.baseUrl}/subscription/status?user_id=${supabaseUserId}`,
                 { headers }
             );
 
@@ -105,28 +128,81 @@ class SubscriptionService {
             const result = await response.json();
 
             if (result.success) {
+                console.log('✅ Using backend subscription status:', result.data);
                 return result.data;
             } else {
                 console.error('Failed to get subscription status:', result.error);
-                // Return a default status that blocks access
-                return {
-                    has_active_subscription: false,
-                    subscription: null,
-                    trial: null,
-                    can_access_app: false
-                };
+                return localFallback;
             }
         } catch (error) {
             console.error('Error getting subscription status:', error);
-            // Return a default status that blocks access when backend is unavailable
-            return {
-                has_active_subscription: false,
-                subscription: null,
-                trial: null,
-                can_access_app: false
-            };
+            return this.getLocalStorageFallback();
         }
     }
+
+    private getLocalStorageFallback(): SubscriptionStatus {
+        // Check if user has a subscription stored in localStorage (from successful payment)
+        const subscriptionExpires = localStorage.getItem('subscription_expires_at');
+        const subscriptionStatus = localStorage.getItem('subscription_status');
+
+        if (subscriptionExpires && subscriptionStatus === 'active') {
+            const expiresDate = new Date(subscriptionExpires);
+            const now = new Date();
+
+            if (expiresDate > now) {
+                // Subscription is still active
+                return {
+                    has_active_subscription: true,
+                    can_access_app: true,
+                    subscription: {
+                        id: 'local',
+                        plan_name: 'Active Plan',
+                        plan_display_name: 'Active Plan',
+                        price_usd: 0,
+                        duration_days: 30,
+                        features: ['all'],
+                        start_date: new Date().toISOString(),
+                        end_date: expiresDate.toISOString(),
+                        remaining_days: Math.ceil((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+                        remaining_hours: Math.ceil((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60)),
+                        remaining_minutes: Math.ceil((expiresDate.getTime() - now.getTime()) / (1000 * 60)),
+                        progress_percentage: 0
+                    },
+                    trial: null
+                };
+            }
+        }
+
+        // Check for trial status using TrialService
+        const { TrialService } = await import('./trialService');
+        const trialInfo = TrialService.getTrialInfo();
+        if (trialInfo && trialInfo.isActive) {
+            // User is on trial and trial is still active
+            return {
+                has_active_subscription: false,
+                can_access_app: true,
+                subscription: null,
+                trial: {
+                    start_date: trialInfo.startDate.toISOString(),
+                    end_date: trialInfo.endDate.toISOString(),
+                    is_active: trialInfo.isActive,
+                    remaining_days: Math.ceil(trialInfo.remainingTime / (1000 * 60 * 60 * 24)),
+                    remaining_hours: Math.ceil(trialInfo.remainingTime / (1000 * 60 * 60)),
+                    remaining_minutes: Math.ceil(trialInfo.remainingTime / (1000 * 60)),
+                    progress_percentage: Math.max(0, Math.min(100, (1 - trialInfo.remainingTime / (10 * 60 * 1000)) * 100))
+                }
+            };
+        }
+
+        // No active subscription or trial - user should be blocked
+        return {
+            has_active_subscription: false,
+            subscription: null,
+            trial: null,
+            can_access_app: false
+        };
+    }
+
 
     /**
      * Check if user can use a specific feature
@@ -141,7 +217,7 @@ class SubscriptionService {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    firebase_uid: user.uid,
+                    user_id: user.uid,
                     feature_name: featureName
                 })
             });
@@ -177,7 +253,7 @@ class SubscriptionService {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    firebase_uid: user.uid,
+                    user_id: user.uid,
                     feature_name: featureName,
                     count
                 })
@@ -208,7 +284,7 @@ class SubscriptionService {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    firebase_uid: user.uid,
+                    user_id: user.uid,
                     duration_days: durationDays
                 })
             });
@@ -238,7 +314,7 @@ class SubscriptionService {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
-                    firebase_uid: user.uid,
+                    user_id: user.uid,
                     plan_name: planName,
                     paystack_data: paystackData
                 })
@@ -318,7 +394,7 @@ class SubscriptionService {
 
             const headers = await this.getAuthHeaders();
             const response = await fetch(
-                `${this.baseUrl}/subscription/usage-stats?firebase_uid=${user.uid}`,
+                `${this.baseUrl}/subscription/usage-stats?user_id=${user.uid}`,
                 { headers }
             );
 
