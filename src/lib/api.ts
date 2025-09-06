@@ -101,14 +101,57 @@ class APIService {
       if (!response.ok) {
         // Handle 401 Unauthorized
         if (response.status === 401) {
+          // Branded overlay to avoid login flash
+          try {
+            const existing = document.getElementById('page-transition-overlay')
+            if (!existing) {
+              const overlay = document.createElement('div')
+              overlay.id = 'page-transition-overlay'
+              overlay.style.position = 'fixed'
+              overlay.style.inset = '0'
+              overlay.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)'
+              overlay.style.opacity = '0'
+              overlay.style.transition = 'opacity 150ms ease'
+              overlay.style.zIndex = '9999'
+              overlay.style.display = 'flex'
+              overlay.style.alignItems = 'center'
+              overlay.style.justifyContent = 'center'
+
+              const container = document.createElement('div')
+              container.style.display = 'flex'
+              container.style.flexDirection = 'column'
+              container.style.alignItems = 'center'
+              container.style.gap = '12px'
+
+              const spinner = document.createElement('div')
+              spinner.style.width = '44px'
+              spinner.style.height = '44px'
+              spinner.style.border = '4px solid rgba(0,0,0,0.08)'
+              spinner.style.borderTop = '4px solid #f97316'
+              spinner.style.borderRadius = '50%'
+              try { spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity }) } catch { }
+
+              const label = document.createElement('div')
+              label.textContent = 'Loading...'
+              label.style.fontSize = '14px'
+              label.style.color = '#4b5563'
+              label.style.fontWeight = '600'
+
+              container.appendChild(spinner)
+              container.appendChild(label)
+              overlay.appendChild(container)
+              document.body.appendChild(overlay)
+              requestAnimationFrame(() => { overlay.style.opacity = '1' })
+            }
+          } catch { }
           // Clear invalid token and all session data
           localStorage.removeItem('access_token')
           localStorage.removeItem('user_data')
           localStorage.removeItem('supabase_refresh_token')
           localStorage.removeItem('supabase_session_id')
           localStorage.removeItem('supabase_user_id')
-          // Redirect to login
-          window.location.href = '/login'
+          // Redirect to landing page
+          setTimeout(() => window.location.replace('/landing'), 200)
           throw new APIError('Authentication required. Please log in again.', 401)
         }
 

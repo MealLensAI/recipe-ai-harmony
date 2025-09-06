@@ -19,6 +19,7 @@ import Payment from "./pages/Payment";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import TrialBlocker from "./components/TrialBlocker";
+import WelcomePage from "./pages/WelcomePage";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
@@ -33,12 +34,14 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: (
-      <ProtectedRoute>
-        <MainLayout>
-          <Index />
-        </MainLayout>
+      <ProtectedRoute fallback={<WelcomePage />}>
+        <Navigate to="/ai-kitchen" replace />
       </ProtectedRoute>
     )
+  },
+  {
+    path: "/landing",
+    element: <WelcomePage />
   },
   {
     path: "/ai-kitchen",

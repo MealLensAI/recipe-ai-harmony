@@ -74,7 +74,7 @@ export function HistoryPage() {
               Please log in to view your detection history and saved recipes.
             </p>
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/landing')}
               className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
             >
               Go to Login
@@ -107,9 +107,9 @@ export function HistoryPage() {
 
         if (result.status === 'success') {
           // Handle different response structures
-          let historyData = []
-          if (result.detection_history) {
-            historyData = result.detection_history
+          let historyData: any[] = []
+          if ((result as any).detection_history) {
+            historyData = (result as any).detection_history
           } else if (result.data?.detection_history) {
             historyData = result.data.detection_history
           } else if (Array.isArray(result.data)) {

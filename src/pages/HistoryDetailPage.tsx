@@ -142,7 +142,7 @@ const HistoryDetailPage = () => {
               Please log in to view your detection history.
             </p>
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/landing')}
               className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
             >
               Go to Login
