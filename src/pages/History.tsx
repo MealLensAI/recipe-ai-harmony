@@ -73,7 +73,7 @@ export function HistoryPage() {
             <p className="text-gray-600">
               Please log in to view your detection history and saved recipes.
             </p>
-            <Button 
+            <Button
               onClick={() => navigate('/login')}
               className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
             >
@@ -89,22 +89,22 @@ export function HistoryPage() {
     const fetchHistory = async () => {
       setIsLoading(true)
       setError(null)
-      
+
       // Wait for auth to load
       if (authLoading) {
         return
       }
-      
+
       // Check authentication
       if (!isAuthenticated) {
         setError("Please log in to view your history.")
         setIsLoading(false)
         return
       }
-      
+
       try {
         const result = await api.getDetectionHistory()
-        
+
         if (result.status === 'success') {
           // Handle different response structures
           let historyData = []
@@ -119,7 +119,7 @@ export function HistoryPage() {
           } else {
             historyData = []
           }
-          
+
           setHistory(historyData)
         } else {
           setError(result.message || 'Failed to load history.')
@@ -141,13 +141,13 @@ export function HistoryPage() {
   // Filter history based on search term
   const filteredHistory = history.filter(item => {
     if (!searchTerm) return true
-    
+
     const searchLower = searchTerm.toLowerCase()
     const detectedFoods = item.detected_foods ? JSON.parse(item.detected_foods).join(" ") : ""
     const suggestion = item.suggestion || ""
-    
-    return detectedFoods.toLowerCase().includes(searchLower) || 
-           suggestion.toLowerCase().includes(searchLower)
+
+    return detectedFoods.toLowerCase().includes(searchLower) ||
+      suggestion.toLowerCase().includes(searchLower)
   })
 
   // Show loading while auth is initializing
@@ -267,7 +267,7 @@ function HistoryCard({ item }: HistoryCardProps) {
   const additionalCount = detectedFoods.length > 1 ? detectedFoods.length - 1 : 0
 
   return (
-    <Card 
+    <Card
       className="overflow-hidden shadow-lg transition-all hover:shadow-xl border border-gray-100 rounded-xl cursor-pointer hover:scale-[1.02] group"
       onClick={handleCardClick}
     >
@@ -293,13 +293,13 @@ function HistoryCard({ item }: HistoryCardProps) {
         <div className="space-y-3">
           <div className="flex items-center text-sm text-gray-600">
             <Clock className="h-4 w-4 mr-2" />
-            {new Date(item.created_at).toLocaleTimeString([], { 
-              hour: '2-digit', 
+            {new Date(item.created_at).toLocaleTimeString([], {
+              hour: '2-digit',
               minute: '2-digit',
               second: '2-digit'
             })}
           </div>
-          
+
           <div className="flex items-center text-sm text-gray-600">
             <CalendarDays className="h-4 w-4 mr-2" />
             {new Date(item.created_at).toLocaleDateString()}
@@ -317,8 +317,8 @@ function HistoryCard({ item }: HistoryCardProps) {
 
         {/* Status badge */}
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={`${getStatusColor(item.recipe_type)} text-xs px-2 py-1`}
           >
             {getStatusText(item.recipe_type)}
@@ -328,5 +328,5 @@ function HistoryCard({ item }: HistoryCardProps) {
     </Card>
   )
 }
-
 export default HistoryPage
+

@@ -226,6 +226,10 @@ class APIService {
     return this.post('/food_detection/detection_history', detectionData)
   }
 
+  async deleteDetectionHistory(id: string): Promise<APIResponse> {
+    return this.delete(`/food_detection/detection_history/${id}`)
+  }
+
   // Feedback methods
   async saveFeedback(feedbackText: string): Promise<APIResponse> {
     return this.post('/feedback', { feedback_text: feedbackText })

@@ -424,3 +424,32 @@ def get_detection_history():
     except Exception as e:
         current_app.logger.error(f"Unexpected error in get_detection_history: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+@food_detection_bp.route('/detection_history/<record_id>', methods=['DELETE'])
+def delete_detection_history(record_id):
+    """
+    Deletes a specific detection history record. Requires authentication.
+    """
+    try:
+        auth_header = request.headers.get('Authorization')
+        
+        auth_service = current_app.auth_service
+        user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
+        
+        if not user_id:
+            current_app.logger.warning("Authentication failed: No user_id extracted")
+            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+
+        current_app.logger.info(f"Deleting detection history record {record_id} for user: {user_id}")
+        
+        supabase_service = current_app.supabase_service
+        success, error = supabase_service.delete_detection_history(user_id, record_id)
+        
+        if success:
+            return jsonify({'status': 'success', 'message': 'Detection history record deleted successfully.'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': error or 'Failed to delete record'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in delete_detection_history: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

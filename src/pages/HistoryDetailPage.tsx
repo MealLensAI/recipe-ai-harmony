@@ -13,19 +13,23 @@ interface HistoryDetail {
   recipe_type: "food_detection" | "ingredient_detection"
   detected_foods?: string // JSON string of string[]
   instructions?: string // HTML string
-  resources?: string // HTML string
+  resources?: string // HTML string (legacy)
   suggestion?: string // for ingredient detection
   ingredients?: string // JSON string of string[]
   created_at: string
   youtube_link?: string
   google_link?: string
   resources_link?: string
+  // legacy field names from Supabase
+  youtube?: string
+  google?: string
 }
 
 const HistoryDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [historyDetail, setHistoryDetail] = useState<HistoryDetail | null>(null)
+  const [resources, setResources] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -45,7 +49,7 @@ const HistoryDetailPage = () => {
       try {
         // Get all history and find the specific entry
         const result = await api.getDetectionHistory()
-        
+
         if (result.status === 'success') {
           let historyData = []
           if (result.detection_history) {
@@ -58,10 +62,28 @@ const HistoryDetailPage = () => {
             historyData = [result.data]
           }
 
-          const detail = historyData.find((item: any) => item.id === id)
-          
-          if (detail) {
+          const raw = historyData.find((item: any) => item.id === id)
+
+          if (raw) {
+            // Normalize field names: map legacy youtube/google/resources -> *_link
+            const detail: HistoryDetail = {
+              ...raw,
+              youtube_link: raw.youtube_link || raw.youtube || undefined,
+              google_link: raw.google_link || raw.google || undefined,
+              resources_link: raw.resources_link || raw.resources || undefined
+            }
             setHistoryDetail(detail)
+            // Parse resources JSON if present
+            try {
+              if (detail.resources_link && typeof detail.resources_link === 'string') {
+                const parsed = JSON.parse(detail.resources_link)
+                setResources(parsed)
+              } else {
+                setResources(null)
+              }
+            } catch {
+              setResources(null)
+            }
           } else {
             setError("History entry not found")
           }
@@ -104,7 +126,7 @@ const HistoryDetailPage = () => {
             <p className="text-gray-600">
               Please log in to view your detection history.
             </p>
-            <Button 
+            <Button
               onClick={() => navigate('/login')}
               className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
             >
@@ -137,7 +159,7 @@ const HistoryDetailPage = () => {
             <p className="text-gray-600">
               {error || "The requested history entry could not be found."}
             </p>
-            <Button 
+            <Button
               onClick={() => navigate('/history')}
               className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
             >
@@ -150,7 +172,7 @@ const HistoryDetailPage = () => {
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen p-8 text-[#2D3436] leading-[1.6]"
       style={{
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
@@ -159,12 +181,12 @@ const HistoryDetailPage = () => {
       }}
     >
       <div className="max-w-[800px] mx-auto">
-        <div 
+        <div
           className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative"
         >
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <Button 
+            <Button
               onClick={() => navigate('/history')}
               variant="ghost"
               className="text-[#FF6B6B] hover:text-[#FF8E53] p-0"
@@ -185,7 +207,7 @@ const HistoryDetailPage = () => {
           </div>
 
           {/* Title */}
-          <h1 
+          <h1
             className="text-[2.5rem] font-[800] text-center mb-8"
             style={{
               background: "linear-gradient(135deg, #FF6B6B, #FF8E53)",
@@ -210,7 +232,7 @@ const HistoryDetailPage = () => {
                     try {
                       const foods = JSON.parse(historyDetail.detected_foods)
                       return foods.map((food: string, index: number) => (
-                        <span 
+                        <span
                           key={index}
                           className="inline-block px-3 py-1 bg-gradient-to-r from-red-100 to-orange-100 text-red-700 border border-red-200 rounded-full text-sm font-medium"
                         >
@@ -245,7 +267,7 @@ const HistoryDetailPage = () => {
                 <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
                   Cooking Instructions
                 </h5>
-                <div 
+                <div
                   className="leading-[1.4] m-0 text-left"
                   style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
                   dangerouslySetInnerHTML={{ __html: historyDetail.instructions }}
@@ -254,24 +276,100 @@ const HistoryDetailPage = () => {
             </div>
           )}
 
-          {/* Resources */}
-          {historyDetail.resources_link && (
-            <div className="mb-6 p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-              <div className="p-4 mt-2.5">
-                <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                  Additional Resources
-                </h5>
-                <div 
-                  className="leading-[1.4] m-0 text-left"
-                  style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
-                  dangerouslySetInnerHTML={{ __html: historyDetail.resources_link }}
-                />
+          {/* Resources from stored JSON (formatted like Detect Food page) */}
+          {resources && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              {/* YouTube Resources */}
+              <div
+                className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+              >
+                <div className="p-4 mt-2.5">
+                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                    Youtube Resources
+                  </h5>
+                  <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
+                  {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
+                    <div className="space-y-6">
+                      {(resources.YoutubeSearch as any[]).flat().map((item: any, idx: number) => {
+                        if (!item || !item.link) return null
+                        const vid = getYouTubeVideoId(item.link)
+                        return vid ? (
+                          <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                            <div className="relative w-full aspect-video bg-black">
+                              <iframe
+                                src={`https://www.youtube.com/embed/${vid}`}
+                                title={item.title || 'YouTube Video'}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full rounded-t-2xl"
+                              />
+                            </div>
+                            <div className="p-6">
+                              <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title || 'Untitled Video'}</h4>
+                              <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                            <div className="p-6">
+                              <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title || 'Untitled Video'}</h4>
+                              <a
+                                href={item.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
+                              >
+                                Watch Tutorial
+                              </a>
+                            </div>
+                          </div>
+                        )
+                      }).filter(Boolean)}
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-600">No video tutorials available.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Google Resources */}
+              <div
+                className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+              >
+                <div className="p-4 mt-2.5">
+                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                    Google Resources
+                  </h5>
+                  <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
+                  {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
+                    <div className="space-y-6">
+                      {(resources.GoogleSearch as any[]).flat().map((item: any, idx: number) => (
+                        <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          <div className="p-6">
+                            <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
+                            <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
+                            >
+                              Read More
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-600">No articles available.</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {/* Resource Links */}
-          {(historyDetail.youtube_link || historyDetail.google_link) && (
+          {(historyDetail.youtube_link || historyDetail.google_link) && !resources && (
             <div className="mb-6 p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
               <div className="p-4 mt-2.5">
                 <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
@@ -279,7 +377,7 @@ const HistoryDetailPage = () => {
                 </h5>
                 <div className="flex flex-wrap gap-4">
                   {historyDetail.youtube_link && (
-                    <a 
+                    <a
                       href={historyDetail.youtube_link}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -289,7 +387,7 @@ const HistoryDetailPage = () => {
                     </a>
                   )}
                   {historyDetail.google_link && (
-                    <a 
+                    <a
                       href={historyDetail.google_link}
                       target="_blank"
                       rel="noopener noreferrer"

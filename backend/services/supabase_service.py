@@ -255,21 +255,37 @@ class SupabaseService:
                 'p_user_id': user_id
             }).execute()
             
-            # The RPC function returns the data directly as a JSONB array
-            # or null if no records, or an error object if there's an exception
             if result.data:
-                # Check if first item is an error response
                 if len(result.data) > 0 and isinstance(result.data[0], dict) and result.data[0].get('status') == 'error':
-                    # Error case
                     error = result.data[0].get('message', 'Failed to fetch detection history')
-                    return None, error
+                    # Fallback to direct table query
+                    table_result = self.supabase.table('detection_history').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+                    return table_result.data or [], None
                 else:
-                    # Success case - return the entire data array
                     return result.data, None
             else:
-                return [], None
+                # Fallback to direct table query when RPC returns no data
+                table_result = self.supabase.table('detection_history').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+                return table_result.data or [], None
+        except Exception:
+            # Final fallback: direct table query
+            try:
+                table_result = self.supabase.table('detection_history').select('*').eq('user_id', user_id).order('created_at', desc=True).execute()
+                return table_result.data or [], None
+            except Exception as e2:
+                return None, str(e2)
+
+    def delete_detection_history(self, user_id: str, record_id: str) -> tuple[bool, str | None]:
+        """
+        Deletes a specific detection history record for a user.
+        """
+        try:
+            result = self.supabase.table('detection_history').delete().eq('id', record_id).eq('user_id', user_id).execute()
+            if result.data:
+                return True, None
+            return False, 'Record not found or not authorized'
         except Exception as e:
-            return None, str(e)
+            return False, str(e)
 
     def normalize_meal_plan_entry(self, raw_plan, user_id=None):
         import uuid
