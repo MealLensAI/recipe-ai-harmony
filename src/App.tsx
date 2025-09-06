@@ -19,6 +19,7 @@ import Payment from "./pages/Payment";
 import Settings from "./pages/Settings";
 import TrialBlocker from "./components/TrialBlocker";
 import TrialTest from "./pages/TrialTest";
+import Profile from "./pages/Profile";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
@@ -96,6 +97,16 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout>
           <Payment />
+        </MainLayout>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/profile",
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <Profile />
         </MainLayout>
       </ProtectedRoute>
     )

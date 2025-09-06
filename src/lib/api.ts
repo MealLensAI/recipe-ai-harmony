@@ -239,6 +239,10 @@ class APIService {
   async getUserProfile(): Promise<APIResponse> {
     return this.get('/profile')
   }
+
+  async updatePassword(newPassword: string): Promise<APIResponse> {
+    return this.post('/update-password', { new_password: newPassword })
+  }
 }
 
 // Create singleton instance
