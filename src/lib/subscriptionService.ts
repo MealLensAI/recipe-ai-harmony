@@ -1,4 +1,5 @@
 // Removed Firebase import - using Supabase auth instead
+import { APP_CONFIG } from '@/lib/config';
 
 export interface SubscriptionStatus {
     has_active_subscription: boolean;
@@ -51,26 +52,24 @@ class SubscriptionService {
     private baseUrl: string;
 
     constructor() {
-        // Always use the frontend proxy to the backend
-        this.baseUrl = '/api';
+        // Always target the configured backend base URL
+        this.baseUrl = `${APP_CONFIG.api.base_url}/api`;
     }
 
     private async getAuthHeaders(): Promise<HeadersInit> {
-        // Get Supabase token from localStorage
-        const supabaseToken = localStorage.getItem('supabase_token');
+        // Use the backend access token set during login
+        const accessToken = localStorage.getItem('access_token');
         const supabaseUserId = localStorage.getItem('supabase_user_id');
 
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
         };
 
-        if (supabaseToken) {
-            // Add Supabase token to headers
-            headers['Authorization'] = `Bearer ${supabaseToken}`;
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
         }
 
         if (supabaseUserId) {
-            // Add Supabase user ID to headers
             headers['X-User-ID'] = supabaseUserId;
         }
 

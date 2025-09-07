@@ -195,7 +195,7 @@ const Payment: React.FC = () => {
         key: publicKey,
         email: resolvedEmail,
         amount: Math.round(plan.paystackAmount * 100), // Convert to cents (smallest USD unit)
-        currency: 'KES',
+        currency: 'USD',
         ref: '' + Math.floor(Math.random() * 1000000000 + 1),
         metadata: {
           custom_fields: [
