@@ -21,7 +21,7 @@ export interface SubscriptionInfo {
 
 export class TrialService {
   // Trial duration. For production use 24 * 60 * 60 * 1000.
-  private static TRIAL_DURATION = 0 * 1000; // 0 seconds for testing
+  private static TRIAL_DURATION = 24 * 60 * 60 * 1000; // 0 seconds for testing
 
   // Time unit used for subscription testing. Set to 'days' for normal use,
   // change to 'minutes' to speed up testing.

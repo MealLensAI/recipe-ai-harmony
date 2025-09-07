@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
+import { APP_CONFIG } from '@/lib/config';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
 
 // Declare PaystackPop for TypeScript
@@ -121,21 +122,25 @@ const Payment: React.FC = () => {
   const openPaymentModal = (plan: any) => {
     console.log('🔍 Opening payment modal for plan:', plan);
     console.log('🔍 PaystackPop available:', typeof window.PaystackPop !== 'undefined');
+    // Immediately start payment without showing a form/modal
     setSelectedPlan(plan);
-    setShowModal(true);
+    // Call processPayment directly with the selected plan to bypass form
+    processPayment(plan);
   };
 
-  const processPayment = () => {
+  const processPayment = (planOverride?: any) => {
     console.log('🔍 Starting payment process...');
 
-    if (!name || !email || !selectedPlan) {
-      console.error('❌ Missing required fields:', { name: !!name, email: !!email, selectedPlan: !!selectedPlan });
-      alert('Please fill in all fields');
+    // Determine plan to use (from override or state)
+    const plan = planOverride || selectedPlan;
+    if (!plan) {
+      console.error('❌ No plan selected.');
+      alert('Please select a plan to continue.');
       return;
     }
 
-    // Use the real Paystack live key from the working HTML
-    const publicKey = 'pk_live_5f7de652daf3ea53dc685902c5f28f0a2063bc33';
+    // Use Paystack key from centralized config (env-driven)
+    const publicKey = APP_CONFIG.paymentProviders.paystack.public_key;
 
     if (!publicKey || !publicKey.startsWith('pk_')) {
       console.error('❌ Invalid Paystack public key:', publicKey);
@@ -143,11 +148,27 @@ const Payment: React.FC = () => {
       return;
     }
 
+    // Resolve user email/name from localStorage if available
+    let resolvedEmail = email;
+    let resolvedName = name;
+    try {
+      const userDataStr = localStorage.getItem('user_data');
+      if (userDataStr) {
+        const userObj = JSON.parse(userDataStr);
+        resolvedEmail = userObj.email || userObj.user_metadata?.email || resolvedEmail;
+        resolvedName = userObj.name || userObj.user_metadata?.full_name || resolvedName;
+      }
+    } catch (e) {
+      console.warn('Could not parse user_data for email/name:', e);
+    }
+    if (!resolvedEmail) resolvedEmail = 'noemail@meallens.ai';
+    if (!resolvedName) resolvedName = 'User';
+
     console.log(`✅ Using Paystack key: ${publicKey.slice(0, 7)}...`);
     console.log('📋 Payment details:', {
-      email,
-      amount: selectedPlan.paystackAmount,
-      plan: selectedPlan.label
+      email: resolvedEmail,
+      amount: plan.paystackAmount,
+      plan: plan.label
     });
 
     // Check if PaystackPop is available
@@ -172,8 +193,8 @@ const Payment: React.FC = () => {
 
       const paymentOptions = {
         key: publicKey,
-        email: email,
-        amount: Math.round(selectedPlan.paystackAmount * 100), // Convert to cents (smallest USD unit)
+        email: resolvedEmail,
+        amount: Math.round(plan.paystackAmount * 100), // Convert to cents (smallest USD unit)
         currency: 'KES',
         ref: '' + Math.floor(Math.random() * 1000000000 + 1),
         metadata: {
@@ -181,12 +202,12 @@ const Payment: React.FC = () => {
             {
               display_name: 'Name',
               variable_name: 'name',
-              value: name,
+              value: resolvedName,
             },
             {
               display_name: 'Plan',
               variable_name: 'plan',
-              value: selectedPlan.label,
+              value: plan.label,
             },
           ],
         },
@@ -231,7 +252,7 @@ const Payment: React.FC = () => {
               }
 
               // Call backend payment success endpoint
-              const backendResponse = await fetch('http://127.0.0.1:5001/api/payment/success', {
+              const backendResponse = await fetch(`${APP_CONFIG.api.base_url}/api/payment/success`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

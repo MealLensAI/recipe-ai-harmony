@@ -8,8 +8,10 @@
   # Environment
   [build.environment]
     NODE_VERSION = "18"
-    # Point this to your backend API base URL in production
-    VITE_API_URL = "https://meallens-ai-cmps.onrender.com"
+    # Backend API base URL in production (Render)
+    VITE_API_URL = "https://recipe-ai-harmony.onrender.com"
+    # Paystack public key (set in Netlify UI or here for defaults)
+    VITE_PAYSTACK_PUBLIC_KEY = ""
 
 # SPA redirects
 [[redirects]]

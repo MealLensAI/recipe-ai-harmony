@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { APP_CONFIG } from '@/lib/config';
 
 export interface MealPlan {
   day: string;
@@ -32,7 +33,7 @@ export const useMealPlans = () => {
     const fetchPlans = async () => {
       setLoading(true);
       try {
-        const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+        const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -104,7 +105,7 @@ export const useMealPlans = () => {
 
       console.log('[DEBUG] Sending meal plan data:', planData);
 
-      const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -157,7 +158,7 @@ export const useMealPlans = () => {
     setLoading(true);
     try {
       const now = new Date();
-      const response = await fetch(`http://127.0.0.1:5000/api/meal_plans/${id}`, {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +202,7 @@ export const useMealPlans = () => {
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/meal_plans/${id}`, {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -255,7 +256,7 @@ export const useMealPlans = () => {
       updated_at: now.toISOString()
     };
 
-    const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+    const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -291,7 +292,7 @@ export const useMealPlans = () => {
   const clearAllPlans = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/meal_plans/clear', {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/clear`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -322,7 +323,7 @@ export const useMealPlans = () => {
   const refreshMealPlans = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/meal_plan', {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

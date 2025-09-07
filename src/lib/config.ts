@@ -194,7 +194,7 @@ export const APP_CONFIG = {
 
     // API Configuration
     api: {
-        base_url: import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001',
+        base_url: import.meta.env.VITE_API_URL || 'https://recipe-ai-harmony.onrender.com',
         timeout: 30000
     },
 
