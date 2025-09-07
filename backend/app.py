@@ -64,11 +64,25 @@ def create_app():
   app = Flask(__name__)
   
   # Configure CORS to allow requests from the frontend
+  # Build allowed origins list: localhost + production domains
+  env_allowed = os.environ.get("ALLOWED_ORIGINS", "").strip()
+  allowed_origins = [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://meallensai.com",
+  ]
+  if env_allowed:
+      # Support comma-separated list in env
+      for item in env_allowed.split(","):
+          origin = item.strip()
+          if origin:
+              allowed_origins.append(origin)
+
   CORS(
       app,
       resources={
           r"/api/*": {
-              "origins": ["http://localhost:5173", "http://localhost:5174"],
+              "origins": allowed_origins,
               "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
               "allow_headers": ["Content-Type", "Authorization"],
               "supports_credentials": True,
@@ -84,11 +98,14 @@ def create_app():
   def after_request(response):
       # Only add CORS headers if they're not already set by Flask-CORS
       if 'Access-Control-Allow-Origin' not in response.headers:
-          # Check the origin and set appropriate CORS header
+          # Echo back allowed origin or fall back to first allowed
           origin = request.headers.get('Origin')
-          if origin in ['http://localhost:5173', 'http://localhost:5174']:
-              response.headers.add('Access-Control-Allow-Origin', origin)
-          else:
+          try:
+              if origin and origin in allowed_origins:
+                  response.headers.add('Access-Control-Allow-Origin', origin)
+              else:
+                  response.headers.add('Access-Control-Allow-Origin', allowed_origins[0])
+          except Exception:
               response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
           response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
           response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
