@@ -4,6 +4,7 @@ import TrialExpiredModal from './TrialExpiredModal';
 
 interface SubscriptionBlockerProps {
     children: React.ReactNode;
+    featureName?: string; // optional, for compatibility with existing usage
 }
 
 const SubscriptionBlocker: React.FC<SubscriptionBlockerProps> = ({ children }) => {
@@ -107,6 +108,33 @@ const SubscriptionBlocker: React.FC<SubscriptionBlockerProps> = ({ children }) =
                 isSubscriptionExpired={true}
             />
         </>
+    );
+};
+
+// Lightweight blocker UI for individual features
+export const FeatureBlocker: React.FC<{ featureName: string; requiredPlan?: 'weekly' | 'biweekly' | 'monthly' | 'yearly'; children: React.ReactNode }> = ({ featureName, requiredPlan, children }) => {
+    return (
+        <div className="relative">
+            {/* Blurred content preview */}
+            <div className="pointer-events-none blur-sm select-none">
+                {children}
+            </div>
+            {/* Overlay prompt */}
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-white/95 border rounded-lg p-4 shadow-md text-center mx-2">
+                    <h3 className="font-semibold text-gray-900 mb-1">{featureName} is a premium feature</h3>
+                    {requiredPlan && (
+                        <p className="text-xs text-gray-600 mb-2">Requires at least the {requiredPlan} plan</p>
+                    )}
+                    <button
+                        onClick={() => (window.location.href = '/payment')}
+                        className="bg-orange-500 text-white px-3 py-1.5 rounded-md text-sm hover:bg-orange-600"
+                    >
+                        Upgrade to unlock
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 };
 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { SubscriptionBlocker, FeatureBlocker, FeatureProtector } from '@/components/SubscriptionBlocker';
-import { WeeklyFeature, BiWeeklyFeature, MonthlyFeature, YearlyFeature } from '@/components/FeatureProtector';
+import SubscriptionBlocker, { FeatureBlocker } from '@/components/SubscriptionBlocker';
+import { FeatureProtector, WeeklyFeature, BiWeeklyFeature, MonthlyFeature, YearlyFeature } from '@/components/FeatureProtector';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
