@@ -51,7 +51,8 @@ class SubscriptionService {
     private baseUrl: string;
 
     constructor() {
-        this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        // Always use the frontend proxy to the backend
+        this.baseUrl = '/api';
     }
 
     private async getAuthHeaders(): Promise<HeadersInit> {
@@ -77,23 +78,19 @@ class SubscriptionService {
     }
 
     private async getCurrentUser(): Promise<{ uid: string; email: string | null } | null> {
-        // Get user from localStorage (Supabase auth)
-        const userData = localStorage.getItem('user_data');
-        const supabaseUserId = localStorage.getItem('supabase_user_id');
-
-        if (userData) {
-            try {
-                const user = JSON.parse(userData);
-                return {
-                    uid: user.uid || user.id || supabaseUserId || 'anonymous',
-                    email: user.email
-                };
-            } catch (e) {
-                console.error('Error parsing user data:', e);
-            }
+        try {
+            // Prefer backend source of truth
+            const token = localStorage.getItem('access_token');
+            if (!token) return null;
+            const res = await fetch(`${this.baseUrl}/profile`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!res.ok) return null;
+            const payload = await res.json();
+            const profile = payload.profile ?? payload.data ?? null;
+            if (!profile) return null;
+            return { uid: profile.id, email: profile.email };
+        } catch {
+            return null;
         }
-
-        return null;
     }
 
     /**
@@ -101,23 +98,13 @@ class SubscriptionService {
      */
     async getSubscriptionStatus(): Promise<SubscriptionStatus | null> {
         try {
-            // First check localStorage fallback - if user has active subscription locally, use it
-            const localFallback = this.getLocalStorageFallback();
-            if (localFallback.has_active_subscription) {
-                console.log('✅ Using localStorage subscription status (active subscription found)');
-                return localFallback;
-            }
-
-            // Get user ID from localStorage (Supabase auth)
-            const supabaseUserId = localStorage.getItem('supabase_user_id');
-            if (!supabaseUserId) {
-                console.log('No Supabase user ID found in localStorage');
-                return localFallback;
-            }
+            // Always call backend; do not rely on localStorage fallbacks
+            const user = await this.getCurrentUser();
+            if (!user) return null;
 
             const headers = await this.getAuthHeaders();
             const response = await fetch(
-                `${this.baseUrl}/subscription/status?user_id=${supabaseUserId}`,
+                `${this.baseUrl}/subscription/status?user_id=${user.uid}`,
                 { headers }
             );
 
@@ -126,82 +113,15 @@ class SubscriptionService {
             }
 
             const result = await response.json();
-
-            if (result.success) {
-                console.log('✅ Using backend subscription status:', result.data);
-                return result.data;
-            } else {
-                console.error('Failed to get subscription status:', result.error);
-                return localFallback;
-            }
+            if (result.success) return result.data;
+            console.error('Failed to get subscription status:', result.error);
+            return null;
         } catch (error) {
             console.error('Error getting subscription status:', error);
-            return this.getLocalStorageFallback();
+            return null;
         }
     }
-
-    private getLocalStorageFallback(): SubscriptionStatus {
-        // Check if user has a subscription stored in localStorage (from successful payment)
-        const subscriptionExpires = localStorage.getItem('subscription_expires_at');
-        const subscriptionStatus = localStorage.getItem('subscription_status');
-
-        if (subscriptionExpires && subscriptionStatus === 'active') {
-            const expiresDate = new Date(subscriptionExpires);
-            const now = new Date();
-
-            if (expiresDate > now) {
-                // Subscription is still active
-                return {
-                    has_active_subscription: true,
-                    can_access_app: true,
-                    subscription: {
-                        id: 'local',
-                        plan_name: 'Active Plan',
-                        plan_display_name: 'Active Plan',
-                        price_usd: 0,
-                        duration_days: 30,
-                        features: ['all'],
-                        start_date: new Date().toISOString(),
-                        end_date: expiresDate.toISOString(),
-                        remaining_days: Math.ceil((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
-                        remaining_hours: Math.ceil((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60)),
-                        remaining_minutes: Math.ceil((expiresDate.getTime() - now.getTime()) / (1000 * 60)),
-                        progress_percentage: 0
-                    },
-                    trial: null
-                };
-            }
-        }
-
-        // Check for trial status using TrialService
-        const { TrialService } = await import('./trialService');
-        const trialInfo = TrialService.getTrialInfo();
-        if (trialInfo && trialInfo.isActive) {
-            // User is on trial and trial is still active
-            return {
-                has_active_subscription: false,
-                can_access_app: true,
-                subscription: null,
-                trial: {
-                    start_date: trialInfo.startDate.toISOString(),
-                    end_date: trialInfo.endDate.toISOString(),
-                    is_active: trialInfo.isActive,
-                    remaining_days: Math.ceil(trialInfo.remainingTime / (1000 * 60 * 60 * 24)),
-                    remaining_hours: Math.ceil(trialInfo.remainingTime / (1000 * 60 * 60)),
-                    remaining_minutes: Math.ceil(trialInfo.remainingTime / (1000 * 60)),
-                    progress_percentage: Math.max(0, Math.min(100, (1 - trialInfo.remainingTime / (10 * 60 * 1000)) * 100))
-                }
-            };
-        }
-
-        // No active subscription or trial - user should be blocked
-        return {
-            has_active_subscription: false,
-            subscription: null,
-            trial: null,
-            can_access_app: false
-        };
-    }
+    // Removed localStorage fallback; backend is the source of truth
 
 
     /**

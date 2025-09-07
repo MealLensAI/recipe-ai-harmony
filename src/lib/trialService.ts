@@ -33,14 +33,43 @@ export class TrialService {
   private static SUBSCRIPTION_STATUS_KEY_BASE = 'meallensai_subscription_status';
   private static SUBSCRIPTION_EXPIRES_KEY_BASE = 'meallensai_subscription_expires_at';
 
+  // API base URL for backend calls
+  private static API_BASE_URL = '/api';
+
   // Helpers to build per-user keys
   private static getCurrentUserId(): string {
     try {
       const raw = localStorage.getItem('user_data');
-      if (!raw) return 'anon';
+      if (!raw) {
+        console.log('🔍 No user_data in localStorage');
+        return 'anon';
+      }
       const user = JSON.parse(raw);
-      return user?.uid || user?.id || user?.email || 'anon';
-    } catch {
+
+      // Prioritize UUID format IDs (backend expects UUIDs)
+      const userId = user?.uid || user?.id || user?.email || 'anon';
+
+      // Check if it's a valid UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isValidUuid = uuidRegex.test(userId);
+
+      console.log('🔍 getCurrentUserId result:', {
+        raw,
+        user,
+        userId,
+        isValidUuid,
+        uid: user?.uid,
+        id: user?.id,
+        email: user?.email
+      });
+
+      if (!isValidUuid && userId !== 'anon') {
+        console.warn('⚠️ User ID is not in UUID format, this may cause backend errors:', userId);
+      }
+
+      return userId;
+    } catch (error) {
+      console.error('🔍 Error parsing user_data:', error);
       return 'anon';
     }
   }
@@ -96,61 +125,103 @@ export class TrialService {
   }
 
   /**
-   * Check if user has an active subscription
+   * Fetch subscription status from backend
    */
-  static hasActiveSubscription(): boolean {
-    const expiresAtIso = localStorage.getItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE));
-    if (!expiresAtIso) {
-      console.log('🔍 No subscription expiration found in localStorage');
-      return false;
+  static async fetchSubscriptionFromBackend(): Promise<{ hasActiveSubscription: boolean; subscriptionInfo: SubscriptionInfo | null }> {
+    try {
+      const userId = this.getCurrentUserId();
+      if (userId === 'anon') {
+        console.log('🔍 No user ID found, cannot fetch subscription from backend');
+        return { hasActiveSubscription: false, subscriptionInfo: null };
+      }
+
+      console.log('🔄 Fetching subscription status from backend...');
+      console.log('🔍 Request URL:', `${this.API_BASE_URL}/subscription/status?user_id=${userId}`);
+      const response = await fetch(`${this.API_BASE_URL}/subscription/status?user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('🔍 Backend response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Backend subscription response:', result);
+
+        if (result.success && result.data) {
+          // New backend returns shape with has_active_subscription and nested subscription
+          const data = result.data as any;
+          if (data.has_active_subscription && data.subscription) {
+            const sub = data.subscription;
+            const subscriptionInfo: SubscriptionInfo = {
+              isActive: true,
+              isExpired: false,
+              startDate: sub.start_date,
+              endDate: sub.end_date,
+              planId: sub.plan_id,
+              planName: sub.plan_name || 'Plan',
+              formattedRemainingTime: this.formatRemaining(new Date(sub.end_date).getTime() - Date.now()),
+              progressPercentage: 0
+            };
+            console.log('✅ Active subscription found in backend');
+            return { hasActiveSubscription: true, subscriptionInfo };
+          }
+        }
+      } else {
+        console.log('❌ Backend subscription fetch failed:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching subscription from backend:', error);
     }
-    const expiresAt = new Date(expiresAtIso).getTime();
-    const isActive = Date.now() < expiresAt;
-    console.log('🔍 Subscription status:', {
-      expiresAtIso,
-      expiresAt: new Date(expiresAt),
-      now: new Date(),
-      isActive
-    });
-    return isActive;
+
+    return { hasActiveSubscription: false, subscriptionInfo: null };
   }
 
   /**
-   * Get subscription information
+   * Check if user has an active subscription (ONLY from backend, NO localStorage)
    */
-  static getSubscriptionInfo(): SubscriptionInfo | null {
-    const expiresAtIso = localStorage.getItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE));
-    if (!expiresAtIso) {
-      return null;
+  static async hasActiveSubscription(): Promise<boolean> {
+    console.log('🔄 Checking subscription status from backend ONLY...');
+
+    // ONLY fetch from backend - NO localStorage fallback
+    const backendResult = await this.fetchSubscriptionFromBackend();
+
+    console.log('🔍 Backend subscription result:', backendResult);
+
+    if (backendResult.hasActiveSubscription) {
+      console.log('✅ User has active subscription from backend');
+      return true;
     }
 
-    const expiresAt = new Date(expiresAtIso);
-    const now = new Date();
-    const remainingTime = Math.max(0, expiresAt.getTime() - now.getTime());
-    const isActive = remainingTime > 0;
-    const isExpired = !isActive;
+    console.log('❌ No active subscription found in backend');
+    return false;
+  }
 
-    // Calculate progress (assuming 7 days duration for simplicity)
-    const totalDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-    const elapsedTime = totalDuration - remainingTime;
-    const progressPercentage = Math.min(100, Math.max(0, (elapsedTime / totalDuration) * 100));
+  /**
+   * Get subscription information (ONLY from backend, NO localStorage)
+   */
+  static async getSubscriptionInfo(): Promise<SubscriptionInfo | null> {
+    console.log('🔄 Getting subscription info from backend ONLY...');
 
-    return {
-      isActive,
-      isExpired,
-      startDate: new Date(expiresAt.getTime() - totalDuration).toISOString(),
-      endDate: expiresAt.toISOString(),
-      planName: localStorage.getItem('subscription_plan') || 'Premium Plan',
-      formattedRemainingTime: this.formatRemaining(remainingTime),
-      progressPercentage
-    };
+    // ONLY fetch from backend - NO localStorage
+    const backendResult = await this.fetchSubscriptionFromBackend();
+
+    if (backendResult.subscriptionInfo) {
+      console.log('✅ Using subscription info from backend:', backendResult.subscriptionInfo);
+      return backendResult.subscriptionInfo;
+    }
+
+    console.log('❌ No subscription info found in backend');
+    return null;
   }
 
   /**
    * Check if user can access the app (either trial active or subscription active)
    */
-  static canAccessApp(): boolean {
-    const hasSubscription = this.hasActiveSubscription();
+  static async canAccessApp(): Promise<boolean> {
+    const hasSubscription = await this.hasActiveSubscription();
     const trialInfo = this.getTrialInfo();
     const trialActive = trialInfo ? !trialInfo.isExpired : false;
     const canAccess = hasSubscription || trialActive;
@@ -303,7 +374,6 @@ export class TrialService {
     };
   }
 
-  private static API_BASE_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://127.0.0.1:8083/api';
   private static USER_ACCESS_STATUS_KEY = 'meallensai_user_access_status';
 
   private static formatRemaining(ms: number): string {

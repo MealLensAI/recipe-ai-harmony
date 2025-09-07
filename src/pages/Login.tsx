@@ -71,9 +71,13 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
-        // Redirect to intended page or main app
-        const from = location.state?.from?.pathname || "/ai-kitchen"
-        navigate(from, { replace: true })
+        // Add a small delay to ensure auth state is fully updated
+        setTimeout(() => {
+          // Redirect to intended page or main app
+          const from = location.state?.from?.pathname || "/ai-kitchen"
+          console.log('🔄 Redirecting after login to:', from)
+          navigate(from, { replace: true })
+        }, 100)
       } else {
         toast({
           title: "Login Failed",

@@ -129,17 +129,25 @@ export function useProvideAuth(): AuthContextType {
 
   // Refresh authentication state
   const refreshAuth = useCallback(async () => {
+    console.log('🔄 refreshAuth called')
     setLoading(true)
     try {
       // Check if we have a stored token (from backend login)
       const storedToken = localStorage.getItem(TOKEN_KEY)
       const storedUserData = localStorage.getItem(USER_KEY)
 
+      console.log('🔍 Auth state check:', {
+        hasToken: !!storedToken,
+        hasUserData: !!storedUserData,
+        tokenLength: storedToken?.length || 0
+      })
+
       if (storedToken && storedUserData) {
         try {
           const parsedUser = JSON.parse(storedUserData)
           setToken(storedToken)
           setUser(parsedUser as User)
+          console.log('✅ Auth state set from localStorage:', { uid: parsedUser.uid, email: parsedUser.email })
 
           // Fetch fresh profile data from backend
           try {
@@ -163,6 +171,7 @@ export function useProvideAuth(): AuthContextType {
           }
 
           setLoading(false)
+          console.log('✅ refreshAuth completed successfully')
 
           // Trigger trial status refresh after successful login
           // This will show loading spinner while determining subscription status
@@ -189,6 +198,7 @@ export function useProvideAuth(): AuthContextType {
       }
 
       // No valid token found, user is not authenticated
+      console.log('❌ No valid token found, user is not authenticated')
       clearSession()
       setLoading(false)
     } catch (error) {

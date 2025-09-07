@@ -37,7 +37,7 @@ const WelcomePage: React.FC = () => {
         const fetchUserCount = async () => {
             try {
                 // Try to fetch actual user count from public endpoint
-                const base = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8083' : 'https://meallens-ai-cmps.onrender.com');
+                const base = import.meta.env.VITE_API_URL || (import.meta.env.DEV ?'http://127.0.0.1:5001' : 'https://meallens-ai-cmps.onrender.com');
                 const response = await fetch(`${base}/api/public/user-count`);
                 if (response.ok) {
                     const data = await response.json();

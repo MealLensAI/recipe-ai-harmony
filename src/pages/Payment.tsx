@@ -105,7 +105,7 @@ const Payment: React.FC = () => {
   const clearTrialData = async () => {
     // Clear trial data since user now has a subscription
     // But DON'T clear subscription data - we just set it!
-    const { TrialService } = await import('@/lib/trialService');
+    // Import kept for side-effects previously; no longer needed
 
     // Only clear trial data, not subscription data
     const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
@@ -211,14 +211,27 @@ const Payment: React.FC = () => {
                 }
               }
 
+              // Check if user ID is in UUID format
+              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              const isValidUuid = uuidRegex.test(userId);
+
               console.log(`🔄 Calling backend to activate subscription...`);
               console.log(`👤 User: ${userId}`);
               console.log(`📧 Email: ${email}`);
               console.log(`📋 Plan: ${selectedPlan.label}`);
               console.log(`⏰ Duration: ${selectedPlan.durationDays} days`);
+              console.log(`🔍 User data from localStorage:`, userData);
+              console.log(`🔍 Supabase user ID:`, supabaseUserId);
+              console.log(`🔍 Is valid UUID:`, isValidUuid);
+
+              if (!isValidUuid && userId !== 'anonymous') {
+                console.error('❌ User ID is not in UUID format! This will cause backend errors.');
+                alert('Error: Invalid user ID format. Please log out and log back in.');
+                return;
+              }
 
               // Call backend payment success endpoint
-              const backendResponse = await fetch('http://127.0.0.1:8083/api/payment/success', {
+              const backendResponse = await fetch('http://127.0.0.1:5001/api/payment/success', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -245,20 +258,10 @@ const Payment: React.FC = () => {
                 if (result.success) {
                   console.log('✅ Subscription activated successfully via backend!');
 
-                  // Store subscription status in localStorage as fallback
-                  const expiresDate = new Date();
-                  expiresDate.setDate(expiresDate.getDate() + (selectedPlan.durationDays || 7));
-
-                  // Use the correct keys that TrialService expects
-                  const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
-                  localStorage.setItem(`meallensai_subscription_status:${userId}`, 'active');
-                  localStorage.setItem(`meallensai_subscription_expires_at:${userId}`, expiresDate.toISOString());
-                  localStorage.setItem('subscription_plan', selectedPlan.label);
-
                   // Clear trial data since user now has a subscription
                   await clearTrialData();
 
-                  console.log('✅ Subscription status stored in localStorage as fallback');
+                  console.log('✅ Subscription stored in backend database - no localStorage needed!');
                   alert('Payment successful! Your subscription has been activated.');
                 } else {
                   console.error('❌ Backend failed to activate subscription:', result.error);
@@ -266,22 +269,7 @@ const Payment: React.FC = () => {
                 }
               } else {
                 console.error('❌ Backend request failed:', backendResponse.status);
-
-                // Store subscription status in localStorage as fallback even if backend fails
-                const expiresDate = new Date();
-                expiresDate.setDate(expiresDate.getDate() + (selectedPlan.durationDays || 7));
-
-                // Use the correct keys that TrialService expects
-                const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
-                localStorage.setItem(`meallensai_subscription_status:${userId}`, 'active');
-                localStorage.setItem(`meallensai_subscription_expires_at:${userId}`, expiresDate.toISOString());
-                localStorage.setItem('subscription_plan', selectedPlan.label);
-
-                // Clear trial data since user now has a subscription
-                await clearTrialData();
-
-                console.log('✅ Subscription status stored in localStorage as fallback (backend failed)');
-                alert('Payment successful! Your subscription has been activated (offline mode).');
+                alert('Payment successful but subscription activation failed. Please contact support.');
               }
 
               setShowModal(false);
@@ -292,20 +280,7 @@ const Payment: React.FC = () => {
               console.log('✅ Payment and subscription activation completed successfully!');
             } catch (error) {
               console.error('❌ Error activating subscription:', error);
-
-              // Store subscription status in localStorage as fallback even if there's an error
-              const expiresDate = new Date();
-              expiresDate.setDate(expiresDate.getDate() + (selectedPlan.durationDays || 7));
-
-              localStorage.setItem('subscription_status', 'active');
-              localStorage.setItem('subscription_expires_at', expiresDate.toISOString());
-              localStorage.setItem('subscription_plan', selectedPlan.label);
-
-              // Clear trial data since user now has a subscription
-              await clearTrialData();
-
-              console.log('✅ Subscription status stored in localStorage as fallback (error occurred)');
-              alert('Payment successful! Your subscription has been activated (offline mode).');
+              alert('Payment successful but activating your subscription failed. Please contact support.');
             }
           })();
         },

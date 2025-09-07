@@ -12,9 +12,16 @@ export const useTrial = () => {
       // Add a longer delay to ensure smooth loading experience and prevent flash
       await new Promise(resolve => setTimeout(resolve, 1000));
 
+      console.log('🔄 Starting trial status update...');
+
+      // Get trial info (localStorage is OK for trial)
       const info = TrialService.getTrialInfo();
-      const subInfo = TrialService.getSubscriptionInfo();
-      const hasAccess = TrialService.canAccessApp();
+
+      // Get subscription info ONLY from backend
+      const subInfo = await TrialService.getSubscriptionInfo();
+
+      // Check access (this will also fetch from backend)
+      const hasAccess = await TrialService.canAccessApp();
 
       console.log('🔄 Trial status loaded:', {
         hasAccess,
@@ -31,8 +38,8 @@ export const useTrial = () => {
       console.error('Error updating trial info:', error);
       // Fallback to basic trial info
       const info = TrialService.getTrialInfo();
-      const subInfo = TrialService.getSubscriptionInfo();
-      const hasAccess = TrialService.canAccessApp();
+      const subInfo = await TrialService.getSubscriptionInfo();
+      const hasAccess = await TrialService.canAccessApp();
 
       setTrialInfo(info);
       setSubscriptionInfo(subInfo);
