@@ -1,43 +1,27 @@
-# Use Python 3.12 slim image
-FROM python:3.12-slim
+# Use the official Python image from the Docker Hub
+FROM python:3.10-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    FLASK_ENV=production \
-    PORT=5001
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Set work directory
+# Set the working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Copy the requirements file into the container
+COPY requirements.txt /app/
 
-# Copy requirements first for better Docker layer caching
-COPY requirements.txt .
-
-# Install Python dependencies
+# Install the dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install production WSGI server
-RUN pip install gunicorn
+# Copy the rest of the application code into the container
+COPY . /app/
 
-# Copy application code
-COPY . .
-
-# Create non-root user for security
-RUN adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /app
-USER appuser
-
-# Expose port
+# Expose the port the app runs on
 EXPOSE 5001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5001/api/health || exit 1
+# Set the environment variable for Flask to run in production mode
+ENV FLASK_ENV=production
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "4", "--timeout", "120", "wsgi:application"]
+# Start the Flask application
+CMD ["flask", "run", "--host", "0.0.0.0", "--port=5001"]
