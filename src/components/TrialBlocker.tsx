@@ -8,7 +8,7 @@ interface TrialBlockerProps {
 
 const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   const [showTrialModal, setShowTrialModal] = useState(false);
-  const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired } = useTrial();
+  const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, isLoading } = useTrial();
 
   // Track current path without relying on router hooks
   const [currentPath, setCurrentPath] = useState<string>(
@@ -48,6 +48,13 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    // Don't show modal while loading - wait for subscription status to be determined
+    if (isLoading) {
+      console.log('🔄 TrialBlocker: Still loading subscription status, not showing modal');
+      setShowTrialModal(false);
+      return;
+    }
+
     // Only show modal if user has NO active subscription AND trial is expired
     // If user has active subscription, NEVER show the modal
     const shouldShowModal = !hasActiveSubscription && isTrialExpired && !allowedPaths.includes(currentPath);
@@ -59,9 +66,11 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
       canAccess,
       currentPath,
       shouldShowModal,
-      reason: hasActiveSubscription ? 'User has active subscription - no modal' :
-        isTrialExpired ? 'Trial expired and no subscription - show modal' :
-          'Trial still active - no modal'
+      isLoading,
+      reason: isLoading ? 'Still loading - no modal' :
+        hasActiveSubscription ? 'User has active subscription - no modal' :
+          isTrialExpired ? 'Trial expired and no subscription - show modal' :
+            'Trial still active - no modal'
     });
 
     if (shouldShowModal) {
@@ -69,7 +78,23 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
     } else {
       setShowTrialModal(false);
     }
-  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess]);
+  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess, isLoading]);
+
+  // Show loading spinner while determining subscription status
+  if (isLoading) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-white bg-opacity-95 z-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#FF6B6B] mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg font-medium">Loading your subscription status...</p>
+            <p className="text-gray-500 text-sm mt-2">Please wait while we check your access</p>
+          </div>
+        </div>
+        {children}
+      </>
+    );
+  }
 
   // If user can't access and is on a restricted page, show blocking overlay
   // But only if they don't have an active subscription

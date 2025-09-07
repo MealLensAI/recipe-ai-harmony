@@ -9,9 +9,19 @@ export const useTrial = () => {
 
   const updateTrialInfo = useCallback(async () => {
     try {
+      // Add a longer delay to ensure smooth loading experience and prevent flash
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const info = TrialService.getTrialInfo();
       const subInfo = TrialService.getSubscriptionInfo();
       const hasAccess = TrialService.canAccessApp();
+
+      console.log('🔄 Trial status loaded:', {
+        hasAccess,
+        hasActiveSubscription: subInfo?.isActive,
+        isTrialExpired: info?.isExpired,
+        isLoading: false
+      });
 
       setTrialInfo(info);
       setSubscriptionInfo(subInfo);
@@ -35,6 +45,9 @@ export const useTrial = () => {
     // Initialize trial for new users
     TrialService.initializeTrial();
 
+    // Set loading to true before initial update
+    setIsLoading(true);
+
     // Initial update
     updateTrialInfo();
 
@@ -57,6 +70,11 @@ export const useTrial = () => {
   const resetTrial = useCallback(() => {
     TrialService.resetTrial();
     updateTrialInfo();
+  }, [updateTrialInfo]);
+
+  const refreshStatus = useCallback(async () => {
+    setIsLoading(true);
+    await updateTrialInfo();
   }, [updateTrialInfo]);
 
   // Helper functions for subscription status
@@ -96,6 +114,7 @@ export const useTrial = () => {
     activateSubscription,
     activateSubscriptionForDays,
     resetTrial,
-    updateTrialInfo
+    updateTrialInfo,
+    refreshStatus
   };
 };

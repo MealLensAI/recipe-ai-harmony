@@ -163,6 +163,23 @@ export function useProvideAuth(): AuthContextType {
           }
 
           setLoading(false)
+
+          // Trigger trial status refresh after successful login
+          // This will show loading spinner while determining subscription status
+          try {
+            const { TrialService } = await import('./trialService')
+            // Clear any cached trial status to force fresh check
+            localStorage.removeItem('meallensai_user_access_status')
+            // Also clear trial and subscription data to force re-initialization
+            const userId = updatedUser.uid || 'anon'
+            localStorage.removeItem(`meallensai_trial_start:${userId}`)
+            localStorage.removeItem(`meallensai_subscription_status:${userId}`)
+            localStorage.removeItem(`meallensai_subscription_expires_at:${userId}`)
+            console.log('🔄 Cleared trial/subscription cache after login')
+          } catch (error) {
+            console.error('Error refreshing trial status after login:', error)
+          }
+
           return
         } catch (error) {
           console.error('Error parsing stored user data:', error)
