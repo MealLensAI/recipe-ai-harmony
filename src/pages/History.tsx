@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Utensils, BookOpen, CalendarDays, Clock, Search, Filter, Bell, Play } from "lucide-react"
+import { Loader2, Utensils, BookOpen, CalendarDays, Clock, Search, Play } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 import LoadingSpinner from "@/components/LoadingSpinner"
@@ -192,11 +192,7 @@ export function HistoryPage() {
               <h1 className="text-3xl font-bold text-gray-900">History</h1>
               <p className="text-gray-600 mt-1">Showing your all histories with a clear view.</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filter
-              </Button>
+            <div className="flex items-center">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -205,12 +201,6 @@ export function HistoryPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-64"
                 />
-              </div>
-              <Button variant="ghost" size="sm">
-                <Bell className="h-5 w-5" />
-              </Button>
-              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
-                T
               </div>
             </div>
           </div>
@@ -264,6 +254,10 @@ function HistoryCard({ item }: HistoryCardProps) {
 
   const detectedFoods = getDetectedFoods()
   const mainFood = detectedFoods[0] || "Unknown"
+  // Prefer suggested food name for ingredient detections
+  const title = (item.recipe_type === "ingredient_detection" && item.suggestion)
+    ? item.suggestion
+    : mainFood
   const additionalCount = detectedFoods.length > 1 ? detectedFoods.length - 1 : 0
 
   return (
@@ -276,7 +270,7 @@ function HistoryCard({ item }: HistoryCardProps) {
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="font-bold text-lg text-gray-900 mb-1 truncate">
-              {mainFood}
+              {title}
             </h3>
             {additionalCount > 0 && (
               <p className="text-sm text-gray-500">
