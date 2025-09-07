@@ -81,9 +81,13 @@ class SubscriptionService {
             // Prefer backend source of truth
             const token = localStorage.getItem('access_token');
             if (!token) return null;
-            const res = await fetch(`${this.baseUrl}/profile`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const profileUrl = `${this.baseUrl}/profile`;
+            console.log('[SUB][PROFILE] Fetching profile from:', profileUrl);
+            const res = await fetch(profileUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+            console.log('[SUB][PROFILE] Response status:', res.status);
             if (!res.ok) return null;
             const payload = await res.json();
+            console.log('[SUB][PROFILE] Payload keys:', Object.keys(payload || {}));
             const profile = payload.profile ?? payload.data ?? null;
             if (!profile) return null;
             return { uid: profile.id, email: profile.email };
@@ -102,16 +106,17 @@ class SubscriptionService {
             if (!user) return null;
 
             const headers = await this.getAuthHeaders();
-            const response = await fetch(
-                `${this.baseUrl}/subscription/status?user_id=${user.uid}`,
-                { headers }
-            );
+            const url = `${this.baseUrl}/subscription/status?user_id=${user.uid}`;
+            console.log('[SUB][STATUS] GET:', url);
+            const response = await fetch(url, { headers });
+            console.log('[SUB][STATUS] HTTP', response.status);
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const result = await response.json();
+            console.log('[SUB][STATUS] Result keys:', Object.keys(result || {}));
             if (result.success) return result.data;
             console.error('Failed to get subscription status:', result.error);
             return null;

@@ -19,6 +19,8 @@ export interface SubscriptionInfo {
   progressPercentage: number;
 }
 
+import { APP_CONFIG } from '@/lib/config';
+
 export class TrialService {
   // Trial duration. For production use 24 * 60 * 60 * 1000.
   private static TRIAL_DURATION = 24 * 60 * 60 * 1000; // 0 seconds for testing
@@ -33,8 +35,8 @@ export class TrialService {
   private static SUBSCRIPTION_STATUS_KEY_BASE = 'meallensai_subscription_status';
   private static SUBSCRIPTION_EXPIRES_KEY_BASE = 'meallensai_subscription_expires_at';
 
-  // API base URL for backend calls
-  private static API_BASE_URL = '/api';
+  // API base URL for backend calls (production: absolute to Render backend)
+  private static API_BASE_URL = `${APP_CONFIG.api.base_url}/api`;
 
   // Helpers to build per-user keys
   private static getCurrentUserId(): string {
@@ -272,7 +274,7 @@ export class TrialService {
       // Try backend first
       const firebaseUid = this.getCurrentFirebaseUid();
       if (firebaseUid) {
-        const response = await fetch(`${this.API_BASE_URL}/api/subscription/activate-days`, {
+        const response = await fetch(`${this.API_BASE_URL}/subscription/activate-days`, {
           method: 'POST',
           headers: this.getAuthHeaders(),
           body: JSON.stringify({
