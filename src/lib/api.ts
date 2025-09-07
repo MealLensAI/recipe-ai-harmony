@@ -1,7 +1,10 @@
 import { useAuth } from './utils'
+import { APP_CONFIG } from '@/lib/config'
 
-// API base URL - uses relative path for proxy in development
-const API_BASE_URL = '/api'
+// API base URL
+// In production, always target the backend base URL from config (Render)
+// In development, you may still use the Vite proxy by overriding VITE_API_URL, otherwise this will still work hitting Render directly
+const API_BASE_URL = `${APP_CONFIG.api.base_url}/api`
 
 // Custom error class for API errors
 export class APIError extends Error {
