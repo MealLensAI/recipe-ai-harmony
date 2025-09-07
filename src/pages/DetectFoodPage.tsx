@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Upload, Loader2, Utensils } from "lucide-react"
 import { useAuth } from "@/lib/utils"
+import { APP_CONFIG } from "@/lib/config"
 import { useToast } from "@/hooks/use-toast"
 import LoadingSpinner from "@/components/LoadingSpinner"
 
@@ -119,7 +120,7 @@ const DetectFoodPage = () => {
         };
 
         try {
-          await fetch("/api/food_detection/detection_history", {
+          await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -169,7 +170,7 @@ const DetectFoodPage = () => {
               };
 
               try {
-                await fetch("/api/food_detection/food_detect_resources", {
+                await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/food_detect_resources`, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",

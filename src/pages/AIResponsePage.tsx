@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Users, ChefHat, Bookmark, Timer, Utensils, Loader2, Upload, ArrowLeft } from "lucide-react"
 import "@/styles/ai-response.css"
 import { useAuth } from "@/lib/utils"
+import { APP_CONFIG } from "@/lib/config"
 import LoadingSpinner from "@/components/LoadingSpinner"
 
 interface Recipe {
@@ -204,7 +205,7 @@ const AIResponsePage: FC = () => {
           google: resData?.GoogleSearch?.[0]?.link || "",
           resources: JSON.stringify(resData || {})
         };
-        await fetch("/api/food_detection/detection_history", {
+        await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

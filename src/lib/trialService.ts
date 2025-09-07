@@ -8,6 +8,8 @@ export interface TrialInfo {
   remainingMinutes: number;
 }
 
+
+
 export interface SubscriptionInfo {
   isActive: boolean;
   isExpired: boolean;
