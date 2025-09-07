@@ -47,9 +47,11 @@ const router = createBrowserRouter([
     path: "/ai-kitchen",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <AIResponsePage />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <AIResponsePage />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -57,9 +59,11 @@ const router = createBrowserRouter([
     path: "/detected",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <DetectFoodPage />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <DetectFoodPage />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -67,9 +71,11 @@ const router = createBrowserRouter([
     path: "/planner",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <Index />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <Index />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -77,9 +83,11 @@ const router = createBrowserRouter([
     path: "/history",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <HistoryPage />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <HistoryPage />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -87,9 +95,11 @@ const router = createBrowserRouter([
     path: "/history/:id",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <HistoryDetailPage />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <HistoryDetailPage />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -97,9 +107,11 @@ const router = createBrowserRouter([
     path: "/payment",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <Payment />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <Payment />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -107,9 +119,11 @@ const router = createBrowserRouter([
     path: "/profile",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <Profile />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <Profile />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -117,9 +131,11 @@ const router = createBrowserRouter([
     path: "/settings",
     element: (
       <ProtectedRoute>
-        <MainLayout>
-          <Settings />
-        </MainLayout>
+        <TrialBlocker>
+          <MainLayout>
+            <Settings />
+          </MainLayout>
+        </TrialBlocker>
       </ProtectedRoute>
     )
   },
@@ -132,12 +148,10 @@ const router = createBrowserRouter([
 function App() {
   return (
     <AuthProvider>
-      <TrialBlocker>
-        <div className="App">
-          <RouterProvider router={router} />
-          <Toaster />
-        </div>
-      </TrialBlocker>
+      <div className="App">
+        <RouterProvider router={router} />
+        <Toaster />
+      </div>
     </AuthProvider>
   )
 }
