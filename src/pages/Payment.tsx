@@ -67,7 +67,7 @@ const YEARLY_PLAN = {
 };
 
 const Payment: React.FC = () => {
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('daniel');
@@ -101,10 +101,19 @@ const Payment: React.FC = () => {
 
   const clearTrialData = async () => {
     // Clear trial data since user now has a subscription
+    // But DON'T clear subscription data - we just set it!
     const { TrialService } = await import('@/lib/trialService');
-    TrialService.resetTrial();
-    console.log('✅ Trial data cleared using TrialService');
+
+    // Only clear trial data, not subscription data
+    const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
+    localStorage.removeItem(`meallensai_trial_start:${userId}`);
+
+    // Refresh the trial status to reflect the new subscription
+    await updateTrialInfo();
+
+    console.log('✅ Trial data cleared and status refreshed (subscription data preserved)');
   };
+
 
   const openPaymentModal = (plan: any) => {
     console.log('🔍 Opening payment modal for plan:', plan);
@@ -237,8 +246,10 @@ const Payment: React.FC = () => {
                   const expiresDate = new Date();
                   expiresDate.setDate(expiresDate.getDate() + (selectedPlan.durationDays || 7));
 
-                  localStorage.setItem('subscription_status', 'active');
-                  localStorage.setItem('subscription_expires_at', expiresDate.toISOString());
+                  // Use the correct keys that TrialService expects
+                  const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
+                  localStorage.setItem(`meallensai_subscription_status:${userId}`, 'active');
+                  localStorage.setItem(`meallensai_subscription_expires_at:${userId}`, expiresDate.toISOString());
                   localStorage.setItem('subscription_plan', selectedPlan.label);
 
                   // Clear trial data since user now has a subscription
@@ -257,8 +268,10 @@ const Payment: React.FC = () => {
                 const expiresDate = new Date();
                 expiresDate.setDate(expiresDate.getDate() + (selectedPlan.durationDays || 7));
 
-                localStorage.setItem('subscription_status', 'active');
-                localStorage.setItem('subscription_expires_at', expiresDate.toISOString());
+                // Use the correct keys that TrialService expects
+                const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
+                localStorage.setItem(`meallensai_subscription_status:${userId}`, 'active');
+                localStorage.setItem(`meallensai_subscription_expires_at:${userId}`, expiresDate.toISOString());
                 localStorage.setItem('subscription_plan', selectedPlan.label);
 
                 // Clear trial data since user now has a subscription
@@ -347,6 +360,7 @@ const Payment: React.FC = () => {
             {isTrialExpired ? 'Your trial has ended. Upgrade to continue using MealLensAI.' : `Trial: ${formattedRemainingTime}`}
           </div>
         )}
+
 
         <h2 className="text-4xl font-bold mb-2 text-gray-900">Plans & Pricing</h2>
         <p className="text-gray-600 mb-6">Choose the plan that fits your needs. All plans include essential features to get you started, with options to scale as you grow. No hidden fees and the flexibility to change anytime.</p>

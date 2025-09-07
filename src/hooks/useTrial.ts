@@ -1,33 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TrialService, TrialInfo, SubscriptionInfo, UserAccessStatus } from '@/lib/trialService';
+import { TrialService, TrialInfo, SubscriptionInfo } from '@/lib/trialService';
 
 export const useTrial = () => {
   const [trialInfo, setTrialInfo] = useState<TrialInfo | null>(null);
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
-  const [userAccessStatus, setUserAccessStatus] = useState<UserAccessStatus | null>(null);
   const [canAccess, setCanAccess] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   const updateTrialInfo = useCallback(async () => {
     try {
-      // Get comprehensive user access status
-      const accessStatus = await TrialService.getUserAccessStatus();
       const info = TrialService.getTrialInfo();
-      // Prefer backend-derived access
-      const hasAccess = accessStatus?.canAccess ?? TrialService.canAccessApp();
+      const subInfo = TrialService.getSubscriptionInfo();
+      const hasAccess = TrialService.canAccessApp();
 
       setTrialInfo(info);
-      setSubscriptionInfo(accessStatus.subscriptionInfo);
-      setUserAccessStatus(accessStatus);
+      setSubscriptionInfo(subInfo);
       setCanAccess(hasAccess);
       setIsLoading(false);
     } catch (error) {
       console.error('Error updating trial info:', error);
       // Fallback to basic trial info
       const info = TrialService.getTrialInfo();
+      const subInfo = TrialService.getSubscriptionInfo();
       const hasAccess = TrialService.canAccessApp();
 
       setTrialInfo(info);
+      setSubscriptionInfo(subInfo);
       setCanAccess(hasAccess);
       setIsLoading(false);
     }
@@ -84,12 +82,11 @@ export const useTrial = () => {
   return {
     trialInfo,
     subscriptionInfo,
-    userAccessStatus,
     canAccess,
     isLoading,
-    isTrialExpired: userAccessStatus?.isTrialExpired ?? (trialInfo?.isExpired ?? false),
+    isTrialExpired: trialInfo?.isExpired ?? false,
     hasActiveSubscription,
-    isSubscriptionExpired: userAccessStatus?.isSubscriptionExpired ?? isSubscriptionExpired,
+    isSubscriptionExpired,
     remainingTime: trialInfo?.remainingTime ?? 0,
     remainingHours: trialInfo?.remainingHours ?? 0,
     remainingMinutes: trialInfo?.remainingMinutes ?? 0,

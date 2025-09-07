@@ -8,7 +8,7 @@ interface TrialBlockerProps {
 
 const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   const [showTrialModal, setShowTrialModal] = useState(false);
-  const { canAccess, isTrialExpired, hasActiveSubscription, isLoading } = useTrial();
+  const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired } = useTrial();
 
   // Track current path without relying on router hooks
   const [currentPath, setCurrentPath] = useState<string>(
@@ -55,6 +55,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
     console.log('🔍 TrialBlocker status check:', {
       isTrialExpired,
       hasActiveSubscription,
+      isSubscriptionExpired,
       canAccess,
       currentPath,
       shouldShowModal,
@@ -68,16 +69,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
     } else {
       setShowTrialModal(false);
     }
-  }, [isTrialExpired, hasActiveSubscription, currentPath, canAccess]);
-
-  // Show loading state while checking subscription
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B]"></div>
-      </div>
-    );
-  }
+  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess]);
 
   // If user can't access and is on a restricted page, show blocking overlay
   // But only if they don't have an active subscription
@@ -108,7 +100,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
         <TrialExpiredModal
           isOpen={showTrialModal}
           onClose={() => setShowTrialModal(false)}
-          isSubscriptionExpired={false}
+          isSubscriptionExpired={hasActiveSubscription && isSubscriptionExpired}
         />
         {children}
       </>
@@ -121,7 +113,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
       <TrialExpiredModal
         isOpen={showTrialModal}
         onClose={() => setShowTrialModal(false)}
-        isSubscriptionExpired={false}
+        isSubscriptionExpired={hasActiveSubscription && isSubscriptionExpired}
       />
     </>
   );

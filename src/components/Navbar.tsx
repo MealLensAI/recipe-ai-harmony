@@ -69,7 +69,7 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-8">
             <Button
               variant="ghost"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/planner")}
               className="text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-colors"
             >
               Meal Planner
@@ -133,7 +133,7 @@ const Navbar = () => {
                   <span className="mr-2">💳</span>
                   <span>Payment</span>
                 </DropdownMenuItem>
-                
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />

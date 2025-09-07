@@ -11,25 +11,17 @@ export interface TrialInfo {
 export interface SubscriptionInfo {
   isActive: boolean;
   isExpired: boolean;
-  endDate: string;
   startDate: string;
+  endDate: string;
   planId?: string;
   planName?: string;
   formattedRemainingTime: string;
   progressPercentage: number;
 }
 
-export interface UserAccessStatus {
-  canAccess: boolean;
-  hasActiveSubscription: boolean;
-  isTrialExpired: boolean;
-  isSubscriptionExpired: boolean;
-  subscriptionInfo: SubscriptionInfo | null;
-}
-
 export class TrialService {
   // Trial duration. For production use 24 * 60 * 60 * 1000.
-  private static TRIAL_DURATION = 24 * 60 * 60 * 1000; // 10 minutes for testing
+  private static TRIAL_DURATION = 0 * 1000; // 0 seconds for testing
 
   // Time unit used for subscription testing. Set to 'days' for normal use,
   // change to 'minutes' to speed up testing.
@@ -40,19 +32,10 @@ export class TrialService {
   private static TRIAL_KEY_BASE = 'meallensai_trial_start';
   private static SUBSCRIPTION_STATUS_KEY_BASE = 'meallensai_subscription_status';
   private static SUBSCRIPTION_EXPIRES_KEY_BASE = 'meallensai_subscription_expires_at';
-  private static USER_ACCESS_STATUS_KEY = 'meallensai_user_access_status';
-  private static API_BASE_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://127.0.0.1:8083/api';
 
   // Helpers to build per-user keys
   private static getCurrentUserId(): string {
     try {
-      // Check for Supabase user data first
-      const supabaseUserId = localStorage.getItem('supabase_user_id');
-      if (supabaseUserId) {
-        return supabaseUserId;
-      }
-
-      // Fallback to user_data
       const raw = localStorage.getItem('user_data');
       if (!raw) return 'anon';
       const user = JSON.parse(raw);
@@ -62,40 +45,19 @@ export class TrialService {
     }
   }
 
-  private static getAuthHeaders(): HeadersInit {
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('supabase_token') || localStorage.getItem('access_token');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return headers;
-  }
-
-  // Force-refresh access status (used after login)
-  static async refreshAccessStatus(): Promise<void> {
-    try {
-      // Clear cache first
-      this.clearUserAccessStatusCache();
-      // Trigger a background fetch to warm cache
-      await this.getUserAccessStatus();
-    } catch {
-      // no-op
-    }
-  }
-
   private static k(base: string): string {
     return `${base}:${this.getCurrentUserId()}`;
   }
 
   /**
-   * Initialize trial for a new user or existing user without trial
+   * Initialize trial for a new user
    */
   static initializeTrial(): void {
     const existingTrial = this.getTrialInfo();
     if (!existingTrial) {
       const startDate = new Date();
       localStorage.setItem(this.k(this.TRIAL_KEY_BASE), startDate.toISOString());
-      console.log('Trial initialized for user:', this.getCurrentUserId());
-    } else {
-      console.log('Trial already exists for user:', this.getCurrentUserId());
+      console.log('Trial initialized for user');
     }
   }
 
@@ -154,6 +116,37 @@ export class TrialService {
   }
 
   /**
+   * Get subscription information
+   */
+  static getSubscriptionInfo(): SubscriptionInfo | null {
+    const expiresAtIso = localStorage.getItem(this.k(this.SUBSCRIPTION_EXPIRES_KEY_BASE));
+    if (!expiresAtIso) {
+      return null;
+    }
+
+    const expiresAt = new Date(expiresAtIso);
+    const now = new Date();
+    const remainingTime = Math.max(0, expiresAt.getTime() - now.getTime());
+    const isActive = remainingTime > 0;
+    const isExpired = !isActive;
+
+    // Calculate progress (assuming 7 days duration for simplicity)
+    const totalDuration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    const elapsedTime = totalDuration - remainingTime;
+    const progressPercentage = Math.min(100, Math.max(0, (elapsedTime / totalDuration) * 100));
+
+    return {
+      isActive,
+      isExpired,
+      startDate: new Date(expiresAt.getTime() - totalDuration).toISOString(),
+      endDate: expiresAt.toISOString(),
+      planName: localStorage.getItem('subscription_plan') || 'Premium Plan',
+      formattedRemainingTime: this.formatRemaining(remainingTime),
+      progressPercentage
+    };
+  }
+
+  /**
    * Check if user can access the app (either trial active or subscription active)
    */
   static canAccessApp(): boolean {
@@ -206,13 +199,13 @@ export class TrialService {
   static async activateSubscriptionForDays(days: number, paystackData?: any): Promise<boolean> {
     try {
       // Try backend first
-      const userId = this.getCurrentUserId();
-      if (userId && userId !== 'anon') {
-        const response = await fetch(`${this.API_BASE_URL}/subscription/activate-days`, {
+      const firebaseUid = this.getCurrentFirebaseUid();
+      if (firebaseUid) {
+        const response = await fetch(`${this.API_BASE_URL}/api/subscription/activate-days`, {
           method: 'POST',
           headers: this.getAuthHeaders(),
           body: JSON.stringify({
-            user_id: userId,
+            firebase_uid: firebaseUid,
             duration_days: days,
             paystack_data: paystackData || {}
           })
@@ -290,126 +283,37 @@ export class TrialService {
     return Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
   }
 
-  // Fetch comprehensive access status from backend + synthesize frontend fallback
-  static async getUserAccessStatus(): Promise<UserAccessStatus> {
-    const userId = this.getCurrentUserId();
-    const cachedRaw = localStorage.getItem(this.USER_ACCESS_STATUS_KEY);
-    const now = Date.now();
+  // Helper methods for backend integration (keeping minimal)
+  private static getCurrentFirebaseUid(): string | null {
     try {
-      // Optional: use lightweight cache window to reduce calls
-      if (cachedRaw) {
-        const cached = JSON.parse(cachedRaw);
-        if (cached.userId === userId && now - (cached.cachedAt || 0) < 5_000) {
-          return cached.value as UserAccessStatus;
-        }
-      }
-
-      // If we don't yet have a user id (fresh login), don't block access; try again shortly
-      if (!userId || userId === 'anon') {
-        return {
-          canAccess: true,
-          hasActiveSubscription: false,
-          isTrialExpired: false,
-          isSubscriptionExpired: false,
-          subscriptionInfo: null
-        };
-      }
-
-      // Query backend status
-      const resp = await fetch(`${this.API_BASE_URL}/subscription/status?user_id=${encodeURIComponent(userId)}`, {
-        headers: this.getAuthHeaders()
-      });
-      if (resp.ok) {
-        const result = await resp.json();
-        if (result.success) {
-          const sub = result.data.subscription as any | null;
-          const trial = result.data.trial as any | null;
-
-          // Build subscription info summary
-          let subscriptionInfo: SubscriptionInfo | null = null;
-          let subActive = false;
-          let subExpired = false;
-          let formatted = 'No active subscription';
-          let progress = 0;
-          if (sub && sub.end_date) {
-            const end = new Date(sub.end_date);
-            const start = sub.start_date ? new Date(sub.start_date) : new Date();
-            const msLeft = end.getTime() - now;
-            subActive = msLeft > 0;
-            subExpired = !subActive;
-            formatted = msLeft > 0 ? this.formatRemaining(msLeft) : 'Expired';
-            const total = Math.max(1, end.getTime() - start.getTime());
-            progress = Math.min(100, Math.max(0, ((total - msLeft) / total) * 100));
-            subscriptionInfo = {
-              isActive: subActive,
-              isExpired: subExpired,
-              startDate: start.toISOString(),
-              endDate: end.toISOString(),
-              planId: sub.plan_id,
-              planName: sub.plan_name,
-              formattedRemainingTime: formatted,
-              progressPercentage: progress
-            };
-          }
-
-          const trialExpired = trial ? new Date(trial.end_date).getTime() <= now : true;
-          const canAccess = !!(subscriptionInfo?.isActive) || (!!trial && !trialExpired);
-
-          const value: UserAccessStatus = {
-            canAccess,
-            hasActiveSubscription: !!subscriptionInfo?.isActive,
-            isTrialExpired: trial ? trialExpired : true,
-            isSubscriptionExpired: subscriptionInfo ? subscriptionInfo.isExpired : true,
-            subscriptionInfo
-          };
-
-          localStorage.setItem(this.USER_ACCESS_STATUS_KEY, JSON.stringify({ userId, cachedAt: now, value }));
-          return value;
-        }
-      }
-    } catch (e) {
-      console.warn('Falling back to local access status:', e);
+      const raw = localStorage.getItem('user_data');
+      if (!raw) return null;
+      const user = JSON.parse(raw);
+      return user?.uid || null;
+    } catch {
+      return null;
     }
+  }
 
-    // Fallback to local logic
-    const trialInfo = this.getTrialInfo();
-    const hasSub = this.hasActiveSubscription();
-    const canAccess = hasSub || (trialInfo ? !trialInfo.isExpired : false);
+  private static getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('supabase_token') || localStorage.getItem('access_token');
     return {
-      canAccess,
-      hasActiveSubscription: hasSub,
-      isTrialExpired: trialInfo ? trialInfo.isExpired : true,
-      isSubscriptionExpired: !hasSub,
-      subscriptionInfo: null
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
     };
   }
+
+  private static API_BASE_URL = (import.meta as any)?.env?.VITE_API_URL || 'http://127.0.0.1:8083/api';
+  private static USER_ACCESS_STATUS_KEY = 'meallensai_user_access_status';
 
   private static formatRemaining(ms: number): string {
     if (ms <= 0) return 'Expired';
     const minutes = Math.floor(ms / (1000 * 60));
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
+
     if (days > 0) return `${days}d ${hours % 24}h remaining`;
     if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
     return `${Math.max(1, minutes)}m remaining`;
-  }
-
-  // Create a trial in Supabase for this user (idempotent server logic)
-  static async createBackendTrial(durationDays: number = 7): Promise<boolean> {
-    try {
-      const userId = this.getCurrentUserId();
-      const resp = await fetch(`${this.API_BASE_URL}/subscription/create-trial`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ user_id: userId, duration_days: durationDays })
-      });
-      if (!resp.ok) return false;
-      const result = await resp.json();
-      // Clear local cache to force refresh
-      this.clearUserAccessStatusCache();
-      return !!result.success;
-    } catch (e) {
-      return false;
-    }
   }
 }
