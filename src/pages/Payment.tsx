@@ -18,22 +18,25 @@ declare global {
 }
 
 const FEATURES = [
-  'MealLensAI meal planner',
-  'MealLensAI cooked Food detection and cooking instructions',
-  'MealLensAI Ingredient detection with cooking instructions',
-  'Share your cooked meals with friends',
-  'Health insights and nutrition tracking',
-  'Shopping assistant and ingredient ordering',
+  'Smart Ingredient Recognition',
+  'Recipe Suggestions & Cooking Instructions',
+  'Smart Food Detection',
+  'AI Meal Planning',
+  'AI Meal Plan for Chronic Sickness',
+  'Budget & Location Based Meal Plans',
+  'Full History Access',
+  'Priority Support'
+
 ];
 
 // Pricing plans (USD). DurationDays controls subscription days after payment.
 const MONTHLY_PLANS = [
   {
-    label: '$1 / week',
-    price: 1,              // USD price
+    label: '$2.5 / week',
+    price: 2.5,              // USD price
     duration: '1 week',
     durationDays: 7,
-    paystackAmount: 1,     // USD amount for Paystack
+    paystackAmount: 2.5,     // USD amount for Paystack
     highlight: false,
     icon: <Camera className="h-8 w-8 text-blue-500" />,
   },

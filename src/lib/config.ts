@@ -31,9 +31,13 @@ export const APP_CONFIG = {
             price_monthly: 0,
             currency: 'USD',
             features: [
-                '5 Food Detections',
-                '3 Meal Plans',
-                'Basic Support'
+                'Smart Ingredient Recognition',
+                'Recipe Suggestions & Cooking Instructions',
+                'Smart Food Detection',
+                'AI Meal Planning',
+                'AI Meal Plan for Chronic Sickness',
+                'Budget & Location Based Meal Plans',
+                'Full History Access'
             ],
             limits: {
                 detections_per_day: 5,
