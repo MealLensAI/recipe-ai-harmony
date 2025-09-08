@@ -61,7 +61,7 @@ const Navbar = () => {
               <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
                 MealLensAI
               </h1>
-              <p className="text-xs text-gray-500 hidden sm:block">Smart Recipe Assistant</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Smart Kitchen Assistant</p>
             </div>
           </div>
 
