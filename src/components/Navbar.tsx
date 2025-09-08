@@ -147,13 +147,23 @@ const Navbar = () => {
         {/* Mobile Navigation */}
         <div className="md:hidden border-t border-gray-100 py-3">
           <div className="grid grid-cols-4 gap-1">
+            
+          <Button
+              variant="ghost"
+              onClick={() => navigate("/planner")}
+              className="flex flex-col items-center justify-center h-16 text-xs space-y-1 text-gray-700 hover:text-orange-500 hover:bg-orange-50"
+            >
+              <Settings className="h-5 w-5" />
+              <span>Meal Planner</span>
+            </Button> 
+            
             <Button
               variant="ghost"
               onClick={() => navigate("/")}
               className="flex flex-col items-center justify-center h-16 text-xs space-y-1 text-gray-700 hover:text-orange-500 hover:bg-orange-50"
             >
               <Utensils className="h-5 w-5" />
-              <span>AI Kitchen</span>
+              <span>Ingred Detector</span>
             </Button>
             <Button
               variant="ghost"
@@ -171,14 +181,7 @@ const Navbar = () => {
               <User className="h-5 w-5" />
               <span>History</span>
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/planner")}
-              className="flex flex-col items-center justify-center h-16 text-xs space-y-1 text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-            >
-              <Settings className="h-5 w-5" />
-              <span>Planner</span>
-            </Button>
+        
           </div>
         </div>
       </div>
