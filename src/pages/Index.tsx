@@ -607,8 +607,8 @@ const Index = () => {
             </div>
           </div>
         </div>
-        {/* Sidebar */}
-        <div className="w-full lg:w-64 space-y-4 order-1 lg:order-none">
+        {/* Sidebar: visible only on desktop (lg+) */}
+        <div className="hidden lg:block lg:w-64 space-y-4 order-1 lg:order-none">
           {/* Weekly Planner */}
           <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-[#e2e8f0]">
             <WeeklyPlanner
