@@ -539,29 +539,29 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
-      <header className="bg-white border-b border-[#e2e8f0] px-6 py-4">
-        <div className="w-full flex items-center justify-between">
+      <header className="bg-white border-b border-[#e2e8f0] px-4 py-3 sm:px-6 sm:py-4">
+        <div className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="text-2xl">🍓</div>
             <div>
-              <h1 className="text-2xl font-bold text-[#2D3436]">MealLensAI Meal Planner</h1>
-              <p className="text-sm text-[#1e293b] flex items-center gap-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#2D3436]">MealLensAI Meal Planner</h1>
+              <p className="text-xs sm:text-sm text-[#1e293b] flex items-center gap-1">
                 <span>🥑</span>
                 a healthy outside starts from the inside
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <button
               onClick={() => setShowPlanManager(!showPlanManager)}
-              className="flex items-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
             >
               <Calendar className="w-4 h-4" />
               Manage Plans
             </button>
             <button
               onClick={handleNewPlan}
-              className="flex items-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors"
             >
               <Plus className="w-4 h-4" />
               New Plan
@@ -570,11 +570,11 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="w-full flex gap-6 p-6">
+      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 px-4 py-4 sm:p-6">
         {/* Sidebar */}
-        <div className="w-64 space-y-4">
+        <div className="order-2 md:order-1 md:col-span-1 w-full md:w-auto space-y-4 hidden md:block">
           {/* Weekly Planner */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
+          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-[#e2e8f0]">
             <WeeklyPlanner
               selectedDay={selectedDay}
               onDaySelect={setSelectedDay}
@@ -585,13 +585,29 @@ const Index = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
+        <div className="order-1 md:order-2 md:col-span-2">
           {currentPlan ? (
             <React.Fragment>
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
+                {/* Mobile Weekly Planner under header buttons (compact day chips) */}
+                <div className="md:hidden mb-4">
+                  <div className="bg-white rounded-xl p-3 shadow-sm border border-[#e2e8f0]">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+                      {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((day) => (
+                        <button
+                          key={day}
+                          onClick={() => setSelectedDay(day)}
+                          className={`flex-shrink-0 px-3 py-2 rounded-full text-sm font-medium transition-colors ${selectedDay === day ? 'bg-[#FF6B6B] text-white' : 'bg-gray-100 text-[#2D3436]'}`}
+                        >
+                          {day.slice(0,3)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
                     {getSicknessInfo() && (
                       <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
                         <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
@@ -599,11 +615,11 @@ const Index = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-lg font-semibold text-[#2D3436]">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 text-base sm:text-lg font-semibold text-[#2D3436]">
                     <button
                       onClick={handlePrevWeek}
                       disabled={currentWeekIndex <= 0}
-                      className={`p-1 rounded hover:bg-gray-100 transition-colors ${currentWeekIndex <= 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                      className={`p-2 rounded hover:bg-gray-100 transition-colors ${currentWeekIndex <= 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
                       title="Previous Saved Week"
                     >
                       <ChevronLeft className="w-5 h-5 text-[#2D3436]" />
@@ -615,7 +631,7 @@ const Index = () => {
                     <button
                       onClick={handleNextWeek}
                       disabled={currentWeekIndex === -1 || currentWeekIndex >= savedWeeks.length - 1}
-                      className={`p-1 rounded hover:bg-gray-100 transition-colors ${currentWeekIndex === -1 || currentWeekIndex >= savedWeeks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                      className={`p-2 rounded hover:bg-gray-100 transition-colors ${currentWeekIndex === -1 || currentWeekIndex >= savedWeeks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
                       title="Next Saved Week"
                     >
                       <ChevronRight className="w-5 h-5 text-[#2D3436]" />
@@ -631,36 +647,69 @@ const Index = () => {
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {getRecipesForSelectedDay().map((recipe, index) => (
-                    <RecipeCard
-                      key={`${selectedDay}-${recipe.type}-${index}`}
-                      title={recipe.title}
-                      originalTitle={recipe.originalTitle}
-                      time={recipe.time}
-                      rating={recipe.rating}
-                      mealType={recipe.type as any}
-                      onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Mobile: horizontal scroll row for snacks/desserts */}
+                  {(() => {
+                    const recipes = getRecipesForSelectedDay();
+                    const snackRecipes = recipes.filter(r => r.type === 'snack');
+                    const mainRecipes = recipes.filter(r => r.type !== 'snack');
+                    return (
+                      <>
+                        {snackRecipes.length > 0 && (
+                          <div className="sm:hidden mb-4">
+                            <h4 className="text-base font-semibold text-[#2D3436] mb-2">Desserts & Snacks</h4>
+                            <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 snap-x snap-mandatory">
+                              {snackRecipes.map((recipe, index) => (
+                                <div key={`snack-${index}`} className="min-w-[260px] snap-start">
+                                  <RecipeCard
+                                    title={recipe.title}
+                                    originalTitle={recipe.originalTitle}
+                                    time={recipe.time}
+                                    rating={recipe.rating}
+                                    mealType={recipe.type as any}
+                                    onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Main grid: mobile excludes snacks; md+ shows all as grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                          {(window.innerWidth >= 768 ? recipes : mainRecipes).map((recipe, index) => (
+                            <RecipeCard
+                              key={`${selectedDay}-${recipe.type}-${index}`}
+                              title={recipe.title}
+                              originalTitle={recipe.originalTitle}
+                              time={recipe.time}
+                              rating={recipe.rating}
+                              mealType={recipe.type as any}
+                              onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </>
               )}
             </React.Fragment>
           ) : (
-            <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-[#e2e8f0]">
+            <div className="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm border border-[#e2e8f0]">
               <ChefHat className="w-16 h-16 text-[#e2e8f0] mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-[#2D3436] mb-2">No Meal Plan Selected</h3>
               <p className="text-[#1e293b] mb-6">Create a new meal plan or select an existing one to get started!</p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
                   onClick={handleNewPlan}
-                  className="bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors"
+                  className="w-full sm:w-auto bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors"
                 >
                   Create New Plan
                 </button>
                 <button
                   onClick={() => setShowPlanManager(true)}
-                  className="bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="w-full sm:w-auto bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   View Saved Plans
                 </button>
@@ -673,7 +722,7 @@ const Index = () => {
       {/* Plan Manager Modal */}
       {showPlanManager && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-full sm:max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
               <button
@@ -698,7 +747,7 @@ const Index = () => {
       {/* Input Modal */}
       {showInputModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-full sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
               <button

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Plus, Trash2, Copy, Edit, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
+import { Calendar, Plus, Trash2, Copy, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SavedMealPlan, useMealPlans } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from './LoadingSpinner';
@@ -83,13 +83,13 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
   };
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
+    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-[#e2e8f0]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-[#2D3436]">Meal Plans</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-6">
+        <h2 className="text-lg sm:text-xl font-bold text-[#2D3436]">Meal Plans</h2>
         <button
           onClick={onNewPlan}
-          className="flex items-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors"
         >
           <Plus className="w-4 h-4" />
           New Plan
@@ -98,37 +98,33 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
 
       {/* Week Selector */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-[#2D3436]">Week of {getCurrentWeekDates()}</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+          <h3 className="text-base sm:text-lg font-semibold text-[#2D3436]">Week of {getCurrentWeekDates()}</h3>
           <button
             onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-2 text-[#FF6B6B] hover:text-[#FF8E53] transition-colors"
+            className="self-start sm:self-auto flex items-center gap-2 text-[#FF6B6B] hover:text-[#FF8E53] transition-colors"
           >
             <Calendar className="w-4 h-4" />
             Change Week
           </button>
         </div>
-        
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <button
             onClick={handlePreviousWeek}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-3 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Previous week"
           >
             <ChevronLeft className="w-5 h-5 text-[#2D3436]" />
           </button>
-          
-          <div className="text-center">
+          <div className="flex-1 text-center">
             <div className="text-sm text-[#1e293b]">
-              {selectedDate.toLocaleDateString('en-US', { 
-                month: 'long', 
-                year: 'numeric' 
-              })}
+              {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </div>
           </div>
-          
           <button
             onClick={handleNextWeek}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-3 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Next week"
           >
             <ChevronRight className="w-5 h-5 text-[#2D3436]" />
           </button>
@@ -165,7 +161,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
             {savedPlans.map((plan) => (
               <div
                 key={plan.id}
-                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                className={`p-4 sm:p-5 rounded-lg border-2 transition-all cursor-pointer ${
                   currentPlan?.id === plan.id
                     ? 'border-[#FF6B6B] bg-[#FF6B6B]/5'
                     : 'border-gray-200 hover:border-[#FF6B6B]/50 hover:bg-gray-50'
@@ -175,10 +171,10 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                   if (onSelectPlan) onSelectPlan(plan);
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-[#2D3436]">{plan.name}</h4>
-                    <p className="text-sm text-[#1e293b]">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-[#2D3436] truncate">{plan.name}</h4>
+                    <p className="text-sm text-[#1e293b] truncate">
                       {formatDateRange(plan.startDate, plan.endDate)}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -186,7 +182,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                     </p>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
