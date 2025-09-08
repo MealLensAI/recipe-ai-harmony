@@ -34,10 +34,14 @@ def main():
     
     # Get Supabase credentials
     supabase_url = os.getenv('SUPABASE_URL')
-    supabase_key = os.getenv('SUPABASE_KEY')
+    # Accept either SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY for convenience
+    supabase_key = os.getenv('SUPABASE_KEY') or os.getenv('SUPABASE_SERVICE_ROLE_KEY')
     
     if not supabase_url or not supabase_key:
-        print("Error: SUPABASE_URL and SUPABASE_KEY must be set in .env file")
+        print("Error: Missing Supabase credentials.")
+        print("- Ensure SUPABASE_URL is set")
+        print("- Ensure SUPABASE_KEY or SUPABASE_SERVICE_ROLE_KEY is set")
+        print("Tip: If running from the project root, this script may not find backend/.env. Run it from the backend/ directory or export env vars in your shell.")
         sys.exit(1)
     
     # Initialize Supabase client
