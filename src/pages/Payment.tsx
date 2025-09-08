@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useTrial } from '@/hooks/useTrial';
 import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
-import LoadingSpinner from '@/components/LoadingSpinner';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
 
 // Declare PaystackPop for TypeScript
@@ -104,11 +103,32 @@ const Payment: React.FC = () => {
     }
   }, []);
 
-  // Show spinner while loading subscription/trial status from backend
+  // Show full-page skeletons while loading subscription/trial status from backend
   if (isLoading) {
     return (
-      <section className="min-h-screen flex items-center justify-center p-6">
-        <LoadingSpinner />
+      <section className="container mx-auto px-4 py-10">
+        {/* Optional header skeletons */}
+        <div className="max-w-3xl mx-auto text-center mb-10">
+          <div className="h-8 w-64 bg-gray-200 rounded mx-auto animate-pulse" />
+          <div className="h-4 w-80 bg-gray-200 rounded mx-auto mt-3 animate-pulse" />
+        </div>
+
+        {/* Pricing skeleton grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {[0,1,2].map((i) => (
+            <div key={i} className="rounded-2xl border border-gray-200 p-6 shadow-sm animate-pulse bg-white">
+              <div className="h-8 w-24 bg-gray-200 rounded mb-4" />
+              <div className="h-4 w-32 bg-gray-200 rounded mb-6" />
+              <div className="h-10 w-40 bg-gray-300 rounded mb-8" />
+              <div className="space-y-3 mb-8">
+                {[...Array(5)].map((_, idx) => (
+                  <div key={idx} className="h-4 w-full bg-gray-200 rounded" />
+                ))}
+              </div>
+              <div className="h-10 w-full bg-gray-300 rounded" />
+            </div>
+          ))}
+        </div>
       </section>
     );
   }
