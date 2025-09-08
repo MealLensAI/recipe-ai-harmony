@@ -13,7 +13,7 @@ import { api } from '@/lib/api';
 const Settings = () => {
   const { toast } = useToast();
   const { settings, loading, updateSettings, saveSettings } = useSicknessSettings();
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isLoading } = useTrial();
 
   // Profile info & password change state
   const [email, setEmail] = useState<string>(() => {
@@ -112,6 +112,47 @@ const Settings = () => {
     }
   };
 
+  // Full-page skeleton while either trial/subscription or sickness settings are loading
+  if (isLoading || loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="space-y-6">
+          <div>
+            <div className="h-8 w-40 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 w-64 bg-gray-200 rounded mt-2 animate-pulse" />
+            <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-gray-100 border-gray-200 animate-pulse w-40"></div>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
+              <div className="h-4 w-72 bg-gray-200 rounded mt-2 animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3 animate-pulse">
+                <div className="h-4 w-2/3 bg-gray-200 rounded" />
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded-full bg-gray-300" />
+                  <div className="h-4 w-48 bg-gray-200 rounded" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded-full bg-gray-300" />
+                  <div className="h-4 w-56 bg-gray-200 rounded" />
+                </div>
+              </div>
+              <div className="space-y-3 animate-pulse">
+                <div className="h-4 w-1/2 bg-gray-200 rounded" />
+                <div className="h-10 w-full bg-gray-200 rounded" />
+                <div className="h-3 w-3/4 bg-gray-200 rounded" />
+              </div>
+              <div className="h-10 w-full bg-gray-300 rounded animate-pulse" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="space-y-6">
@@ -121,10 +162,17 @@ const Settings = () => {
             Manage your account settings and preferences
           </p>
           {!hasActiveSubscription && (
-            <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
-              <Clock className="h-3 w-3" />
-              {isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}
-            </div>
+            isLoading ? (
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-gray-100 border-gray-200 animate-pulse">
+                <div className="h-3 w-3 rounded-full bg-gray-300" />
+                <div className="h-3 w-28 rounded bg-gray-300" />
+              </div>
+            ) : (
+              <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                <Clock className="h-3 w-3" />
+                {isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}
+              </div>
+            )
           )}
         </div>
 
@@ -136,50 +184,74 @@ const Settings = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <Label className="text-base font-medium">
-                Do you have any health conditions or sickness?
-              </Label>
-              <RadioGroup
-                value={settings.hasSickness ? 'yes' : 'no'}
-                onValueChange={handleSicknessChange}
-                className="space-y-3"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="sickness-yes" />
-                  <Label htmlFor="sickness-yes">Yes, I have a sickness</Label>
+            {loading ? (
+              <div className="space-y-6 animate-pulse">
+                <div className="space-y-3">
+                  <div className="h-4 w-2/3 bg-gray-200 rounded" />
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-4 rounded-full bg-gray-300" />
+                    <div className="h-4 w-48 bg-gray-200 rounded" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-4 w-4 rounded-full bg-gray-300" />
+                    <div className="h-4 w-56 bg-gray-200 rounded" />
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="sickness-no" />
-                  <Label htmlFor="sickness-no">No, I don't have any sickness</Label>
+                <div className="space-y-3">
+                  <div className="h-4 w-1/2 bg-gray-200 rounded" />
+                  <div className="h-10 w-full bg-gray-200 rounded" />
+                  <div className="h-3 w-3/4 bg-gray-200 rounded" />
                 </div>
-              </RadioGroup>
-            </div>
-
-            {settings.hasSickness && (
-              <div className="space-y-4">
-                <Label htmlFor="sickness-type" className="text-base font-medium">
-                  What type of sickness do you have?
-                </Label>
-                <Input
-                  id="sickness-type"
-                  placeholder="e.g., diabetes, hypertension, celiac disease, etc."
-                  value={settings.sicknessType}
-                  onChange={(e) => handleSicknessTypeChange(e.target.value)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  This information will be used to provide you with appropriate meal recommendations.
-                </p>
+                <div className="h-10 w-full bg-gray-300 rounded" />
               </div>
-            )}
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <Label className="text-base font-medium">
+                    Do you have any health conditions or sickness?
+                  </Label>
+                  <RadioGroup
+                    value={settings.hasSickness ? 'yes' : 'no'}
+                    onValueChange={handleSicknessChange}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="sickness-yes" />
+                      <Label htmlFor="sickness-yes">Yes, I have a sickness</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="sickness-no" />
+                      <Label htmlFor="sickness-no">No, I don't have any sickness</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
 
-            <Button
-              onClick={handleSave}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? 'Saving...' : 'Save Settings'}
-            </Button>
+                {settings.hasSickness && (
+                  <div className="space-y-4">
+                    <Label htmlFor="sickness-type" className="text-base font-medium">
+                      What type of sickness do you have?
+                    </Label>
+                    <Input
+                      id="sickness-type"
+                      placeholder="e.g., diabetes, hypertension, celiac disease, etc."
+                      value={settings.sicknessType}
+                      onChange={(e) => handleSicknessTypeChange(e.target.value)}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      This information will be used to provide you with appropriate meal recommendations.
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  Save Settings
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

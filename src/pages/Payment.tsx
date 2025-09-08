@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useTrial } from '@/hooks/useTrial';
 import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
+import LoadingSpinner from '@/components/LoadingSpinner';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
 
 // Declare PaystackPop for TypeScript
@@ -71,7 +72,7 @@ const YEARLY_PLAN = {
 };
 
 const Payment: React.FC = () => {
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('daniel');
@@ -102,6 +103,15 @@ const Payment: React.FC = () => {
       console.log('🔍 PaystackPop available:', typeof window.PaystackPop !== 'undefined');
     }
   }, []);
+
+  // Show spinner while loading subscription/trial status from backend
+  if (isLoading) {
+    return (
+      <section className="min-h-screen flex items-center justify-center p-6">
+        <LoadingSpinner />
+      </section>
+    );
+  }
 
   const clearTrialData = async () => {
     // Clear trial data since user now has a subscription

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Plus, Trash2, Copy, Edit, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import { SavedMealPlan, useMealPlans } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
+import LoadingSpinner from './LoadingSpinner';
 
 interface MealPlanManagerProps {
   onNewPlan: () => void;
@@ -10,7 +11,7 @@ interface MealPlanManagerProps {
 }
 
 const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan, onSelectPlan }) => {
-  const { savedPlans, currentPlan, selectMealPlan, deleteMealPlan, duplicateMealPlan, generateWeekDates } = useMealPlans();
+  const { savedPlans, currentPlan, selectMealPlan, deleteMealPlan, duplicateMealPlan, generateWeekDates, loading } = useMealPlans();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -148,8 +149,12 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
       {/* Saved Plans */}
       <div>
         <h3 className="text-lg font-semibold text-[#2D3436] mb-4">Saved Plans</h3>
-        
-        {savedPlans.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+            <LoadingSpinner />
+            <p className="mt-3">Loading your meal plans...</p>
+          </div>
+        ) : savedPlans.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p>No saved meal plans yet</p>
