@@ -551,7 +551,8 @@ const Index = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          {/* Desktop actions */}
+          <div className="hidden md:flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={() => setShowPlanManager(!showPlanManager)}
               className="flex items-center justify-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors w-full sm:w-auto"
@@ -568,9 +569,44 @@ const Index = () => {
             </button>
           </div>
         </div>
+        {/* Mobile actions stacked under title */}
+        <div className="mt-2 md:hidden space-y-2">
+          <button
+            onClick={() => setShowPlanManager(!showPlanManager)}
+            className="w-full flex items-center justify-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <Calendar className="w-4 h-4" />
+            Manage Plans
+          </button>
+          <button
+            onClick={handleNewPlan}
+            className="w-full flex items-center justify-center gap-2 bg-[#FF6B6B] text-white px-4 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Plan
+          </button>
+        </div>
       </header>
 
       <div className="w-full flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 sm:p-6">
+        {/* Mobile top day-chip selector */}
+        <div className="md:hidden">
+          <div className="bg-white rounded-xl p-3 shadow-sm border border-[#e2e8f0]">
+            <div className="overflow-x-auto pb-1">
+              <div className="flex gap-2 whitespace-nowrap">
+                {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((day) => (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDay(day)}
+                    className={`px-3 py-1.5 rounded-full border transition-colors text-sm ${selectedDay === day ? 'bg-[#FF6B6B] text-white border-[#FF6B6B]' : 'bg-gray-100 text-[#2D3436] border-gray-200'}`}
+                  >
+                    {day.slice(0,3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
         {/* Sidebar */}
         <div className="w-full lg:w-64 space-y-4 order-1 lg:order-none">
           {/* Weekly Planner */}
