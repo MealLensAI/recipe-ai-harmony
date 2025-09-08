@@ -539,29 +539,29 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
-      <header className="bg-white border-b border-[#e2e8f0] px-6 py-4">
-        <div className="w-full flex items-center justify-between">
+      <header className="bg-white border-b border-[#e2e8f0] px-4 sm:px-6 py-3 sm:py-4">
+        <div className="w-full flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="text-2xl">🍓</div>
             <div>
-              <h1 className="text-2xl font-bold text-[#2D3436]">MealLensAI Meal Planner</h1>
-              <p className="text-sm text-[#1e293b] flex items-center gap-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#2D3436]">MealLensAI Meal Planner</h1>
+              <p className="text-xs sm:text-sm text-[#1e293b] flex items-center gap-1">
                 <span>🥑</span>
                 a healthy outside starts from the inside
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={() => setShowPlanManager(!showPlanManager)}
-              className="flex items-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+              className="flex items-center justify-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors w-full sm:w-auto"
             >
               <Calendar className="w-4 h-4" />
               Manage Plans
             </button>
             <button
               onClick={handleNewPlan}
-              className="flex items-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors"
+              className="flex items-center justify-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               New Plan
@@ -570,11 +570,11 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="w-full flex gap-6 p-6">
+      <div className="w-full flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 sm:p-6">
         {/* Sidebar */}
-        <div className="w-64 space-y-4">
+        <div className="w-full lg:w-64 space-y-4 order-1 lg:order-none">
           {/* Weekly Planner */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
+          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-[#e2e8f0]">
             <WeeklyPlanner
               selectedDay={selectedDay}
               onDaySelect={setSelectedDay}
@@ -585,21 +585,21 @@ const Index = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
+        <div className="flex-1 order-0 lg:order-none">
           {currentPlan ? (
             <React.Fragment>
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
                     {getSicknessInfo() && (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">
+                      <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs sm:text-sm font-medium">
                         <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
                         Health-aware meal plan
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-lg font-semibold text-[#2D3436]">
+                  <div className="flex items-center gap-2 text-base sm:text-lg font-semibold text-[#2D3436]">
                     <button
                       onClick={handlePrevWeek}
                       disabled={currentWeekIndex <= 0}
@@ -631,7 +631,7 @@ const Index = () => {
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {getRecipesForSelectedDay().map((recipe, index) => (
                     <RecipeCard
                       key={`${selectedDay}-${recipe.type}-${index}`}
@@ -647,20 +647,20 @@ const Index = () => {
               )}
             </React.Fragment>
           ) : (
-            <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-[#e2e8f0]">
+            <div className="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm border border-[#e2e8f0]">
               <ChefHat className="w-16 h-16 text-[#e2e8f0] mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-[#2D3436] mb-2">No Meal Plan Selected</h3>
               <p className="text-[#1e293b] mb-6">Create a new meal plan or select an existing one to get started!</p>
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={handleNewPlan}
-                  className="bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors"
+                  className="bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors w-full max-w-xs sm:w-auto"
                 >
                   Create New Plan
                 </button>
                 <button
                   onClick={() => setShowPlanManager(true)}
-                  className="bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors w-full max-w-xs sm:w-auto"
                 >
                   View Saved Plans
                 </button>
