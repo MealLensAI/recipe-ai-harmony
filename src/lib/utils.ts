@@ -149,6 +149,9 @@ export function useProvideAuth(): AuthContextType {
           setUser(parsedUser as User)
           console.log('✅ Auth state set from localStorage:', { uid: parsedUser.uid, email: parsedUser.email })
 
+          // Ensure we always have a non-null user object to reference later
+          let effectiveUser: User = parsedUser as User
+
           // Fetch fresh profile data from backend
           try {
             const profileResponse = await api.getUserProfile()
@@ -161,6 +164,8 @@ export function useProvideAuth(): AuthContextType {
                 displayName: profile.display_name ?? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim(),
                 photoURL: undefined
               }
+              // Promote updated user to effective user
+              effectiveUser = updatedUser
               setUser(updatedUser)
               // Update stored user data
               localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
@@ -180,7 +185,7 @@ export function useProvideAuth(): AuthContextType {
             // Clear any cached trial status to force fresh check
             localStorage.removeItem('meallensai_user_access_status')
             // Also clear trial and subscription data to force re-initialization
-            const userId = updatedUser.uid || 'anon'
+            const userId = effectiveUser.uid || 'anon'
             localStorage.removeItem(`meallensai_trial_start:${userId}`)
             localStorage.removeItem(`meallensai_subscription_status:${userId}`)
             localStorage.removeItem(`meallensai_subscription_expires_at:${userId}`)

@@ -11,7 +11,6 @@ import {
     Search,
     Sparkles,
     Shield,
-    Users,
     Star,
     ArrowRight,
     CheckCircle,
@@ -30,29 +29,19 @@ const WelcomePage: React.FC = () => {
     const navigate = useNavigate();
     const { user, signOut } = useAuth();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [userCount, setUserCount] = useState(1000); // Default fallback
 
-    // Fetch user count - start from 1000 and fetch actual count if available
+    // Removed user count feature
+
+    // If a logged-in user hits the landing page, immediately send them to the app
     useEffect(() => {
-        const fetchUserCount = async () => {
+        if (user) {
             try {
-                // Try to fetch actual user count from public endpoint
-                const base = import.meta.env.VITE_API_URL || (import.meta.env.DEV ?'http://127.0.0.1:5001' : 'http://127.0.0.1:5001');
-                const response = await fetch(`${base}/api/public/user-count`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.status === 'success' && data.user_count) {
-                        setUserCount(Math.max(1000, data.user_count)); // Ensure minimum of 1000
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching user count:', error);
-                // Keep default fallback count of 1000
+                window.location.replace('/ai-kitchen');
+            } catch {
+                navigate('/ai-kitchen', { replace: true });
             }
-        };
-
-        fetchUserCount();
-    }, []);
+        }
+    }, [user, navigate]);
 
     const handleTryMealLensAI = () => {
         if (!user) {
@@ -284,12 +273,8 @@ const WelcomePage: React.FC = () => {
                                 </Button>
                             </div>
 
-                            {/* Trust indicators */}
+                            {/* Trust indicators (without user count) */}
                             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 sm:gap-6 text-gray-600">
-                                <div className="flex items-center gap-2">
-                                    <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-                                    <span className="text-xs sm:text-sm">{userCount.toLocaleString()}+ Happy Users</span>
-                                </div>
                                 <div className="flex items-center gap-2">
                                     <Star className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
                                     <span className="text-xs sm:text-sm">4.9/5 Rating</span>
@@ -401,7 +386,7 @@ const WelcomePage: React.FC = () => {
                                 Why Choose MealLens AI?
                             </h2>
                             <p className="text-lg sm:text-xl text-gray-600">
-                                Join {userCount.toLocaleString()}+ users who have transformed their cooking experience
+                                Join thousands of users who have transformed their cooking experience
                             </p>
                         </div>
 
@@ -540,7 +525,7 @@ const WelcomePage: React.FC = () => {
                         Ready to Transform Your Cooking?
                     </h2>
                     <p className="text-lg sm:text-xl text-orange-100 mb-8 sm:mb-10 max-w-2xl mx-auto">
-                        Join {userCount.toLocaleString()}+ users who are already cooking smarter with MealLens AI
+                        Join thousands of users who are already cooking smarter with MealLens AI
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Button

@@ -76,7 +76,12 @@ const Login = () => {
           // Redirect to intended page or main app
           const from = location.state?.from?.pathname || "/ai-kitchen"
           console.log('🔄 Redirecting after login to:', from)
-          navigate(from, { replace: true })
+          // Use hard navigation to avoid any router or state interference
+          try {
+            window.location.replace(from)
+          } catch {
+            navigate(from, { replace: true })
+          }
         }, 100)
       } else {
         toast({
