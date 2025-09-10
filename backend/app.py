@@ -70,6 +70,7 @@ def create_app():
       "http://localhost:5173",
       "http://localhost:5174",
       "https://meallensai.com",
+      "https://www.meallensai.com",
   ]
   if env_allowed:
       # Support comma-separated list in env
@@ -104,9 +105,12 @@ def create_app():
               if origin and origin in allowed_origins:
                   response.headers.add('Access-Control-Allow-Origin', origin)
               else:
-                  response.headers.add('Access-Control-Allow-Origin', allowed_origins[0])
+                  # Prefer production domain as default fallback instead of localhost
+                  default_origin = 'https://www.meallensai.com' if 'https://www.meallensai.com' in allowed_origins else allowed_origins[0]
+                  response.headers.add('Access-Control-Allow-Origin', default_origin)
           except Exception:
-              response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+              # As a very last resort, use production domain to avoid leaking localhost in prod
+              response.headers.add('Access-Control-Allow-Origin', 'https://www.meallensai.com')
           response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
           response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
           response.headers.add('Access-Control-Allow-Credentials', 'true')
