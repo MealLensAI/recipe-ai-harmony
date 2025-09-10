@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle } from "lucide-react"
-import { useAuth } from "@/lib/utils"
+import { useAuth, safeSetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
 
 const Signup = () => {
@@ -126,19 +126,19 @@ const Signup = () => {
       if (loginResult.status === 'success') {
         // Store the token in localStorage for future authenticated requests
         if (loginResult.access_token) {
-          localStorage.setItem('access_token', loginResult.access_token)
-          if (loginResult.refresh_token) localStorage.setItem('supabase_refresh_token', loginResult.refresh_token)
-          if (loginResult.session_id) localStorage.setItem('supabase_session_id', loginResult.session_id)
-          if (loginResult.user_id) localStorage.setItem('supabase_user_id', loginResult.user_id)
+          safeSetItem('access_token', loginResult.access_token)
+          if (loginResult.refresh_token) safeSetItem('supabase_refresh_token', loginResult.refresh_token)
+          if (loginResult.session_id) safeSetItem('supabase_session_id', loginResult.session_id)
+          if (loginResult.user_id) safeSetItem('supabase_user_id', loginResult.user_id)
 
-          // Store user data for auth context
-          const userData = {
-            uid: loginResult.user_id || loginResult.user_data?.id,
-            email: loginResult.user_data?.email || formData.email,
-            displayName: `${formData.firstName} ${formData.lastName}`,
-            photoURL: null
-          }
-          localStorage.setItem('user_data', JSON.stringify(userData))
+        // Store user data for auth context
+        const userData = {
+          uid: loginResult.user_id || loginResult.user_data?.id,
+          email: loginResult.user_data?.email || formData.email,
+          displayName: `${formData.firstName} ${formData.lastName}`,
+          photoURL: null
+        }
+        safeSetItem('user_data', JSON.stringify(userData))
 
           // Refresh auth context
           await refreshAuth()

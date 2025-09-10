@@ -1,4 +1,4 @@
-import { useAuth } from './utils'
+import { useAuth, safeGetItem, safeRemoveItem } from './utils'
 import { APP_CONFIG } from '@/lib/config'
 
 // API base URL
@@ -25,6 +25,26 @@ export interface APIResponse<T = any> {
   data?: T
 }
 
+// Auth response shapes from backend
+export interface LoginResponse {
+  status: 'success' | 'error'
+  message?: string
+  user_id?: string
+  auth_type?: string
+  session_id?: string
+  session_created_at?: string
+  access_token?: string
+  refresh_token?: string
+  user_data?: { id: string; email: string; metadata?: any }
+}
+
+export interface RegisterResponse {
+  status: 'success' | 'error'
+  message?: string
+  user_id?: string
+  email?: string
+}
+
 // Request options type
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -37,7 +57,7 @@ export interface RequestOptions {
 // Centralized API service
 class APIService {
   private getAuthToken(): string | null {
-    return localStorage.getItem('access_token')
+    return safeGetItem('access_token')
   }
 
   private async makeRequest<T = any>(
@@ -52,20 +72,12 @@ class APIService {
       timeout = 10000
     } = options
 
-    // Add auth header if not skipped
+    // Add auth header if token is present; otherwise rely on cookie-based auth
     if (!skipAuth) {
       const token = this.getAuthToken()
-      if (!token) {
-        // Clear any stale data and redirect to login
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('user_data')
-        localStorage.removeItem('supabase_refresh_token')
-        localStorage.removeItem('supabase_session_id')
-        localStorage.removeItem('supabase_user_id')
-        window.location.href = '/login'
-        throw new APIError('No authentication token found. Please log in again.', 401)
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
       }
-      headers['Authorization'] = `Bearer ${token}`
     }
 
     // Add default headers
@@ -73,12 +85,27 @@ class APIService {
       headers['Content-Type'] = 'application/json'
     }
 
-    // Prepare request config
+    // Prepare request config with cross-browser timeout support
+    // AbortSignal.timeout is not supported in some browsers (older Safari/Firefox),
+    // so we use AbortController and manually abort after the timeout duration.
+    const controller = new AbortController()
+    let timeoutId: number | null = null
+
+    if (timeout && typeof window !== 'undefined') {
+      try {
+        timeoutId = window.setTimeout(() => controller.abort(), timeout)
+      } catch {
+        // no-op if setTimeout is unavailable (very rare)
+      }
+    }
+
     const config: RequestInit = {
       method,
       headers,
-      signal: AbortSignal.timeout(timeout)
+      signal: controller.signal
     }
+    // Always include credentials to support cookie-based auth
+    ;(config as any).credentials = 'include'
 
     // Add body if present
     if (body) {
@@ -89,6 +116,11 @@ class APIService {
       const fullUrl = `${API_BASE_URL}${endpoint}`
 
       const response = await fetch(fullUrl, config)
+
+      // Clear pending timeout on successful response arrival
+      if (timeoutId) {
+        try { clearTimeout(timeoutId) } catch { /* ignore */ }
+      }
 
       // Handle different response types
       const contentType = response.headers.get('content-type')
@@ -148,11 +180,11 @@ class APIService {
             }
           } catch { }
           // Clear invalid token and all session data
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('user_data')
-          localStorage.removeItem('supabase_refresh_token')
-          localStorage.removeItem('supabase_session_id')
-          localStorage.removeItem('supabase_user_id')
+          safeRemoveItem('access_token')
+          safeRemoveItem('user_data')
+          safeRemoveItem('supabase_refresh_token')
+          safeRemoveItem('supabase_session_id')
+          safeRemoveItem('supabase_user_id')
           // Redirect to landing page
           setTimeout(() => window.location.replace('/landing'), 200)
           throw new APIError('Authentication required. Please log in again.', 401)
@@ -192,13 +224,24 @@ class APIService {
 
       return data
     } catch (error) {
+      // Clear pending timeout in error path as well
+      // (AbortController may trigger an exception before response object exists)
+      try {
+        // @ts-ignore - timeoutId may be null
+        if (timeoutId) clearTimeout(timeoutId)
+      } catch { /* ignore */ }
       // Handle network errors
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new APIError('Network error. Please check your connection and try again.', 0)
       }
 
       // Handle timeout errors
-      if (error instanceof DOMException && error.name === 'TimeoutError') {
+      // Different browsers surface abort/timeout differently. Treat AbortError as timeout.
+      if (
+        (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) ||
+        // Some environments surface aborts as generic Errors
+        (error instanceof Error && (error.name === 'AbortError' || error.message.toLowerCase().includes('aborted')))
+      ) {
         throw new APIError('Request timeout. Please try again.', 0)
       }
 
@@ -234,11 +277,11 @@ class APIService {
   }
 
   // Auth-specific methods
-  async login(credentials: { email: string; password: string }): Promise<APIResponse> {
+  async login(credentials: { email: string; password: string }): Promise<LoginResponse> {
     return this.post('/login', credentials, { skipAuth: true })
   }
 
-  async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string }): Promise<APIResponse> {
+  async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string }): Promise<RegisterResponse> {
     return this.post('/register', userData, { skipAuth: true })
   }
 

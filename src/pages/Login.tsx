@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Mail, Lock, Utensils, Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/utils"
+import { useAuth, safeSetItem, safeGetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
 
 const Login = () => {
@@ -46,22 +45,26 @@ const Login = () => {
     try {
       // Use centralized API service
       const result = await api.login({ email, password })
+      console.log('[Login] /api/login response:', result)
 
       if (result.status === 'success' && result.access_token) {
         // Store the token and user data
-        localStorage.setItem('access_token', result.access_token)
-        localStorage.setItem('supabase_refresh_token', result.refresh_token || '')
-        localStorage.setItem('supabase_session_id', result.session_id || '')
-        localStorage.setItem('supabase_user_id', result.user_id || '')
+        safeSetItem('access_token', result.access_token)
+        // Verify token is readable immediately
+        console.log('[Login] token saved. Read-back length:', safeGetItem('access_token')?.length || 0)
+        safeSetItem('supabase_refresh_token', result.refresh_token || '')
+        safeSetItem('supabase_session_id', result.session_id || '')
+        safeSetItem('supabase_user_id', result.user_id || '')
 
         // Store user data
+        const displayName = (result.user_data?.email || email).split('@')[0]
         const userData = {
-          uid: result.user_id || '',
-          email: email,
-          displayName: result.name || email.split('@')[0],
+          uid: result.user_id || result.user_data?.id || '',
+          email: result.user_data?.email || email,
+          displayName,
           photoURL: null
         }
-        localStorage.setItem('user_data', JSON.stringify(userData))
+        safeSetItem('user_data', JSON.stringify(userData))
 
         // Update auth context
         await refreshAuth()
@@ -71,18 +74,12 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
-        // Add a small delay to ensure auth state is fully updated
-        setTimeout(() => {
-          // Redirect to intended page or main app
-          const from = location.state?.from?.pathname || "/ai-kitchen"
-          console.log('🔄 Redirecting after login to:', from)
-          // Use hard navigation to avoid any router or state interference
-          try {
-            window.location.replace(from)
-          } catch {
-            navigate(from, { replace: true })
-          }
-        }, 100)
+        // Redirect to intended page or main app using client-side navigation only.
+        // This avoids a full page reload that would clear the in-memory auth fallback
+        // used on browsers that block localStorage (e.g., Opera Mini/private modes).
+        const from = location.state?.from?.pathname || "/ai-kitchen"
+        console.log('🔄 Redirecting after login to:', from)
+        navigate(from, { replace: true })
       } else {
         toast({
           title: "Login Failed",

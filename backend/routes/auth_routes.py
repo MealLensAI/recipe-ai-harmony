@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response
 from typing import Optional
 import os
 import json
@@ -83,14 +83,34 @@ def _handle_firebase_login(token: str, supabase_service) -> tuple[dict, int]:
             current_app.logger.error(f"Failed to save session: {error}")
             return {'status': 'error', 'message': 'Failed to record session'}, 500
             
-        return {
+        # Build response payload
+        payload = {
             'status': 'success',
             'message': 'Login successful',
             'user_id': user_id,
             'auth_type': auth_type,
             'session_id': session_id,
             'session_created_at': created_at
-        }, 200
+        }
+
+        from flask import make_response
+        resp = make_response(jsonify(payload))
+        # Set cookie with the provided token so subsequent requests can use cookie-based auth
+        if token:
+            max_age = 7 * 24 * 60 * 60
+            try:
+                resp.set_cookie(
+                    'access_token',
+                    value=token,
+                    max_age=max_age,
+                    secure=True,
+                    httponly=True,
+                    samesite='None'
+                )
+            except Exception as e:
+                current_app.logger.warning(f"Failed to set access_token cookie (firebase path): {str(e)}")
+
+        return resp, 200
         
     except Exception as e:
         current_app.logger.error(f"Firebase login error: {str(e)}")
@@ -132,7 +152,8 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
         # Extract tokens from session if available
         access_token = getattr(getattr(response, 'session', None), 'access_token', None)
         refresh_token = getattr(getattr(response, 'session', None), 'refresh_token', None)
-        return {
+        # Build JSON response
+        payload = {
             'status': 'success',
             'message': 'Login successful',
             'user_id': user_id,
@@ -146,7 +167,27 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
                 'email': response.user.email,
                 'metadata': response.user.user_metadata
             }
-        }, 200
+        }
+
+        # Set httpOnly cookie with access token to support browsers that block localStorage
+        from flask import make_response
+        resp = make_response(payload)
+        if access_token:
+            # 7-day cookie by default
+            max_age = 7 * 24 * 60 * 60
+            try:
+                resp.set_cookie(
+                    'access_token',
+                    value=access_token,
+                    max_age=max_age,
+                    secure=True,
+                    httponly=True,
+                    samesite='None'
+                )
+            except Exception as e:
+                current_app.logger.warning(f"Failed to set access_token cookie: {str(e)}")
+
+        return resp, 200
     except Exception as e:
         current_app.logger.error(f"Supabase login error for {email}: {str(e)}")
         return {'status': 'error', 'message': 'Login failed'}, 401
@@ -185,6 +226,9 @@ def login_user():
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         response, status = _handle_firebase_login(auth_header.split(' ')[1], supabase_service)
+        # If helper already returned a Flask Response, return it directly
+        if isinstance(response, Response):
+            return response, status
         return jsonify(response), status
     
     # Check for Supabase email/password (traditional login)
@@ -192,6 +236,8 @@ def login_user():
     password = data.get('password')
     if email and password:
         response, status = _handle_supabase_login(email, password, supabase, supabase_service)
+        if isinstance(response, Response):
+            return response, status
         return jsonify(response), status
 
     # If neither method is provided

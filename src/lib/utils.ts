@@ -30,6 +30,49 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const TOKEN_KEY = "access_token"
 const USER_KEY = "user_data"
 
+// Safe storage helpers (handle private mode / blocked storage)
+const memoryStore = new Map<string, string>()
+
+export function safeGetItem(key: string): string | null {
+  try {
+    if (typeof window !== 'undefined' && 'localStorage' in window) {
+      const val = window.localStorage.getItem(key)
+      if (val !== null) return val
+      // If localStorage is accessible but empty for this key, fall back to memory
+      return memoryStore.has(key) ? memoryStore.get(key)! : null
+    }
+  } catch {
+    // localStorage not available or blocked
+  }
+  return memoryStore.has(key) ? memoryStore.get(key)! : null
+}
+
+export function safeSetItem(key: string, value: string): void {
+  try {
+    if (typeof window !== 'undefined' && 'localStorage' in window) {
+      window.localStorage.setItem(key, value)
+      // Verify it was actually stored
+      if (window.localStorage.getItem(key) === value) {
+        return
+      }
+    }
+  } catch {
+    // fall through to memory
+  }
+  memoryStore.set(key, value)
+}
+
+export function safeRemoveItem(key: string): void {
+  try {
+    if (typeof window !== 'undefined' && 'localStorage' in window) {
+      window.localStorage.removeItem(key)
+    }
+  } catch {
+    // ignore
+  }
+  memoryStore.delete(key)
+}
+
 // Pure TypeScript AuthProvider (no JSX)
 export function useProvideAuth(): AuthContextType {
   const [user, setUser] = useState<User | null>(null)
@@ -95,16 +138,16 @@ export function useProvideAuth(): AuthContextType {
 
   // Clear session data
   const clearSession = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    localStorage.removeItem('supabase_refresh_token')
-    localStorage.removeItem('supabase_session_id')
-    localStorage.removeItem('supabase_user_id')
+    safeRemoveItem(TOKEN_KEY)
+    safeRemoveItem(USER_KEY)
+    safeRemoveItem('supabase_refresh_token')
+    safeRemoveItem('supabase_session_id')
+    safeRemoveItem('supabase_user_id')
     // Also clear subscription/trial caches to avoid stale gating after logout
-    localStorage.removeItem('meallensai_user_access_status')
-    localStorage.removeItem('meallensai_trial_start')
-    localStorage.removeItem('meallensai_subscription_status')
-    localStorage.removeItem('meallensai_subscription_expires_at')
+    safeRemoveItem('meallensai_user_access_status')
+    safeRemoveItem('meallensai_trial_start')
+    safeRemoveItem('meallensai_subscription_status')
+    safeRemoveItem('meallensai_subscription_expires_at')
     setUser(null)
     setToken(null)
   }, [])
@@ -133,8 +176,8 @@ export function useProvideAuth(): AuthContextType {
     setLoading(true)
     try {
       // Check if we have a stored token (from backend login)
-      const storedToken = localStorage.getItem(TOKEN_KEY)
-      const storedUserData = localStorage.getItem(USER_KEY)
+      const storedToken = safeGetItem(TOKEN_KEY)
+      const storedUserData = safeGetItem(USER_KEY)
 
       console.log('🔍 Auth state check:', {
         hasToken: !!storedToken,
@@ -168,7 +211,7 @@ export function useProvideAuth(): AuthContextType {
               effectiveUser = updatedUser
               setUser(updatedUser)
               // Update stored user data
-              localStorage.setItem(USER_KEY, JSON.stringify(updatedUser))
+              safeSetItem(USER_KEY, JSON.stringify(updatedUser))
             }
           } catch (profileError) {
             console.error('Error fetching user profile:', profileError)
@@ -181,14 +224,14 @@ export function useProvideAuth(): AuthContextType {
           // Trigger trial status refresh after successful login
           // This will show loading spinner while determining subscription status
           try {
-            const { TrialService } = await import('./trialService')
+            await import('./trialService')
             // Clear any cached trial status to force fresh check
-            localStorage.removeItem('meallensai_user_access_status')
+            safeRemoveItem('meallensai_user_access_status')
             // Also clear trial and subscription data to force re-initialization
             const userId = effectiveUser.uid || 'anon'
-            localStorage.removeItem(`meallensai_trial_start:${userId}`)
-            localStorage.removeItem(`meallensai_subscription_status:${userId}`)
-            localStorage.removeItem(`meallensai_subscription_expires_at:${userId}`)
+            safeRemoveItem(`meallensai_trial_start:${userId}`)
+            safeRemoveItem(`meallensai_subscription_status:${userId}`)
+            safeRemoveItem(`meallensai_subscription_expires_at:${userId}`)
             console.log('🔄 Cleared trial/subscription cache after login')
           } catch (error) {
             console.error('Error refreshing trial status after login:', error)

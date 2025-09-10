@@ -6,10 +6,15 @@ def get_user_id_from_token():
     try:
         auth_service = current_app.auth_service
         auth_header = request.headers.get('Authorization')
-        
+
+        # Fallback to cookie-based token if Authorization header is missing
         if not auth_header:
-            return None, "No Authorization header provided"
-        
+            cookie_token = request.cookies.get('access_token')
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+            else:
+                return None, "No Authorization header or access_token cookie provided"
+
         user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
         
         if not user_id:
