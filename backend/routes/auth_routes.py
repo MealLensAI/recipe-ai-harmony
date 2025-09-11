@@ -122,16 +122,103 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
     from datetime import datetime
     import uuid
     try:
+        # Normalize email for consistent lookups and auth
+        normalized_email = str(email or '').strip().lower()
+        
+        # Helper: robust existence check using profiles, then admin get_user_by_email, then paginated list
+        def _user_exists_by_email(norm_email: str) -> bool:
+            # 1) profiles table via ADMIN client (bypasses RLS), case-insensitive
+            try:
+                admin_client_local = get_supabase_client(use_admin=True)
+                if admin_client_local:
+                    profile_check_local = admin_client_local.table('profiles').select('id,email').ilike('email', norm_email).execute()
+                    if bool(profile_check_local.data):
+                        return True
+            except Exception as profiles_err:
+                current_app.logger.warning(f"Admin profiles check failed for {norm_email}: {str(profiles_err)}")
+
+            # 2) admin get_user_by_email if available
+            try:
+                admin_client_local = admin_client_local or get_supabase_client(use_admin=True)
+                if admin_client_local and hasattr(admin_client_local, 'auth') and hasattr(admin_client_local.auth, 'admin'):
+                    try:
+                        user_res = getattr(admin_client_local.auth.admin, 'get_user_by_email', None)
+                        if callable(user_res):
+                            res = admin_client_local.auth.admin.get_user_by_email(norm_email)
+                            # supabase-py may return dict-like or object with 'user'
+                            maybe_user = getattr(res, 'user', None)
+                            if maybe_user is None and isinstance(res, dict):
+                                maybe_user = res.get('user') or res.get('data')
+                            if maybe_user is not None:
+                                return True
+                    except Exception as get_email_err:
+                        current_app.logger.info(f"admin.get_user_by_email unavailable/failed, falling back to list: {str(get_email_err)}")
+
+                    # 3) paginated list fallback
+                    try:
+                        per_page = 200
+                        for page in range(1, 11):
+                            try:
+                                # try kwargs then positional for compatibility
+                                try:
+                                    admin_res = admin_client_local.auth.admin.list_users(page=page, per_page=per_page)
+                                except TypeError:
+                                    admin_res = admin_client_local.auth.admin.list_users(page, per_page)
+                            except Exception as list_err:
+                                current_app.logger.warning(f"Admin list_users failed on page {page}: {str(list_err)}")
+                                break
+
+                            users_list = []
+                            try:
+                                data_obj = getattr(admin_res, 'data', None)
+                                if isinstance(data_obj, dict) and isinstance(data_obj.get('users'), list):
+                                    users_list = data_obj.get('users')
+                                else:
+                                    users_list = getattr(admin_res, 'users', None) or (data_obj if isinstance(data_obj, list) else [])
+                            except Exception:
+                                users_list = []
+
+                            if not users_list:
+                                break
+
+                            for u in users_list:
+                                try:
+                                    u_email = getattr(u, 'email', None)
+                                    if not u_email and isinstance(u, dict):
+                                        u_email = u.get('email')
+                                    if isinstance(u_email, str) and u_email.strip().lower() == norm_email:
+                                        return True
+                                except Exception:
+                                    continue
+
+                            try:
+                                if len(users_list) < per_page:
+                                    break
+                            except Exception:
+                                break
+                    except Exception as paging_err:
+                        current_app.logger.warning(f"Admin pagination check failed for {norm_email}: {str(paging_err)}")
+            except Exception as admin_err:
+                current_app.logger.warning(f"Admin existence check failed for {norm_email}: {str(admin_err)}")
+
+            return False
+
+        user_exists = _user_exists_by_email(normalized_email)
+        
         # Attempt to authenticate with Supabase
         response = supabase.auth.sign_in_with_password({
-            'email': email,
+            'email': normalized_email,
             'password': password
         })
+        
         if not response.user:
             current_app.logger.warning(f"Supabase login failed for {email}: No user in response")
-            return {'status': 'error', 'message': 'Invalid email or password'}, 401
+            if not user_exists:
+                return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
+            else:
+                return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
         # Get user profile
-        profile = supabase.table('profiles').select('id').eq('email', email).execute()
+        profile = supabase.table('profiles').select('id').ilike('email', normalized_email).execute()
         if not profile.data:
             current_app.logger.error(f"User {email} exists in auth but missing profile")
             return {'status': 'error', 'message': 'User profile not found'}, 400
@@ -190,7 +277,19 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
         return resp, 200
     except Exception as e:
         current_app.logger.error(f"Supabase login error for {email}: {str(e)}")
-        return {'status': 'error', 'message': 'Login failed'}, 401
+        error_msg = str(e).lower()
+        
+        # Check if user exists to provide appropriate error message (reuse robust helper)
+        normalized_email = str(email or '').strip().lower()
+        user_exists = _user_exists_by_email(normalized_email)
+        
+        if 'invalid login credentials' in error_msg or 'invalid password' in error_msg or 'wrong password' in error_msg:
+            if not user_exists:
+                return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
+            else:
+                return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
+        else:
+            return {'status': 'error', 'message': 'Login failed. Please try again.'}, 401
 
 
 @auth_bp.route('/login', methods=['POST'])

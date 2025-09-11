@@ -104,8 +104,8 @@ class APIService {
       headers,
       signal: controller.signal
     }
-    // Always include credentials to support cookie-based auth
-    ;(config as any).credentials = 'include'
+      // Always include credentials to support cookie-based auth
+      ; (config as any).credentials = 'include'
 
     // Add body if present
     if (body) {
@@ -136,6 +136,14 @@ class APIService {
       if (!response.ok) {
         // Handle 401 Unauthorized
         if (response.status === 401) {
+          // Don't automatically redirect for login/register requests - let them handle their own errors
+          if (endpoint === '/login' || endpoint === '/register') {
+            // For login/register, just throw the error with the backend message
+            const errorMessage = data?.message || 'Authentication failed'
+            throw new APIError(errorMessage, 401, data)
+          }
+
+          // For other requests, handle as expired/invalid session
           // Branded overlay to avoid login flash
           try {
             const existing = document.getElementById('page-transition-overlay')
