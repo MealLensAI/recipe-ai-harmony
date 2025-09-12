@@ -243,8 +243,10 @@ const WelcomePage: React.FC = () => {
                             </h1>
 
                             <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                                Beat food burnout and eat for your health first. MealLensAI supports chronic conditions with practical options,
-                                then handles the planning—automatic 7‑day plans, budget and location‑based choices, and use‑what‑you‑have recipes—so dinner stops being a daily struggle.
+                                MealLensAI ends food burnout and decision fatigue. Get health‑first suggestions for conditions like diabetes, hypertension,
+                                renal care and PCOS. Snap a quick photo or list what you have and get multiple dish ideas from the same ingredients.
+                                When you’re ready to plan, generate automatic 7‑day meal plans tailored to your budget, location and pantry—so dinner
+                                stops being a daily struggle. All powered by AI.
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
