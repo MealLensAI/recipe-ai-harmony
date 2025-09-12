@@ -484,11 +484,17 @@ def handle_payment_success():
     try:
         print("🎉 PAYMENT SUCCESS WEBHOOK RECEIVED!")
         print("=" * 60)
+        print(f"🌐 Request from: {request.remote_addr}")
+        print(f"📅 Timestamp: {datetime.now()}")
+        print(f"🔗 Request URL: {request.url}")
+        print(f"📋 Request Headers: {dict(request.headers)}")
+        print("-" * 60)
         
         # Get payment data from request
         data = request.get_json()
         if not data:
             print("❌ No payment data received")
+            print(f"🔍 Raw request data: {request.get_data()}")
             return jsonify({'success': False, 'error': 'No payment data'}), 400
         
         # Extract payment information
@@ -503,6 +509,7 @@ def handle_payment_success():
         print(f"📋 Plan Name: {plan_name}")
         print(f"⏰ Plan Duration: {plan_duration_days} days")
         print(f"💳 Paystack Data: {paystack_data}")
+        print(f"📊 Full request data: {data}")
         print("-" * 60)
         
         if not user_id or not email or not plan_name:
@@ -528,6 +535,20 @@ def handle_payment_success():
         
         if result['success']:
             print("✅ SUBSCRIPTION ACTIVATED SUCCESSFULLY!")
+            print(f"🎉 PAYMENT COMPLETED FOR: {email}")
+            
+            # Extract user name from Paystack custom fields
+            user_name = 'Unknown'
+            if paystack_data.get('custom_fields'):
+                for field in paystack_data['custom_fields']:
+                    if field.get('variable_name') == 'name':
+                        user_name = field.get('value', 'Unknown')
+                        break
+            
+            print(f"👤 USER NAME: {user_name}")
+            print(f"💳 SUBSCRIPTION PAID FOR: {plan_name}")
+            print(f"💰 AMOUNT PAID: ${paystack_data.get('amount', 'Unknown')}")
+            print(f"🔗 PAYSTACK REFERENCE: {paystack_data.get('reference', 'Unknown')}")
             print(f"📊 Subscription ID: {result['data']['subscription_id']}")
             print(f"📅 Start Date: {result['data']['start_date']}")
             print(f"📅 End Date: {result['data']['end_date']}")
@@ -558,6 +579,10 @@ def handle_payment_success():
                 }), 200
             else:
                 print(f"❌ FAILED TO ACTIVATE SUBSCRIPTION: {result['error']}")
+                print(f"👤 User ID that failed: {user_id}")
+                print(f"📧 Email that failed: {email}")
+                print(f"📋 Plan that failed: {plan_name}")
+                print(f"⏰ Duration that failed: {plan_duration_days}")
                 print("=" * 60)
                 
                 return jsonify({

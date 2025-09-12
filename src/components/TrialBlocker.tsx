@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
 import TrialExpiredModal from './TrialExpiredModal';
 
@@ -7,6 +8,7 @@ interface TrialBlockerProps {
 }
 
 const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
+  const navigate = useNavigate();
   const [showTrialModal, setShowTrialModal] = useState(false);
   const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, isLoading } = useTrial();
 
@@ -114,7 +116,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
             </p>
             <button
               onClick={() => {
-                window.location.href = '/payment'
+                navigate('/payment')
               }}
               className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 transition-colors"
             >

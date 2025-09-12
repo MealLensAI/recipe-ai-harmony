@@ -22,10 +22,11 @@ export interface SubscriptionInfo {
 }
 
 import { APP_CONFIG } from '@/lib/config';
+import { safeGetItem } from '@/lib/utils';
 
 export class TrialService {
   // Trial duration. For production use 24 * 60 * 60 * 1000.
-  private static TRIAL_DURATION = 48 * 60 * 60 * 1000; // 0 seconds for testing
+  private static TRIAL_DURATION = 0 * 1000; // 0 seconds for testing
 
   // Time unit used for subscription testing. Set to 'days' for normal use,
   // change to 'minutes' to speed up testing.
@@ -40,12 +41,49 @@ export class TrialService {
   // API base URL for backend calls (production: absolute to Render backend)
   private static API_BASE_URL = `${APP_CONFIG.api.base_url}/api`;
 
+  private static async resolveUserIdFromBackend(): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.API_BASE_URL}/profile`, {
+        method: 'GET',
+        credentials: 'include'
+      })
+      if (!res.ok) {
+        console.log('❌ Could not resolve user id from backend /profile. Status:', res.status)
+        return null
+      }
+      const data = await res.json()
+      const id = data?.profile?.id || null
+      console.log('✅ Resolved user_id from backend profile:', id)
+      return id
+    } catch (e) {
+      console.error('Error resolving user id from backend:', e)
+      return null
+    }
+  }
+
   // Helpers to build per-user keys
   private static getCurrentUserId(): string {
     try {
-      const raw = localStorage.getItem('user_data');
+      const raw = safeGetItem('user_data');
       if (!raw) {
         console.log('🔍 No user_data in localStorage');
+        // Fallback: try to decode JWT from stored access token
+        try {
+          const token = safeGetItem('access_token');
+          if (token) {
+            const parts = token.split('.')
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]))
+              const sub = payload?.sub
+              if (typeof sub === 'string' && sub.length > 0) {
+                console.log('✅ Derived user_id from access_token.sub:', sub)
+                return sub
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to derive user_id from access_token:', e)
+        }
         return 'anon';
       }
       const user = JSON.parse(raw);
@@ -133,19 +171,24 @@ export class TrialService {
    */
   static async fetchSubscriptionFromBackend(): Promise<{ hasActiveSubscription: boolean; subscriptionInfo: SubscriptionInfo | null }> {
     try {
-      const userId = this.getCurrentUserId();
+      let userId = this.getCurrentUserId();
       if (userId === 'anon') {
-        console.log('🔍 No user ID found, cannot fetch subscription from backend');
-        return { hasActiveSubscription: false, subscriptionInfo: null };
+        console.log('🔍 No user ID found, attempting to resolve from backend /profile...');
+        const resolved = await this.resolveUserIdFromBackend();
+        if (resolved) {
+          userId = resolved;
+        } else {
+          console.log('🔍 No user ID found, cannot fetch subscription from backend');
+          return { hasActiveSubscription: false, subscriptionInfo: null };
+        }
       }
 
       console.log('🔄 Fetching subscription status from backend...');
       console.log('🔍 Request URL:', `${this.API_BASE_URL}/subscription/status?user_id=${userId}`);
       const response = await fetch(`${this.API_BASE_URL}/subscription/status?user_id=${userId}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: this.getAuthHeaders(),
+        credentials: 'include'
       });
 
       console.log('🔍 Backend response status:', response.status);
@@ -155,7 +198,6 @@ export class TrialService {
         console.log('✅ Backend subscription response:', result);
 
         if (result.success && result.data) {
-          // New backend returns shape with has_active_subscription and nested subscription
           const data = result.data as any;
           if (data.has_active_subscription && data.subscription) {
             const sub = data.subscription;
@@ -189,7 +231,6 @@ export class TrialService {
   static async hasActiveSubscription(): Promise<boolean> {
     console.log('🔄 Checking subscription status from backend ONLY...');
 
-    // ONLY fetch from backend - NO localStorage fallback
     const backendResult = await this.fetchSubscriptionFromBackend();
 
     console.log('🔍 Backend subscription result:', backendResult);
@@ -209,7 +250,6 @@ export class TrialService {
   static async getSubscriptionInfo(): Promise<SubscriptionInfo | null> {
     console.log('🔄 Getting subscription info from backend ONLY...');
 
-    // ONLY fetch from backend - NO localStorage
     const backendResult = await this.fetchSubscriptionFromBackend();
 
     if (backendResult.subscriptionInfo) {
@@ -362,7 +402,7 @@ export class TrialService {
   // Note: getCurrentUserId() method already exists and serves the same purpose
 
   private static getAuthHeaders(): Record<string, string> {
-    const token = localStorage.getItem('supabase_token') || localStorage.getItem('access_token');
+    const token = safeGetItem('supabase_token') || safeGetItem('access_token');
     return {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` })

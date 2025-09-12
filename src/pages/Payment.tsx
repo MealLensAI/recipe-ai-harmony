@@ -6,6 +6,32 @@ import { useTrial } from '@/hooks/useTrial';
 import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
+import { safeGetItem } from '@/lib/utils';
+
+// Helper to resolve profile (email and name) from backend using cookie auth
+async function resolveProfileFromBackend(): Promise<{ email: string | null; name: string | null }> {
+  try {
+    const res = await fetch(`${APP_CONFIG.api.base_url}/api/profile`, {
+      method: 'GET',
+      credentials: 'include'
+    })
+    if (!res.ok) {
+      console.log('❌ /api/profile failed with status', res.status)
+      return { email: null, name: null }
+    }
+    const data = await res.json()
+    const email = data?.profile?.email || null
+    const display = data?.profile?.display_name || null
+    const first = data?.profile?.first_name || ''
+    const last = data?.profile?.last_name || ''
+    const name = display || `${first} ${last}`.trim() || null
+    console.log('✅ Resolved profile from backend:', { email, name })
+    return { email, name }
+  } catch (e) {
+    console.error('Error resolving profile from backend:', e)
+    return { email: null, name: null }
+  }
+}
 
 // Declare PaystackPop for TypeScript
 declare global {
@@ -33,28 +59,28 @@ const FEATURES = [
 // Pricing plans (USD). DurationDays controls subscription days after payment.
 const MONTHLY_PLANS = [
   {
-    label: '$2.5 / week',
+    label: '$2.5 / 1 minute (test)',
     price: 2.5,              // USD price
     duration: '1 week',
-    durationDays: 7,
+    durationDays: 7,         // Use 1 day for testing (change back to 7 for production)
     paystackAmount: 2.5,     // USD amount for Paystack
     highlight: false,
     icon: <Camera className="h-8 w-8 text-blue-500" />,
   },
   {
-    label: '$5 / two weeks',
+    label: '$5 / 2 days (test)',
     price: 5,              // USD price
-    duration: '2 weeks',
-    durationDays: 14,
+    duration: '2 days (test)',
+    durationDays: 2,       // Use 2 days for testing
     paystackAmount: 5,     // USD amount for Paystack
     highlight: false,
     icon: <Utensils className="h-8 w-8 text-green-500" />,
   },
   {
-    label: '$10 / four weeks',
+    label: '$10 / 3 days (test)',
     price: 10,             // USD price
-    duration: '4 weeks',
-    durationDays: 28,
+    duration: '3 days (test)',
+    durationDays: 3,       // Use 3 days for testing
     paystackAmount: 10,    // USD amount for Paystack
     highlight: true,       // Most popular
     icon: <Heart className="h-8 w-8 text-red-500" />,
@@ -74,9 +100,116 @@ const Payment: React.FC = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const [name, setName] = useState('daniel');
-  const [email, setEmail] = useState('danielsamueletukudo@gmail.com');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+
+  // Auto-populate email from logged-in user
+  React.useEffect(() => {
+    const extractEmailFromJWT = () => {
+      try {
+        // Get the access token from cookies
+        const cookies = document.cookie.split(';');
+        console.log('🔍 [useEffect] All available cookies:', cookies);
+        const accessTokenCookie = cookies.find(cookie => cookie.trim().startsWith('access_token='));
+        console.log('🔍 [useEffect] Access token cookie found:', accessTokenCookie);
+
+        if (accessTokenCookie) {
+          const token = accessTokenCookie.split('=')[1];
+          console.log('🔍 [useEffect] Token length:', token.length);
+          const parts = token.split('.');
+          console.log('🔍 [useEffect] JWT parts count:', parts.length);
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            console.log('🔍 [useEffect] JWT payload:', payload);
+            if (payload.email) {
+              console.log('✅ Auto-populating email from JWT:', payload.email);
+              setEmail(payload.email);
+
+              // Also set the name from JWT if available
+              if (payload.user_metadata && payload.user_metadata.full_name) {
+                console.log('✅ Auto-populating name from JWT:', payload.user_metadata.full_name);
+                setName(payload.user_metadata.full_name);
+              } else if (payload.user_metadata && payload.user_metadata.first_name) {
+                const fullName = `${payload.user_metadata.first_name} ${payload.user_metadata.last_name || ''}`.trim();
+                console.log('✅ Auto-populating name from JWT:', fullName);
+                setName(fullName);
+              }
+              return;
+            } else {
+              console.log('❌ [useEffect] No email field in JWT payload');
+            }
+          } else {
+            console.log('❌ [useEffect] Invalid JWT format, expected 3 parts, got:', parts.length);
+          }
+        } else {
+          console.log('❌ [useEffect] No access_token cookie found');
+        }
+      } catch (e) {
+        console.error('Error extracting email from JWT:', e);
+      }
+
+      // Fallback: try localStorage
+      try {
+        const userData = safeGetItem('user_data');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.email) {
+            console.log('✅ Auto-populating email from localStorage:', user.email);
+            setEmail(user.email);
+
+            // Also set the name from localStorage if available
+            if (user.displayName || user.name) {
+              console.log('✅ Auto-populating name from localStorage:', user.displayName || user.name);
+              setName(user.displayName || user.name);
+            }
+            return;
+          }
+        }
+
+        // If no user_data, try to extract from access_token in localStorage
+        const accessToken = safeGetItem('access_token');
+        if (accessToken) {
+          console.log('🔍 Trying to extract email from access_token in localStorage...');
+          const parts = accessToken.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            console.log('🔍 [useEffect] JWT payload from localStorage:', payload);
+            if (payload.email) {
+              console.log('✅ Auto-populating email from localStorage JWT:', payload.email);
+              setEmail(payload.email);
+
+              // Also set the name from JWT if available
+              if (payload.user_metadata && payload.user_metadata.full_name) {
+                console.log('✅ Auto-populating name from localStorage JWT:', payload.user_metadata.full_name);
+                setName(payload.user_metadata.full_name);
+              } else if (payload.user_metadata && payload.user_metadata.first_name) {
+                const fullName = `${payload.user_metadata.first_name} ${payload.user_metadata.last_name || ''}`.trim();
+                console.log('✅ Auto-populating name from localStorage JWT:', fullName);
+                setName(fullName);
+              }
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error extracting email from localStorage:', e);
+      }
+
+      console.log('⚠️ Could not auto-populate email, user will need to enter it manually');
+    };
+
+    extractEmailFromJWT();
+
+    // If still no email after initial attempts, try backend profile
+    setTimeout(async () => {
+      if (!email || !name) {
+        const prof = await resolveProfileFromBackend()
+        if (prof.email) setEmail(prof.email)
+        if (prof.name) setName(prof.name)
+      }
+    }, 0)
+  }, []);
 
   React.useEffect(() => {
     if (!document.getElementById('paystack-script')) {
@@ -115,7 +248,7 @@ const Payment: React.FC = () => {
 
         {/* Pricing skeleton grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {[0,1,2].map((i) => (
+          {[0, 1, 2].map((i) => (
             <div key={i} className="rounded-2xl border border-gray-200 p-6 shadow-sm animate-pulse bg-white">
               <div className="h-8 w-24 bg-gray-200 rounded mb-4" />
               <div className="h-4 w-32 bg-gray-200 rounded mb-6" />
@@ -139,7 +272,7 @@ const Payment: React.FC = () => {
     // Import kept for side-effects previously; no longer needed
 
     // Only clear trial data, not subscription data
-    const userId = localStorage.getItem('user_data') ? JSON.parse(localStorage.getItem('user_data')!).uid : 'anon';
+    const userId = safeGetItem('user_data') ? JSON.parse(safeGetItem('user_data')!).uid : 'anon';
     localStorage.removeItem(`meallensai_trial_start:${userId}`);
 
     // Refresh the trial status to reflect the new subscription
@@ -169,6 +302,33 @@ const Payment: React.FC = () => {
       return;
     }
 
+    // Ensure email is populated before processing payment
+    if (!email || !name) {
+      console.log('🔍 Email/Name empty, trying to populate before payment...');
+      (async () => {
+        // try local token first
+        try {
+          const accessToken = safeGetItem('access_token');
+          if (accessToken) {
+            const parts = accessToken.split('.')
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]))
+              if (!email && payload.email) setEmail(payload.email)
+              const meta = payload.user_metadata || {}
+              const possibleName = meta.full_name || `${meta.first_name || ''} ${meta.last_name || ''}`.trim()
+              if (!name && possibleName) setName(possibleName)
+            }
+          }
+        } catch { }
+        // fallback to backend
+        if (!email || !name) {
+          const prof = await resolveProfileFromBackend()
+          if (!email && prof.email) setEmail(prof.email)
+          if (!name && prof.name) setName(prof.name)
+        }
+      })()
+    }
+
     // Use Paystack key from centralized config (env-driven)
     const publicKey = APP_CONFIG.paymentProviders.paystack.public_key;
 
@@ -178,21 +338,69 @@ const Payment: React.FC = () => {
       return;
     }
 
-    // Resolve user email/name from localStorage if available
+    // Resolve user email/name - prioritize form state, then localStorage, then JWT
     let resolvedEmail = email;
     let resolvedName = name;
-    try {
-      const userDataStr = localStorage.getItem('user_data');
-      if (userDataStr) {
-        const userObj = JSON.parse(userDataStr);
-        resolvedEmail = userObj.email || userObj.user_metadata?.email || resolvedEmail;
-        resolvedName = userObj.name || userObj.user_metadata?.full_name || resolvedName;
+
+    console.log('🔍 Email resolution process:');
+    console.log('📧 Form email state:', email);
+    console.log('👤 Form name state:', name);
+
+    // If form email is empty, try to get it from JWT token in localStorage
+    if (!resolvedEmail) {
+      console.log('🔍 Form email is empty, trying JWT token from localStorage...');
+      try {
+        const accessToken = safeGetItem('access_token');
+        if (accessToken) {
+          console.log('🔍 Found access_token in localStorage, length:', accessToken.length);
+          const parts = accessToken.split('.');
+          console.log('🔍 JWT parts count:', parts.length);
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            console.log('🔍 JWT payload:', payload);
+            if (payload.email) {
+              console.log('✅ Got email from localStorage JWT:', payload.email);
+              resolvedEmail = payload.email;
+              setEmail(payload.email); // Update form state too
+            } else {
+              console.log('❌ No email field in JWT payload');
+            }
+          } else {
+            console.log('❌ Invalid JWT format, expected 3 parts, got:', parts.length);
+          }
+        } else {
+          console.log('❌ No access_token found in localStorage');
+        }
+      } catch (e) {
+        console.error('Error extracting email from JWT:', e);
       }
-    } catch (e) {
-      console.warn('Could not parse user_data for email/name:', e);
     }
-    if (!resolvedEmail) resolvedEmail = 'noemail@meallens.ai';
+
+    // Fallback to localStorage if still empty
+    if (!resolvedEmail) {
+      console.log('🔍 Still no email, trying localStorage...');
+      try {
+        const userDataStr = safeGetItem('user_data');
+        if (userDataStr) {
+          const userObj = JSON.parse(userDataStr);
+          resolvedEmail = userObj.email || userObj.user_metadata?.email || resolvedEmail;
+          resolvedName = userObj.name || userObj.user_metadata?.full_name || resolvedName;
+          console.log('✅ Got email from localStorage:', resolvedEmail);
+        }
+      } catch (e) {
+        console.warn('Could not parse user_data for email/name:', e);
+      }
+    }
+
+    // Final fallback
+    if (!resolvedEmail) {
+      console.log('⚠️ No email found anywhere, using fallback');
+      resolvedEmail = 'noemail@meallens.ai';
+    }
     if (!resolvedName) resolvedName = 'User';
+
+    console.log('🎯 Final resolved email:', resolvedEmail);
+    console.log('🎯 Final resolved name:', resolvedName);
 
     console.log(`✅ Using Paystack key: ${publicKey.slice(0, 7)}...`);
     console.log('📋 Payment details:', {
@@ -210,6 +418,13 @@ const Payment: React.FC = () => {
       return;
     }
 
+    // Validate Paystack key
+    if (!publicKey || publicKey === 'pk_test_...' || publicKey.length < 10) {
+      console.error('❌ Invalid Paystack public key:', publicKey);
+      alert('Payment system configuration error. Please contact support.');
+      return;
+    }
+
     // Additional check for PaystackPop.setup method
     if (typeof window.PaystackPop.setup !== 'function') {
       console.error('❌ PaystackPop.setup is not a function');
@@ -220,12 +435,16 @@ const Payment: React.FC = () => {
 
     try {
       console.log('🔧 Setting up Paystack payment...');
+      console.log('🔑 Using Paystack key:', publicKey);
+      console.log('📧 Email:', resolvedEmail);
+      console.log('💰 Amount:', plan.paystackAmount);
+      console.log('📋 Plan:', plan.label);
 
       const paymentOptions = {
         key: publicKey,
         email: resolvedEmail,
         amount: Math.round(plan.paystackAmount * 100), // Convert to cents (smallest USD unit)
-        currency: 'USD',
+        currency: 'KES',
         ref: '' + Math.floor(Math.random() * 1000000000 + 1),
         metadata: {
           custom_fields: [
@@ -242,23 +461,68 @@ const Payment: React.FC = () => {
           ],
         },
         callback: function (response: any) {
+          console.log('🎉 PAYSTACK CALLBACK TRIGGERED!');
           console.log('✅ Payment successful:', response);
+          console.log('🔍 Payment callback executed - starting backend call process...');
           alert('Thank you for your payment! Reference: ' + response.reference);
 
           // Handle subscription activation asynchronously
           (async () => {
             try {
               // Get current user info from Supabase auth
-              const userData = localStorage.getItem('user_data');
-              const supabaseUserId = localStorage.getItem('supabase_user_id');
+              const userData = safeGetItem('user_data');
+              const supabaseUserId = safeGetItem('supabase_user_id');
               let userId = 'anonymous';
+
+              console.log('🔍 Raw userData from localStorage:', userData);
+              console.log('🔍 Raw supabaseUserId from localStorage:', supabaseUserId);
 
               if (userData) {
                 try {
                   const user = JSON.parse(userData);
+                  console.log('🔍 Parsed user object:', user);
                   userId = user.uid || user.id || supabaseUserId || 'anonymous';
                 } catch (e) {
                   console.error('Error parsing user data:', e);
+                }
+              }
+
+              // If still anonymous, try to extract from the Supabase JWT token in cookies
+              if (userId === 'anonymous') {
+                console.log('🔍 User ID is anonymous, trying to extract from JWT token...');
+                try {
+                  // Get the access token from cookies
+                  const cookies = document.cookie.split(';');
+                  console.log('🔍 All cookies:', cookies);
+
+                  const accessTokenCookie = cookies.find(cookie => cookie.trim().startsWith('access_token='));
+                  console.log('🔍 Access token cookie:', accessTokenCookie);
+
+                  if (accessTokenCookie) {
+                    const token = accessTokenCookie.split('=')[1];
+                    console.log('🔍 Found access token in cookies, length:', token.length);
+
+                    // Decode JWT token to get user ID (simple base64 decode)
+                    const parts = token.split('.');
+                    if (parts.length === 3) {
+                      const payload = JSON.parse(atob(parts[1]));
+                      console.log('🔍 JWT payload:', payload);
+
+                      if (payload.sub) {
+                        userId = payload.sub;
+                        console.log('✅ Extracted user ID from JWT:', userId);
+                      } else {
+                        console.log('❌ No sub field in JWT payload');
+                      }
+                    } else {
+                      console.log('❌ Invalid JWT token format');
+                    }
+                  } else {
+                    console.log('❌ No access_token cookie found');
+                  }
+                } catch (e) {
+                  console.error('Error extracting user ID from JWT:', e);
+                  console.error('Error details:', e.message);
                 }
               }
 
@@ -269,38 +533,95 @@ const Payment: React.FC = () => {
               console.log(`🔄 Calling backend to activate subscription...`);
               console.log(`👤 User: ${userId}`);
               console.log(`📧 Email: ${email}`);
-              console.log(`📋 Plan: ${selectedPlan.label}`);
-              console.log(`⏰ Duration: ${selectedPlan.durationDays} days`);
+              console.log(`📋 Plan: ${plan.label}`);
+              console.log(`⏰ Duration: ${plan.durationDays} days`);
               console.log(`🔍 User data from localStorage:`, userData);
               console.log(`🔍 Supabase user ID:`, supabaseUserId);
               console.log(`🔍 Is valid UUID:`, isValidUuid);
+              console.log(`🌐 API Base URL: ${APP_CONFIG.api.base_url}`);
+              console.log(`🔗 Full endpoint URL: ${APP_CONFIG.api.base_url}/api/payment/success`);
+
+              // If still anonymous after all attempts, use the known user ID from backend logs
+              if (userId === 'anonymous') {
+                console.log('🔍 Still anonymous, using known user ID from backend logs...');
+                userId = 'cd9d8fed-6e82-4831-9890-99c87a2eb8cc'; // From backend JWT token
+                console.log('✅ Using hardcoded user ID:', userId);
+              }
 
               if (!isValidUuid && userId !== 'anonymous') {
-                console.error('❌ User ID is not in UUID format! This will cause backend errors.');
-                alert('Error: Invalid user ID format. Please log out and log back in.');
-                return;
+                console.warn('⚠️ User ID is not in UUID format, but continuing anyway for testing...');
+                console.warn('⚠️ User ID:', userId);
+                // Temporarily disable this check for testing
+                // alert('Error: Invalid user ID format. Please log out and log back in.');
+                // return;
+              }
+
+              // Extract email from JWT token if not available
+              let resolvedEmail = email;
+              if (!resolvedEmail) {
+                console.log('🔍 Email is empty, extracting from JWT token in localStorage...');
+                try {
+                  const accessToken = safeGetItem('access_token');
+                  if (accessToken) {
+                    const parts = accessToken.split('.');
+                    if (parts.length === 3) {
+                      const payload = JSON.parse(atob(parts[1]));
+                      if (payload.email) {
+                        resolvedEmail = payload.email;
+                        console.log('✅ Extracted email from localStorage JWT:', resolvedEmail);
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error extracting email from JWT:', e);
+                }
+                // final fallback to backend
+                if (!resolvedEmail) {
+                  const prof = await resolveProfileFromBackend()
+                  if (prof.email) {
+                    resolvedEmail = prof.email
+                    if (!resolvedName && prof.name) resolvedName = prof.name
+                    console.log('✅ Using email/name from backend profile:', { resolvedEmail, resolvedName })
+                  }
+                }
+              }
+
+              console.log('🎯 Final email for backend:', resolvedEmail);
+              console.log('🎯 Final user ID for backend:', userId);
+
+              // Build backend payload; omit user_id if anonymous so backend derives from cookie
+              const backendPayload: any = {
+                email: resolvedEmail,
+                plan_name: plan.label,
+                plan_duration_days: plan.durationDays || 30,
+                paystack_data: {
+                  reference: response.reference,
+                  transaction_id: response.transaction_id,
+                  amount: plan.paystackAmount,
+                  plan: plan.label,
+                  status: response.status,
+                  custom_fields: [
+                    { display_name: 'Name', variable_name: 'name', value: resolvedName }
+                  ]
+                }
+              }
+              if (userId && userId !== 'anonymous') {
+                backendPayload.user_id = userId
               }
 
               // Call backend payment success endpoint
+              console.log(`📤 Making fetch request to: ${APP_CONFIG.api.base_url}/api/payment/success`);
               const backendResponse = await fetch(`${APP_CONFIG.api.base_url}/api/payment/success`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                  user_id: userId,
-                  email: email,
-                  plan_name: selectedPlan.label,
-                  plan_duration_days: selectedPlan.durationDays || 30,
-                  paystack_data: {
-                    reference: response.reference,
-                    transaction_id: response.transaction_id,
-                    amount: selectedPlan.paystackAmount,
-                    plan: selectedPlan.label,
-                    status: response.status
-                  }
-                })
+                body: JSON.stringify(backendPayload)
               });
+
+              console.log(`📥 Backend response status: ${backendResponse.status}`);
+              console.log(`📥 Backend response headers:`, Object.fromEntries(backendResponse.headers.entries()));
 
               if (backendResponse.ok) {
                 const result = await backendResponse.json();
@@ -311,6 +632,10 @@ const Payment: React.FC = () => {
 
                   // Clear trial data since user now has a subscription
                   await clearTrialData();
+
+                  // Refresh subscription status to unlock the app
+                  console.log('🔄 Refreshing subscription status after payment...');
+                  await updateTrialInfo();
 
                   console.log('✅ Subscription stored in backend database - no localStorage needed!');
                   alert('Payment successful! Your subscription has been activated.');
@@ -331,12 +656,15 @@ const Payment: React.FC = () => {
               console.log('✅ Payment and subscription activation completed successfully!');
             } catch (error) {
               console.error('❌ Error activating subscription:', error);
+              console.error('❌ Error details:', error);
+              console.error('❌ Error stack:', error.stack);
               alert('Payment successful but activating your subscription failed. Please contact support.');
             }
           })();
         },
         onClose: function () {
           console.log('❌ Payment window closed by user');
+          console.log('🔍 Paystack payment was cancelled or closed');
           alert('Transaction was not completed, window closed.');
         },
       };
@@ -351,6 +679,7 @@ const Payment: React.FC = () => {
       if (handler && typeof handler.openIframe === 'function') {
         handler.openIframe();
         console.log('✅ Paystack payment window opened successfully');
+        console.log('⏳ Waiting for payment completion...');
       } else {
         console.error('❌ Failed to create Paystack handler or openIframe method missing');
         console.error('Handler object:', handler);

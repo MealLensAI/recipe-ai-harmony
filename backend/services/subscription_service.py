@@ -334,13 +334,36 @@ class SubscriptionService:
             end_date = start_date + timedelta(days=duration_days)
             
             # Use provided user_id (Supabase auth)
-            supabase_user_id = user_id if user_id and user_id != 'anon' else None
+            supabase_user_id = user_id if user_id and user_id != 'anon' and user_id != 'anonymous' else None
             
             if not supabase_user_id:
                 return {
                     'success': False,
-                    'error': 'User not found'
+                    'error': 'User not found - invalid user ID'
                 }
+            
+            # Check if user has a profile, if not create one
+            profile_result = self.supabase.table('profiles').select('*').eq('id', supabase_user_id).execute()
+            if not profile_result.data:
+                print(f"🔍 User {supabase_user_id} doesn't have a profile, creating one...")
+                # Create a basic profile for the user
+                profile_data = {
+                    'id': supabase_user_id,
+                    'email': paystack_data.get('email', 'unknown@example.com'),
+                    'created_at': datetime.now().isoformat(),
+                    'updated_at': datetime.now().isoformat()
+                }
+                try:
+                    profile_create_result = self.supabase.table('profiles').insert(profile_data).execute()
+                    if not profile_create_result.data:
+                        print(f"⚠️ Failed to create profile for user {supabase_user_id}")
+                        print(f"⚠️ Profile creation error: {profile_create_result}")
+                    else:
+                        print(f"✅ Created profile for user {supabase_user_id}")
+                except Exception as e:
+                    print(f"⚠️ Exception creating profile for user {supabase_user_id}: {e}")
+            else:
+                print(f"✅ User {supabase_user_id} already has a profile")
             
             # Get or create a default plan for custom duration
             plan_result = self.supabase.table('subscription_plans').select('*').eq('duration_days', duration_days).execute()
@@ -389,10 +412,9 @@ class SubscriptionService:
                 'amount': paystack_data.get('amount', 0),
                 'currency': 'USD',
                 'payment_method': 'paystack',
-                'payment_reference': paystack_data.get('reference', ''),
                 'status': 'completed',
                 'paystack_reference': paystack_data.get('reference', ''),
-                'paystack_transaction_id': paystack_data.get('transaction_id', ''),
+                'paystack_transaction_id': paystack_data.get('transaction_id', paystack_data.get('reference', 'unknown')),
                 'metadata': paystack_data
             }
             

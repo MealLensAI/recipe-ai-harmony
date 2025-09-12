@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Clock, Lock, CreditCard, Star } from 'lucide-react';
@@ -10,9 +11,11 @@ interface TrialExpiredModalProps {
 }
 
 const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, onClose, isSubscriptionExpired = false }) => {
+  const navigate = useNavigate();
+
   const handleUpgrade = () => {
-    // Navigate without relying on React Router context
-    window.location.href = '/payment';
+    // Use React Router navigation to preserve authentication state
+    navigate('/payment');
     onClose();
   };
 
