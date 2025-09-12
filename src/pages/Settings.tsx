@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { api } from '@/lib/api';
 
 const Settings = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { settings, loading, updateSettings, saveSettings } = useSicknessSettings();
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isLoading } = useTrial();
 
@@ -61,6 +63,8 @@ const Settings = () => {
         title: "Settings Saved",
         description: "Your sickness settings have been saved successfully.",
       });
+      // After saving, take user back to the Meal Planner where these settings apply
+      try { navigate('/planner'); } catch { }
     } else {
       toast({
         title: "Error",
@@ -182,6 +186,9 @@ const Settings = () => {
             <CardDescription>
               This information helps us provide personalized meal recommendations
             </CardDescription>
+            <p className="mt-2 text-sm text-gray-600">
+              Heads up: The health preferences you set here are used only to customize your <span className="font-medium"> AI Meal Plan</span> for chronic disease conditions. They won’t impact other features like ingredeint detection or food detection.
+            </p>
           </CardHeader>
           <CardContent className="space-y-6">
             {loading ? (
