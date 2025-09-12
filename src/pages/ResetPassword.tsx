@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Lock, Loader2, Utensils } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { api, APIError } from "@/lib/api"
+import { useAuth } from "@/lib/utils"
 
 function useHashParams() {
     const { hash } = useLocation()
@@ -23,6 +24,7 @@ const ResetPassword: React.FC = () => {
     const { toast } = useToast()
     const navigate = useNavigate()
     const params = useHashParams()
+    const { clearSession } = useAuth()
 
     const [accessToken, setAccessToken] = useState<string>("")
     const [newPassword, setNewPassword] = useState<string>("")
@@ -37,6 +39,15 @@ const ResetPassword: React.FC = () => {
         if (error) {
             toast({ title: 'Link error', description: 'Your reset link may be invalid or expired.', variant: 'destructive' })
         }
+        // Ensure any existing session is cleared so user is not auto-logged in
+        try { clearSession() } catch { }
+        // Remove hash from address bar after reading it
+        try {
+            const url = new URL(window.location.href)
+            if (url.hash) {
+                window.history.replaceState({}, '', `${url.origin}/reset-password`)
+            }
+        } catch { }
     }, [params, toast])
 
     const handleSubmit = async (e: React.FormEvent) => {
