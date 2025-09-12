@@ -59,7 +59,7 @@ const FEATURES = [
 // Pricing plans (USD). DurationDays controls subscription days after payment.
 const MONTHLY_PLANS = [
   {
-    label: '$2.5 / 1 minute (test)',
+    label: '$2.5 Weekly',
     price: 2.5,              // USD price
     duration: '1 week',
     durationDays: 7,         // Use 1 day for testing (change back to 7 for production)
@@ -68,18 +68,18 @@ const MONTHLY_PLANS = [
     icon: <Camera className="h-8 w-8 text-blue-500" />,
   },
   {
-    label: '$5 / 2 days (test)',
+    label: '$5 Per 2 Weeks',
     price: 5,              // USD price
-    duration: '2 days (test)',
+    duration: '2 weeks',
     durationDays: 2,       // Use 2 days for testing
     paystackAmount: 5,     // USD amount for Paystack
     highlight: false,
     icon: <Utensils className="h-8 w-8 text-green-500" />,
   },
   {
-    label: '$10 / 3 days (test)',
+    label: '$10 Per Month',
     price: 10,             // USD price
-    duration: '3 days (test)',
+    duration: '1 month',
     durationDays: 3,       // Use 3 days for testing
     paystackAmount: 10,    // USD amount for Paystack
     highlight: true,       // Most popular

@@ -1,8 +1,9 @@
 import {
   createBrowserRouter,
   RouterProvider,
-  Navigate
+  Navigate,
 } from "react-router-dom"
+import { useEffect } from "react"
 import Login from "./pages/Login"
 import Signup from "./pages/Signup"
 import DetectFoodPage from "./pages/DetectFoodPage"
@@ -22,12 +23,19 @@ import TrialBlocker from "./components/TrialBlocker";
 import WelcomePage from "./pages/WelcomePage";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Onboarding from "./pages/Onboarding";
+import { Analytics } from "@/lib/analytics";
+import { ROUTE_SEO, updateMeta } from "@/lib/seo";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />
+  },
+  {
+    path: "/onboarding",
+    element: <Onboarding />
   },
   {
     path: "/forgot-password",
@@ -156,6 +164,32 @@ const router = createBrowserRouter([
 ])
 
 function App() {
+  // Initialize analytics once
+  useEffect(() => {
+    Analytics.initialize()
+    try {
+      const path = typeof window !== 'undefined' ? (window.location?.pathname || '/') : '/'
+      Analytics.pageview(path)
+      const match = ROUTE_SEO[path] || {}
+      updateMeta(match)
+    } catch (_) { }
+  }, [])
+
+  // Listen to route changes for pageviews + SEO
+  useEffect(() => {
+    const unsubs = router.subscribe(({ location }) => {
+      try {
+        const path = location.pathname
+        Analytics.pageview(path)
+        const match = ROUTE_SEO[path] || {}
+        updateMeta(match)
+      } catch (_) { }
+    })
+    return () => {
+      try { unsubs && (unsubs as any)() } catch (_) { }
+    }
+  }, [])
+
   return (
     <AuthProvider>
       <div className="App">

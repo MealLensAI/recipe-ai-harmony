@@ -131,14 +131,14 @@ const Signup = () => {
           if (loginResult.session_id) safeSetItem('supabase_session_id', loginResult.session_id)
           if (loginResult.user_id) safeSetItem('supabase_user_id', loginResult.user_id)
 
-        // Store user data for auth context
-        const userData = {
-          uid: loginResult.user_id || loginResult.user_data?.id,
-          email: loginResult.user_data?.email || formData.email,
-          displayName: `${formData.firstName} ${formData.lastName}`,
-          photoURL: null
-        }
-        safeSetItem('user_data', JSON.stringify(userData))
+          // Store user data for auth context
+          const userData = {
+            uid: loginResult.user_id || loginResult.user_data?.id,
+            email: loginResult.user_data?.email || formData.email,
+            displayName: `${formData.firstName} ${formData.lastName}`,
+            photoURL: null
+          }
+          safeSetItem('user_data', JSON.stringify(userData))
 
           // Refresh auth context
           await refreshAuth()
@@ -148,9 +148,8 @@ const Signup = () => {
             description: "Welcome to MealLensAI! Your account has been successfully created.",
           })
 
-          // Redirect to intended page or main app
-          const from = location.state?.from?.pathname || "/ai-kitchen"
-          navigate(from, { replace: true })
+          // After signup, walk the user through onboarding first
+          navigate("/onboarding", { replace: true })
         } else {
           toast({
             title: "Signup Failed",

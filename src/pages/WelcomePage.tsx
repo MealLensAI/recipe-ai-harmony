@@ -70,58 +70,52 @@ const WelcomePage: React.FC = () => {
     // Features with actual data from config
     const features = [
         {
+            icon: <Sparkles className="h-8 w-8 text-white" />,
+            title: "Beat Food Burnout",
+            description: "Escape decision fatigue with done-for-you weekly plans and quick, reliable ideas when you’re exhausted or busy.",
+            gradient: "from-orange-500 to-orange-400"
+        },
+        {
+            icon: <Heart className="h-8 w-8 text-white" />,
+            title: "Health-First Planning",
+            description: "Support chronic conditions like diabetes, hypertension, renal care and PCOS with practical, tasty meal options.",
+            gradient: "from-orange-500 to-orange-400"
+        },
+        {
+            icon: <Calendar className="h-8 w-8 text-white" />,
+            title: "Automatic 7‑Day Meal Plans",
+            description: "Family-friendly plans for breakfast, lunch, dinner and dessert—so meals run on autopilot without the stress.",
+            gradient: "from-orange-500 to-orange-400"
+        },
+        {
             icon: <Camera className="h-8 w-8 text-white" />,
-            title: "Smart Ingredient Recognition",
-            description: "Snap a picture or upload an image of your ingredients, and let MealLensAI identify them instantly using cutting-edge AI technology.",
+            title: "Use‑What‑You‑Have Cooking",
+            description: "Turn what’s in your kitchen into real dinners and reduce waste with smart suggestions that fit your pantry.",
             gradient: "from-orange-500 to-orange-400"
         },
-
+        {
+            icon: <Search className="h-8 w-8 text-white" />,
+            title: "Budget & Location‑Based Plans",
+            description: "Tell us your budget and location—get affordable plans and smarter shopping lists matched to local options.",
+            gradient: "from-orange-500 to-orange-400"
+        },
         {
             icon: <Lightbulb className="h-8 w-8 text-white" />,
-            title: "Recipe Suggestions and cooking instructions",
-            description: "Discover recipes based on your ingredients, get quick meal ideas, and missing ingredients. Step-by-step instructions to cook your meal, with youtube and google resources.",
-            gradient: "from-orange-500 to-orange-400"
-        },
-
-        {
-            icon: <Lightbulb className="h-8 w-8 text-white" />,
-            title: "Smart Food Detection",
-            description: "Capture a photo of any prepared meal, and let our AI, driven by cutting-edge technology, identify the dish and provide the full recipe with an ingredient list and step-by-step cooking instructions",
-            gradient: "from-orange-500 to-orange-400"
-        },
-
-
-        {
-            icon: <Calendar className="h-8 w-8 text-white" />,
-            title: "Meal Planning",
-            description: "Take a picture of your food items or enter them manually, and let our AI generate a personalized 7-day meal plan  including breakfast, lunch, dinner, and dessert along with step-by-step cooking instructions for each meal.",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
-            icon: <Calendar className="h-8 w-8 text-white" />,
-            title: "AI Meal Plan for Chronic Sickness Conditions",
-            description: "Upload a picture or list your ingredients, and let our AI create a 7-day meal plan tailored to your chronic sickness, suggesting meals that help manage symptoms and support healing, while providing step-by-step instructions on how to cook each meal to promote better health and well-being.",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
-            icon: <ChefHat className="h-8 w-8 text-white" />,
-            title: "Budget & Location based meal plans",
-            description: "Enter your budget and location , and let our AI create a 7-day meal plan tailored to your location and budget, suggesting meals that are affordable and accessible to you. This is also accessible to healthy users and chronic sickness users.",
+            title: "Guided Recipes That Build Confidence",
+            description: "Clear, step‑by‑step instructions plus curated video resources—cook faster, better and with less stress.",
             gradient: "from-orange-500 to-orange-400"
         }
-
-
     ];
 
     const benefits = [
-        "2-day free trial for all features",
-        "Unlimited food detection",
-        "AI-powered recipe suggestions",
-        "AI-powered budget & location based meal plans",
-        "Personalized meal planning",
-        "Cross-platform compatibility",
-        "AI-powered meal plan for chronic sickness conditions"
-
+        "End food burnout with reliable weekly plans",
+        "Health‑first support for diabetes, hypertension, renal, PCOS",
+        "Automatic 7‑day plans for families and individuals",
+        "Budget & location‑based plans with smart grocery lists",
+        "Use‑what‑you‑have cooking to reduce food waste",
+        "Step‑by‑step recipes with helpful video resources",
+        "No photo required—plan by budget and location too",
+        "Save time and money while eating better"
     ];
 
     useEffect(() => {
@@ -240,17 +234,17 @@ const WelcomePage: React.FC = () => {
                         <div className="text-center lg:text-left">
                             <Badge className="mb-4 sm:mb-6 bg-orange-50 text-orange-500 border-orange-200">
                                 <Sparkles className="h-3 w-3 mr-2" />
-                                AI-Powered Kitchen Assistant
+                                Food Burnout Relief • Health‑First Planning
                             </Badge>
 
                             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
-                                Transform Your
-                                <span className="block text-orange-500">Culinary Journey</span>
+                                End Food Burnout.
+                                <span className="block text-orange-500">Eat Better With Less Effort.</span>
                             </h1>
 
                             <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                                Snap a picture of your ingredients or meal, and let our AI guide you with recipes,
-                                cooking tips, and personalized suggestions. Your smart kitchen companion.
+                                Beat food burnout and eat for your health first. MealLensAI supports chronic conditions with practical options,
+                                then handles the planning—automatic 7‑day plans, budget and location‑based choices, and use‑what‑you‑have recipes—so dinner stops being a daily struggle.
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
