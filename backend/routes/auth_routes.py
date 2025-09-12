@@ -46,75 +46,7 @@ def get_supabase_client(use_admin: bool = False) -> Optional[Client]:
         return None
 
 
-def _handle_firebase_login(token: str, supabase_service) -> tuple[dict, int]:
-    """Handle Firebase third-party login.
-    
-    Args:
-        token: Firebase authentication token
-        supabase_service: Supabase service instance for session management
-        
-    Returns:
-        tuple: (response_data, status_code)
-    """
-    from datetime import datetime
-    import uuid
-    
-    try:
-        auth_service = get_auth_service()
-        if not auth_service:
-            return {'status': 'error', 'message': 'Authentication service not configured'}, 500
-            
-        user_id, auth_type = auth_service.get_supabase_user_id_from_token(f'Bearer {token}')
-        if not user_id:
-            current_app.logger.warning("Firebase login failed: Invalid or expired token")
-            return {'status': 'error', 'message': 'Invalid or expired Firebase token'}, 401
-            
-        # Record session
-        session_id = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
-        success, error = supabase_service.save_session(
-            user_id=user_id,
-            session_id=session_id,
-            session_data={},
-            created_at=created_at
-        )
-        
-        if not success:
-            current_app.logger.error(f"Failed to save session: {error}")
-            return {'status': 'error', 'message': 'Failed to record session'}, 500
-            
-        # Build response payload
-        payload = {
-            'status': 'success',
-            'message': 'Login successful',
-            'user_id': user_id,
-            'auth_type': auth_type,
-            'session_id': session_id,
-            'session_created_at': created_at
-        }
-
-        from flask import make_response
-        resp = make_response(jsonify(payload))
-        # Set cookie with the provided token so subsequent requests can use cookie-based auth
-        if token:
-            max_age = 7 * 24 * 60 * 60
-            try:
-                resp.set_cookie(
-                    'access_token',
-                    value=token,
-                    max_age=max_age,
-                    secure=True,
-                    httponly=True,
-                    samesite='None'
-                )
-            except Exception as e:
-                current_app.logger.warning(f"Failed to set access_token cookie (firebase path): {str(e)}")
-
-        return resp, 200
-        
-    except Exception as e:
-        current_app.logger.error(f"Firebase login error: {str(e)}")
-        return {'status': 'error', 'message': 'Authentication failed'}, 401
+## Firebase login removed: project is Supabase-only now
 
 
 def _handle_supabase_login(email: str, password: str, supabase, supabase_service) -> tuple[dict, int]:
@@ -217,12 +149,16 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
                 return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
             else:
                 return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
-        # Get user profile
-        profile = supabase.table('profiles').select('id').ilike('email', normalized_email).execute()
-        if not profile.data:
-            current_app.logger.error(f"User {email} exists in auth but missing profile")
-            return {'status': 'error', 'message': 'User profile not found'}, 400
-        user_id = profile.data[0]['id']
+        # Prefer profiles.id when available; otherwise fall back to Supabase auth user ID
+        user_id = None
+        try:
+            profile = supabase.table('profiles').select('id').ilike('email', normalized_email).execute()
+            if profile.data:
+                user_id = profile.data[0]['id']
+        except Exception:
+            user_id = None
+        if not user_id:
+            user_id = response.user.id
         # Record session
         session_id = str(uuid.uuid4())
         created_at = datetime.utcnow().isoformat()
@@ -258,18 +194,22 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
 
         # Set httpOnly cookie with access token to support browsers that block localStorage
         from flask import make_response
-        resp = make_response(payload)
+        resp = make_response(jsonify(payload))
         if access_token:
             # 7-day cookie by default
             max_age = 7 * 24 * 60 * 60
             try:
+                # Use secure cookie only in production (https). In local dev (http), browsers drop secure cookies.
+                is_dev = current_app.debug or (request.host.split(':')[0] in ['127.0.0.1', 'localhost'])
+                cookie_secure = False if is_dev else True
+                cookie_samesite = 'Lax' if is_dev else 'None'
                 resp.set_cookie(
                     'access_token',
                     value=access_token,
                     max_age=max_age,
-                    secure=True,
+                    secure=cookie_secure,
                     httponly=True,
-                    samesite='None'
+                    samesite=cookie_samesite
                 )
             except Exception as e:
                 current_app.logger.warning(f"Failed to set access_token cookie: {str(e)}")
@@ -295,42 +235,20 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
 @auth_bp.route('/login', methods=['POST'])
 def login_user():
     """
-    Login endpoint that supports both Firebase (for third-party) and Supabase (for traditional email/password) authentication.
-    
-    - If Authorization header with Bearer token is present: treat as Firebase (third-party) login.
-    - If email and password are present in the body: treat as Supabase (traditional) login.
+    Supabase email/password login. Returns access and refresh tokens; also sets httpOnly cookie.
     """
-    # Get services
     supabase = get_supabase_client()
     supabase_service = getattr(current_app, 'supabase_service', None)
-    
-    # Validate services
-    if not all([supabase, supabase_service]):
-        return jsonify({
-            'status': 'error',
-            'message': 'Authentication service is not properly configured'
-        }), 500
 
-    # Parse request data
+    if not all([supabase, supabase_service]):
+        return jsonify({'status': 'error', 'message': 'Authentication service is not properly configured'}), 500
+
     try:
         data = request.get_json() or {}
     except Exception as e:
         current_app.logger.error(f"Error parsing JSON data: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Invalid request data'
-        }), 400
-    
-    # Check for Firebase token (third-party login)
-    auth_header = request.headers.get('Authorization')
-    if auth_header and auth_header.startswith('Bearer '):
-        response, status = _handle_firebase_login(auth_header.split(' ')[1], supabase_service)
-        # If helper already returned a Flask Response, return it directly
-        if isinstance(response, Response):
-            return response, status
-        return jsonify(response), status
-    
-    # Check for Supabase email/password (traditional login)
+        return jsonify({'status': 'error', 'message': 'Invalid request data'}), 400
+
     email = data.get('email')
     password = data.get('password')
     if email and password:
@@ -339,12 +257,21 @@ def login_user():
             return response, status
         return jsonify(response), status
 
-    # If neither method is provided
-    current_app.logger.warning("No valid authentication method provided in login request")
-    return jsonify({
-        'status': 'error',
-        'message': 'Must provide either a Firebase token or email and password.'
-    }), 400
+    current_app.logger.warning("No email/password provided in login request")
+    return jsonify({'status': 'error', 'message': 'Email and password are required.'}), 400
+
+@auth_bp.route('/logout', methods=['POST'])
+def logout_user():
+    """
+    Logout by clearing the httpOnly access_token cookie. Clients should also clear local storage tokens.
+    """
+    from flask import make_response
+    resp = make_response(jsonify({'status': 'success', 'message': 'Logged out'}))
+    try:
+        resp.set_cookie('access_token', '', max_age=0, expires=0, secure=True, httponly=True, samesite='None')
+    except Exception as e:
+        current_app.logger.warning(f"Failed to clear access_token cookie: {str(e)}")
+    return resp, 200
 
 
 

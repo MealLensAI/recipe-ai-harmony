@@ -52,6 +52,7 @@ export interface RequestOptions {
   headers?: Record<string, string>
   skipAuth?: boolean
   timeout?: number
+  suppressAuthRedirect?: boolean
 }
 
 // Centralized API service
@@ -69,7 +70,8 @@ class APIService {
       body,
       headers = {},
       skipAuth = false,
-      timeout = 10000
+      timeout = 10000,
+      suppressAuthRedirect = false
     } = options
 
     // Add auth header if token is present; otherwise rely on cookie-based auth
@@ -137,7 +139,7 @@ class APIService {
         // Handle 401 Unauthorized
         if (response.status === 401) {
           // Don't automatically redirect for login/register requests - let them handle their own errors
-          if (endpoint === '/login' || endpoint === '/register') {
+          if (endpoint === '/login' || endpoint === '/register' || suppressAuthRedirect) {
             // For login/register, just throw the error with the backend message
             const errorMessage = data?.message || 'Authentication failed'
             throw new APIError(errorMessage, 401, data)

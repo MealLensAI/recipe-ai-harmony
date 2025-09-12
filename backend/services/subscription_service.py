@@ -17,7 +17,7 @@ class SubscriptionService:
         self.paystack_secret_key = os.getenv('PAYSTACK_SECRET_KEY')
         self.paystack_public_key = os.getenv('PAYSTACK_PUBLIC_KEY')
         
-    def get_user_subscription_status(self, user_id: str, firebase_uid: str = None) -> Dict[str, Any]:
+    def get_user_subscription_status(self, user_id: str) -> Dict[str, Any]:
         """
         Get comprehensive subscription status for a user
         """
@@ -28,18 +28,7 @@ class SubscriptionService:
             if user_id and user_id != 'anon':
                 supabase_user_id = user_id
                 print(f"✅ Using provided user ID: {supabase_user_id}")
-            elif firebase_uid:
-                # Fallback: try to find user by email if we have firebase_uid
-                print(f"⚠️ Firebase UID provided but we use Supabase auth. Please use user_id instead.")
-                return {
-                    'success': True,
-                    'data': {
-                        'has_active_subscription': False,
-                        'subscription': None,
-                        'trial': None,
-                        'can_access_app': False
-                    }
-                }
+            # Supabase-only implementation; no Firebase UID fallback
             
             if not supabase_user_id:
                 return {
@@ -135,7 +124,7 @@ class SubscriptionService:
                 }
             }
     
-    def can_user_use_feature(self, user_id: str, feature_name: str, firebase_uid: str = None) -> Dict[str, Any]:
+    def can_user_use_feature(self, user_id: str, feature_name: str) -> Dict[str, Any]:
         """
         Check if user can use a specific feature
         """
@@ -153,22 +142,7 @@ class SubscriptionService:
                         'data': result.data
                     }
             
-            # Fallback to Firebase UID if Supabase user not found
-            if firebase_uid:
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
-                    result = self.supabase.rpc(
-                        'can_user_use_feature',
-                        {'p_user_id': supabase_user_id, 'p_feature_name': feature_name}
-                    ).execute()
-                    
-                    if result.data:
-                        return {
-                            'success': True,
-                            'data': result.data
-                        }
+            # No Firebase fallback
             
             # Return default response if no user found
             return {
@@ -198,7 +172,7 @@ class SubscriptionService:
                 }
             }
     
-    def record_feature_usage(self, user_id: str, feature_name: str, count: int = 1, firebase_uid: str = None) -> Dict[str, Any]:
+    def record_feature_usage(self, user_id: str, feature_name: str, count: int = 1) -> Dict[str, Any]:
         """
         Record feature usage for a user
         """
@@ -216,22 +190,7 @@ class SubscriptionService:
                         'message': 'Feature usage recorded successfully'
                     }
             
-            # Fallback to Firebase UID if Supabase user not found
-            if firebase_uid:
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
-                    result = self.supabase.rpc(
-                        'record_feature_usage',
-                        {'p_user_id': supabase_user_id, 'p_feature_name': feature_name, 'p_count': count}
-                    ).execute()
-                    
-                    if result.data:
-                        return {
-                            'success': True,
-                            'message': 'Feature usage recorded successfully'
-                        }
+            # No Firebase fallback
             
             return {
                 'success': False,
@@ -245,7 +204,7 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def create_user_trial(self, user_id: str, duration_days: int = 7, firebase_uid: str = None) -> Dict[str, Any]:
+    def create_user_trial(self, user_id: str, duration_days: int = 7) -> Dict[str, Any]:
         """
         Create a trial for a new user
         """
@@ -264,23 +223,7 @@ class SubscriptionService:
                         'duration_days': duration_days
                     }
             
-            # Fallback to Firebase UID if Supabase user not found
-            if firebase_uid:
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
-                    result = self.supabase.rpc(
-                        'create_user_trial',
-                        {'p_user_id': supabase_user_id, 'p_duration_days': duration_days}
-                    ).execute()
-                    
-                    if result.data:
-                        return {
-                            'success': True,
-                            'message': 'Trial created successfully',
-                            'duration_days': duration_days
-                        }
+            # No Firebase fallback
             
             return {
                 'success': False,
@@ -294,7 +237,7 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def activate_subscription(self, user_id: str, plan_name: str, paystack_data: Dict[str, Any], firebase_uid: str = None) -> Dict[str, Any]:
+    def activate_subscription(self, user_id: str, plan_name: str, paystack_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Activate a subscription for a user and mark trial as used
         """
@@ -315,14 +258,7 @@ class SubscriptionService:
             end_date = start_date + timedelta(days=duration_days)
             
             # Try to get user from Supabase auth first
-            supabase_user_id = None
-            if user_id and user_id != 'anon':
-                supabase_user_id = user_id
-            elif firebase_uid:
-                # Get user profile by Firebase UID
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
+            supabase_user_id = user_id if user_id and user_id != 'anon' else None
             
             if not supabase_user_id:
                 return {
@@ -481,7 +417,7 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def save_payment_transaction(self, user_id: str, paystack_data: Dict[str, Any], firebase_uid: str = None) -> Dict[str, Any]:
+    def save_payment_transaction(self, user_id: str, paystack_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Save payment transaction details
         """
@@ -656,14 +592,13 @@ class SubscriptionService:
             
             # Find user by email
             if customer_email:
-                profile_result = self.supabase.table('profiles').select('id, firebase_uid').eq('email', customer_email).execute()
+                profile_result = self.supabase.table('profiles').select('id').eq('email', customer_email).execute()
                 
                 if profile_result.data:
                     user_id = profile_result.data[0]['id']
-                    firebase_uid = profile_result.data[0]['firebase_uid']
                     
                     # Save payment transaction
-                    transaction_result = self.save_payment_transaction(user_id, data, firebase_uid)
+                    transaction_result = self.save_payment_transaction(user_id, data)
                     
                     # Mark webhook as processed
                     self.supabase.table('paystack_webhooks').update({'processed': True}).eq('id', webhook_id).execute()
@@ -706,14 +641,13 @@ class SubscriptionService:
             plan_name = plan_mapping.get(plan_code, 'monthly')
             
             if customer_email:
-                profile_result = self.supabase.table('profiles').select('id, firebase_uid').eq('email', customer_email).execute()
+                profile_result = self.supabase.table('profiles').select('id').eq('email', customer_email).execute()
                 
                 if profile_result.data:
                     user_id = profile_result.data[0]['id']
-                    firebase_uid = profile_result.data[0]['firebase_uid']
                     
                     # Activate subscription
-                    subscription_result = self.activate_subscription(user_id, plan_name, data, firebase_uid)
+                    subscription_result = self.activate_subscription(user_id, plan_name, data)
                     
                     # Mark webhook as processed
                     self.supabase.table('paystack_webhooks').update({'processed': True}).eq('id', webhook_id).execute()
@@ -776,7 +710,7 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def get_user_usage_stats(self, user_id: str, firebase_uid: str = None) -> Dict[str, Any]:
+    def get_user_usage_stats(self, user_id: str) -> Dict[str, Any]:
         """
         Get usage statistics for a user
         """
@@ -791,12 +725,7 @@ class SubscriptionService:
                         'usage_stats': result.data
                     }
             
-            # Fallback to Firebase UID if Supabase user not found
-            if firebase_uid:
-                profile_result = self.supabase.table('profiles').select('id').eq('firebase_uid', firebase_uid).execute()
-                
-                if profile_result.data:
-                    supabase_user_id = profile_result.data[0]['id']
+            # No Supabase user found
                     result = self.supabase.table('feature_usage').select('*').eq('user_id', supabase_user_id).execute()
                     
                     if result.data:

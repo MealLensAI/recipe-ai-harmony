@@ -4,10 +4,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # This loads the environment variables from .env file
 from supabase import create_client, Client
-import firebase_admin
-from firebase_admin import credentials, auth
-import json
-import base64
 
 from flask_cors import CORS, cross_origin # Import CORS
 
@@ -144,27 +140,14 @@ def create_app():
   else:
       print("Payment service disabled - payment features will be unavailable")
   
-  # Initialize AuthService with regular Supabase client
-  firebase_creds = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-   
-  if not firebase_creds:
-      # Try to use the Firebase service account file directly
-      firebase_file = "meallensai-40f6f-firebase-adminsdk-fbsvc-0f6274190b.json"
-      if os.path.exists(firebase_file):
-          print(f"Using Firebase service account file: {firebase_file}")
-          firebase_creds = firebase_file
-      else:
-          print("Warning: No Firebase service account file found. Authentication features will be disabled.")
-          app.auth_service = None
-  
-  if firebase_creds:
-      try:
-          app.auth_service = AuthService(firebase_creds, app.supabase_service.supabase)
-          print("Firebase Admin SDK initialized successfully.")
-      except Exception as e:
-          print(f"Warning: Failed to initialize AuthService: {str(e)}")
-          print("Authentication features will be disabled.")
-          app.auth_service = None
+  # Initialize AuthService with Supabase admin client (Supabase-only auth)
+  try:
+      app.auth_service = AuthService(app.supabase_service.supabase)
+      print("Supabase AuthService initialized successfully.")
+  except Exception as e:
+      print(f"Warning: Failed to initialize AuthService: {str(e)}")
+      print("Authentication features will be disabled.")
+      app.auth_service = None
 
   # Register blueprints with API prefix
   app.register_blueprint(food_detection_bp, url_prefix='/api/food_detection')

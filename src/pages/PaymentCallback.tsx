@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { firebasePaymentService } from '@/lib/firebasePaymentService';
+import { APP_CONFIG } from '@/lib/config';
 import { useTrial } from '@/hooks/useTrial';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,21 @@ const PaymentCallback: React.FC = () => {
             try {
                 console.log('🔄 Processing payment callback...');
 
-                // Handle the payment callback
-                const result = await firebasePaymentService.handlePaymentCallback();
+                // Verify payment using backend endpoint and stored reference
+                const reference = localStorage.getItem('payment_reference');
+                if (!reference) {
+                    setStatus('error');
+                    setError('No payment reference found');
+                    return;
+                }
 
-                if (result.success) {
+                const res = await fetch(`${APP_CONFIG.api.base_url}/api/payment/verify-payment/${reference}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const result = await res.json();
+
+                if (res.ok && result.status === 'success') {
                     console.log('✅ Payment verified successfully!');
                     setStatus('success');
                     setMessage('Payment successful! Your subscription has been activated.');
@@ -29,14 +40,18 @@ const PaymentCallback: React.FC = () => {
                     // Update trial info to refresh the UI
                     await updateTrialInfo();
 
+                    // Clear stored reference
+                    localStorage.removeItem('payment_reference');
+                    localStorage.removeItem('payment_plan_id');
+
                     // Redirect to main app after 3 seconds
                     setTimeout(() => {
                         navigate('/');
                     }, 3000);
                 } else {
-                    console.error('❌ Payment verification failed:', result.error);
+                    console.error('❌ Payment verification failed:', result?.message || result?.error);
                     setStatus('error');
-                    setError(result.error || 'Payment verification failed');
+                    setError(result?.message || result?.error || 'Payment verification failed');
                 }
             } catch (error) {
                 console.error('❌ Error handling payment callback:', error);

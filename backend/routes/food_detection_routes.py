@@ -80,7 +80,6 @@ def process_food_input():
   # Store the initial detection event in detection_history
   success, error = supabase_service.save_detection_history(
       user_id=user_id,
-      firebase_uid=user_id if auth_type == 'firebase' else None,
       detection_type='ingredient_detection_flow',
       input_data=input_data_value,
       detected_foods=json.dumps(detected_ingredients), # Store as JSON string
@@ -218,7 +217,6 @@ def food_detect():
   # Store this complete detection event in detection_history
   success, error = supabase_service.save_detection_history(
       user_id=user_id,
-      firebase_uid=user_id if auth_type == 'firebase' else None,
       detection_type='food_detection_flow',
       input_data=input_data_value, # Store image URL
       detected_foods=json.dumps(detected_foods), # Store as JSON string

@@ -18,16 +18,15 @@ def get_subscription_status():
     try:
         # Get user from request headers or query params
         user_id = request.args.get('user_id')
-        firebase_uid = request.args.get('firebase_uid')
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Get subscription status
-        result = subscription_service.get_user_subscription_status(user_id, firebase_uid)
+        result = subscription_service.get_user_subscription_status(user_id)
         
         if result['success']:
             return jsonify(result), 200
@@ -49,7 +48,6 @@ def check_feature_access():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        firebase_uid = data.get('firebase_uid')
         feature_name = data.get('feature_name')
         
         if not feature_name:
@@ -58,14 +56,14 @@ def check_feature_access():
                 'error': 'Feature name required'
             }), 400
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Check feature access
-        result = subscription_service.can_user_use_feature(user_id, feature_name, firebase_uid)
+        result = subscription_service.can_user_use_feature(user_id, feature_name)
         
         if result['success']:
             return jsonify(result), 200
@@ -87,7 +85,6 @@ def record_feature_usage():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        firebase_uid = data.get('firebase_uid')
         feature_name = data.get('feature_name')
         count = data.get('count', 1)
         
@@ -97,14 +94,14 @@ def record_feature_usage():
                 'error': 'Feature name required'
             }), 400
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Record feature usage
-        result = subscription_service.record_feature_usage(user_id, feature_name, count, firebase_uid)
+        result = subscription_service.record_feature_usage(user_id, feature_name, count)
         
         if result['success']:
             return jsonify(result), 200
@@ -126,17 +123,16 @@ def create_user_trial():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        firebase_uid = data.get('firebase_uid')
         duration_days = data.get('duration_days', 7)
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Create trial
-        result = subscription_service.create_user_trial(user_id, duration_days, firebase_uid)
+        result = subscription_service.create_user_trial(user_id, duration_days)
         
         if result['success']:
             return jsonify(result), 200
@@ -158,7 +154,6 @@ def activate_subscription():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        firebase_uid = data.get('firebase_uid')
         plan_name = data.get('plan_name')
         paystack_data = data.get('paystack_data', {})
         
@@ -168,14 +163,14 @@ def activate_subscription():
                 'error': 'Plan name required'
             }), 400
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Activate subscription
-        result = subscription_service.activate_subscription(user_id, plan_name, paystack_data, firebase_uid)
+        result = subscription_service.activate_subscription(user_id, plan_name, paystack_data)
         
         if result['success']:
             return jsonify(result), 200
@@ -197,7 +192,6 @@ def activate_subscription_for_days():
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        firebase_uid = data.get('firebase_uid')
         duration_days = data.get('duration_days')
         paystack_data = data.get('paystack_data', {})
         
@@ -207,14 +201,14 @@ def activate_subscription_for_days():
                 'error': 'Duration days required'
             }), 400
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Activate subscription for days
-        result = subscription_service.activate_subscription_for_days(user_id, duration_days, paystack_data, firebase_uid)
+        result = subscription_service.activate_subscription_for_days(user_id, duration_days, paystack_data)
         
         if result['success']:
             return jsonify(result), 200
@@ -316,16 +310,15 @@ def get_usage_stats():
     try:
         # Get user from request headers or query params
         user_id = request.args.get('user_id')
-        firebase_uid = request.args.get('firebase_uid')
         
-        if not user_id and not firebase_uid:
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': 'User ID or Firebase UID required'
+                'error': 'User ID required'
             }), 400
         
         # Get usage stats
-        result = subscription_service.get_user_usage_stats(user_id, firebase_uid)
+        result = subscription_service.get_user_usage_stats(user_id)
         
         if result['success']:
             return jsonify(result), 200

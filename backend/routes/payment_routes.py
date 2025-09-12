@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from services.payment_service import PaymentService
 from services.auth_service import AuthService
 from services.subscription_service import SubscriptionService
+from utils.auth_utils import get_user_id_from_token
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -21,18 +22,12 @@ def get_auth_service() -> Optional[AuthService]:
     return current_app.auth_service
 
 def authenticate_user() -> Optional[str]:
-    """Authenticate user and return user ID."""
-    auth_service = get_auth_service()
-    if not auth_service:
+    """Authenticate user and return user ID using common helper (supports header or cookie)."""
+    try:
+        user_id, error = get_user_id_from_token()
+        return user_id
+    except Exception:
         return None
-    
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return None
-    
-    token = auth_header.split(' ')[1]
-    user_id, auth_type = auth_service.verify_token(token)
-    return user_id
 
 @payment_bp.route('/plans', methods=['GET'])
 def get_subscription_plans():

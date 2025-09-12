@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
 import { api } from "./api"
 
 export function cn(...inputs: ClassValue[]) {
@@ -78,6 +78,7 @@ export function useProvideAuth(): AuthContextType {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const initRef = useRef(false)
 
   // Smooth page transition overlay to avoid route flash
   const showFadeTransition = useCallback(() => {
@@ -157,6 +158,11 @@ export function useProvideAuth(): AuthContextType {
     try {
       // Show fade overlay first to prevent flashes while redirecting
       showFadeTransition()
+      // Ask backend to clear httpOnly cookie if present
+      try {
+        const { APP_CONFIG } = await import('./config')
+        await fetch(`${APP_CONFIG.api.base_url}/api/logout`, { method: 'POST', credentials: 'include' })
+      } catch { }
       // Clear all session data
       clearSession()
       // Use window.location.replace to avoid flash
@@ -195,28 +201,7 @@ export function useProvideAuth(): AuthContextType {
           // Ensure we always have a non-null user object to reference later
           let effectiveUser: User = parsedUser as User
 
-          // Fetch fresh profile data from backend
-          try {
-            const profileResponse = await api.getUserProfile()
-            const profilePayload: any = (profileResponse as any)
-            const profile = profilePayload.data ?? profilePayload.profile
-            if (profileResponse.status === 'success' && profile) {
-              const updatedUser: User = {
-                uid: profile.id,
-                email: profile.email,
-                displayName: profile.display_name ?? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim(),
-                photoURL: undefined
-              }
-              // Promote updated user to effective user
-              effectiveUser = updatedUser
-              setUser(updatedUser)
-              // Update stored user data
-              safeSetItem(USER_KEY, JSON.stringify(updatedUser))
-            }
-          } catch (profileError) {
-            console.error('Error fetching user profile:', profileError)
-            // Continue with stored user data if profile fetch fails
-          }
+          // Skip backend profile fetch to prevent loops - use stored data only
 
           setLoading(false)
           console.log('✅ refreshAuth completed successfully')
@@ -245,8 +230,10 @@ export function useProvideAuth(): AuthContextType {
         }
       }
 
-      // No valid token found, user is not authenticated
-      console.log('❌ No valid token found, user is not authenticated')
+      // Skip cookie-based session check to prevent infinite loops
+      console.log('❌ No valid token found locally')
+
+      // Not authenticated at all
       clearSession()
       setLoading(false)
     } catch (error) {
@@ -258,33 +245,34 @@ export function useProvideAuth(): AuthContextType {
 
   // Initialize auth state
   useEffect(() => {
+    if (initRef.current) return
+    initRef.current = true
     refreshAuth()
   }, [refreshAuth])
 
   // Listen for storage changes (e.g., login in another tab)
   useEffect(() => {
-    const handleStorage = () => {
-      const storedToken = localStorage.getItem(TOKEN_KEY)
-      const storedUserData = localStorage.getItem(USER_KEY)
-
-      if (storedToken && storedUserData) {
-        try {
-          const parsedUser = JSON.parse(storedUserData)
-          setToken(storedToken)
-          setUser(parsedUser as User)
-        } catch (error) {
-          console.error('Error parsing user data from storage:', error)
-          clearSession()
-        }
-      } else {
-        clearSession()
-      }
-    }
-
-    window.addEventListener("storage", handleStorage)
-    return () => {
-      window.removeEventListener("storage", handleStorage)
-    }
+    // Disable storage listener to prevent infinite loops
+    // const handleStorage = () => {
+    //   const storedToken = localStorage.getItem(TOKEN_KEY)
+    //   const storedUserData = localStorage.getItem(USER_KEY)
+    //   if (storedToken && storedUserData) {
+    //     try {
+    //       const parsedUser = JSON.parse(storedUserData)
+    //       setToken(storedToken)
+    //       setUser(parsedUser as User)
+    //     } catch (error) {
+    //       console.error('Error parsing user data from storage:', error)
+    //       clearSession()
+    //     }
+    //   } else {
+    //     clearSession()
+    //   }
+    // }
+    // window.addEventListener("storage", handleStorage)
+    // return () => {
+    //   window.removeEventListener("storage", handleStorage)
+    // }
   }, [clearSession])
 
   const isAuthenticated = !!token && !!user
