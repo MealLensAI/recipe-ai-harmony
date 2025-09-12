@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_cors import cross_origin
 import json
 from datetime import datetime
 from services.subscription_service import SubscriptionService
@@ -10,7 +9,6 @@ subscription_service = SubscriptionService()
 # auth_service will be initialized when needed
 
 @subscription_bp.route('/status', methods=['GET'])
-@cross_origin()
 def get_subscription_status():
     """
     Get user's current subscription status
@@ -40,7 +38,6 @@ def get_subscription_status():
         }), 500
 
 @subscription_bp.route('/feature-access', methods=['POST'])
-@cross_origin()
 def check_feature_access():
     """
     Check if user can use a specific feature
@@ -77,7 +74,6 @@ def check_feature_access():
         }), 500
 
 @subscription_bp.route('/record-usage', methods=['POST'])
-@cross_origin()
 def record_feature_usage():
     """
     Record feature usage for a user
@@ -115,7 +111,6 @@ def record_feature_usage():
         }), 500
 
 @subscription_bp.route('/create-trial', methods=['POST'])
-@cross_origin()
 def create_user_trial():
     """
     Create a trial for a new user
@@ -146,7 +141,6 @@ def create_user_trial():
         }), 500
 
 @subscription_bp.route('/activate', methods=['POST'])
-@cross_origin()
 def activate_subscription():
     """
     Activate a subscription for a user after successful payment
@@ -184,7 +178,6 @@ def activate_subscription():
         }), 500
 
 @subscription_bp.route('/activate-days', methods=['POST'])
-@cross_origin()
 def activate_subscription_for_days():
     """
     Activate a subscription for a specific number of days
@@ -222,7 +215,6 @@ def activate_subscription_for_days():
         }), 500
 
 @subscription_bp.route('/plans', methods=['GET'])
-@cross_origin()
 def get_subscription_plans():
     """
     Get all available subscription plans
@@ -242,7 +234,6 @@ def get_subscription_plans():
         }), 500
 
 @subscription_bp.route('/verify-payment', methods=['POST'])
-@cross_origin()
 def verify_payment():
     """
     Verify a Paystack payment
@@ -272,7 +263,6 @@ def verify_payment():
         }), 500
 
 @subscription_bp.route('/webhook', methods=['POST'])
-@cross_origin()
 def process_webhook():
     """
     Process Paystack webhook events
@@ -302,7 +292,6 @@ def process_webhook():
         }), 500
 
 @subscription_bp.route('/usage-stats', methods=['GET'])
-@cross_origin()
 def get_usage_stats():
     """
     Get user's feature usage statistics
@@ -332,7 +321,6 @@ def get_usage_stats():
         }), 500
 
 @subscription_bp.route('/health', methods=['GET'])
-@cross_origin()
 def health_check():
     """
     Health check endpoint for subscription service
