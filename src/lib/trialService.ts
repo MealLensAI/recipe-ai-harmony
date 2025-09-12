@@ -274,13 +274,13 @@ export class TrialService {
   static async activateSubscriptionForDays(days: number, paystackData?: any): Promise<boolean> {
     try {
       // Try backend first
-      const firebaseUid = this.getCurrentFirebaseUid();
-      if (firebaseUid) {
+      const userId = this.getCurrentUserId();
+      if (userId && userId !== 'anon') {
         const response = await fetch(`${this.API_BASE_URL}/subscription/activate-days`, {
           method: 'POST',
           headers: this.getAuthHeaders(),
           body: JSON.stringify({
-            firebase_uid: firebaseUid,
+            user_id: userId,
             duration_days: days,
             paystack_data: paystackData || {}
           })
@@ -358,17 +358,8 @@ export class TrialService {
     return Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
   }
 
-  // Helper methods for backend integration (keeping minimal)
-  private static getCurrentFirebaseUid(): string | null {
-    try {
-      const raw = localStorage.getItem('user_data');
-      if (!raw) return null;
-      const user = JSON.parse(raw);
-      return user?.uid || null;
-    } catch {
-      return null;
-    }
-  }
+  // Helper methods for backend integration (Supabase only)
+  // Note: getCurrentUserId() method already exists and serves the same purpose
 
   private static getAuthHeaders(): Record<string, string> {
     const token = localStorage.getItem('supabase_token') || localStorage.getItem('access_token');

@@ -725,14 +725,7 @@ class SubscriptionService:
                         'usage_stats': result.data
                     }
             
-            # No Supabase user found
-                    result = self.supabase.table('feature_usage').select('*').eq('user_id', supabase_user_id).execute()
-                    
-                    if result.data:
-                        return {
-                            'success': True,
-                            'usage_stats': result.data
-                        }
+            # No Supabase user found - return empty stats
             
             return {
                 'success': True,

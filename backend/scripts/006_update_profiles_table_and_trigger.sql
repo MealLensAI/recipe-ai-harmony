@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     first_name text,
     last_name text,
     email text UNIQUE,
-    firebase_uid text UNIQUE,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );

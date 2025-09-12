@@ -10,7 +10,7 @@ def store_session():
     Store AI session data in Supabase.
     
     Required headers:
-    - Authorization: Bearer <token> (Firebase JWT or Supabase session token)
+    - Authorization: Bearer <token> (Supabase session token)
     
     Required JSON body:
     {

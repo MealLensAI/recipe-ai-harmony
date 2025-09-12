@@ -326,12 +326,11 @@ def create_detection_history():
     Receives detection data from the frontend and inserts it into detection_history via Supabase.
     Allows all expected fields using Marshmallow schema validation, including shared_recipes fields.
     """
-    auth_service = current_app.auth_service
     supabase_service = current_app.supabase_service
-    user_id, auth_type = auth_service.get_supabase_user_id_from_token(request.headers.get('Authorization'))
+    user_id, error = get_user_id_from_token()
 
-    if not user_id:
-        return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
 
     # Accept both JSON and form data
     if request.is_json:
@@ -391,14 +390,11 @@ def get_detection_history():
     Retrieves a user's food detection history from the database. Requires authentication.
     """
     try:
-        auth_header = request.headers.get('Authorization')
+        user_id, error = get_user_id_from_token()
         
-        auth_service = current_app.auth_service
-        user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
-        
-        if not user_id:
-            current_app.logger.warning("Authentication failed: No user_id extracted")
-            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+        if error:
+            current_app.logger.warning(f"Authentication failed: {error}")
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
 
         current_app.logger.info(f"Fetching detection history for user: {user_id}")
         
@@ -429,14 +425,11 @@ def delete_detection_history(record_id):
     Deletes a specific detection history record. Requires authentication.
     """
     try:
-        auth_header = request.headers.get('Authorization')
+        user_id, error = get_user_id_from_token()
         
-        auth_service = current_app.auth_service
-        user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
-        
-        if not user_id:
-            current_app.logger.warning("Authentication failed: No user_id extracted")
-            return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+        if error:
+            current_app.logger.warning(f"Authentication failed: {error}")
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
 
         current_app.logger.info(f"Deleting detection history record {record_id} for user: {user_id}")
         

@@ -22,7 +22,6 @@ def check_or_create_profiles_table():
                 CREATE TABLE public.profiles (
                     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
                     email TEXT UNIQUE NOT NULL,
-                    firebase_uid TEXT UNIQUE,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );

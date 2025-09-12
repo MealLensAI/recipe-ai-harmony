@@ -46,7 +46,7 @@ def get_supabase_client(use_admin: bool = False) -> Optional[Client]:
         return None
 
 
-## Firebase login removed: project is Supabase-only now
+## Supabase-only authentication
 
 
 def _handle_supabase_login(email: str, password: str, supabase, supabase_service) -> tuple[dict, int]:

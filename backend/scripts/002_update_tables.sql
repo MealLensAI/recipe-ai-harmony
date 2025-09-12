@@ -1,19 +1,13 @@
--- Update 'profiles' table to include firebase_uid and email for mapping
--- This allows us to link Firebase UIDs to Supabase user IDs
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS firebase_uid TEXT UNIQUE;
+-- Update 'profiles' table to include email for Supabase-only authentication
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
 
 -- Drop the old detection_history table if it exists to replace it with the new schema
 DROP TABLE IF EXISTS public.detection_history;
 
--- Create the new 'detection_history' table with the specified schema
--- It includes user_id (Supabase UUID) and firebase_uid (Firebase string UID)
--- One of these will be NULL depending on the original authentication method,
--- but the backend will ensure a Supabase user_id is always used for RLS.
+-- Create the new 'detection_history' table with Supabase-only schema
 CREATE TABLE public.detection_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) NULL, -- Supabase user ID
-  firebase_uid TEXT NULL, -- Original Firebase UID (for logging/reference)
+  user_id UUID REFERENCES auth.users(id) NOT NULL, -- Supabase user ID (required)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   detection_type TEXT NOT NULL, -- e.g., 'image', 'ingredient_list'
   input_data TEXT, -- Original input (e.g., image filename, ingredient list string)
@@ -24,9 +18,7 @@ CREATE TABLE public.detection_history (
   analysis_id TEXT, -- Corresponds to 'analysis_id'
   youtube_link TEXT, -- Corresponds to 'youtube'
   google_link TEXT, -- Corresponds to 'google'
-  resources_link TEXT, -- Corresponds to 'resources'
-  -- Ensure at least one of user_id or firebase_uid is present for a valid entry
-  CONSTRAINT chk_user_id_or_firebase_uid CHECK (user_id IS NOT NULL OR firebase_uid IS NOT NULL)
+  resources_link TEXT -- Corresponds to 'resources'
 );
 
 -- Re-apply Row Level Security (RLS) for the updated tables

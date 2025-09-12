@@ -2,7 +2,7 @@
 
 ## Overview
 
-This API provides authentication endpoints for both Firebase and Supabase authentication methods. It supports user registration, login, and token verification.
+This API provides authentication endpoints using Supabase authentication. It supports user registration, login, and token verification.
 
 ## Endpoints
 
@@ -16,14 +16,14 @@ GET /api/test_auth
 Test endpoint to verify authentication is working. Returns the authenticated user's information.
 
 **Request Headers:**
-- `Authorization: Bearer <token>` - Required. Either Firebase JWT or Supabase JWT token.
+- `Authorization: Bearer <token>` - Required. Supabase JWT token.
 
 **Response:**
 ```json
 {
     "status": "success",
     "user_id": "string",
-    "auth_type": "firebase" | "supabase",
+    "auth_type": "supabase",
     "user_data": {
         "id": "string",
         "email": "string",
@@ -40,19 +40,13 @@ POST /api/login
 ```
 
 **Description:**
-Login endpoint that supports both Firebase and Supabase authentication.
+Login endpoint that uses Supabase email/password authentication.
 
 **Request Body:**
 ```json
-// Firebase Login
-{
-    "token": "firebase_token"  // Required for Firebase login
-}
-
-// Supabase Login
 {
     "email": "user@example.com",
-    "password": "securepassword123"  // Required for Supabase login
+    "password": "securepassword123"
 }
 ```
 
@@ -62,7 +56,7 @@ Login endpoint that supports both Firebase and Supabase authentication.
     "status": "success",
     "message": "Login successful",
     "user_id": "string",
-    "auth_type": "firebase" | "supabase",
+    "auth_type": "supabase",
     "user_data": {
         "id": "string",
         "email": "string",
@@ -78,14 +72,15 @@ POST /api/register
 ```
 
 **Description:**
-Register a new user with email and password using Supabase Auth. Supports optional Firebase UID linking for existing Firebase users.
+Register a new user with email and password using Supabase Auth.
 
 **Request Body:**
 ```json
 {
     "email": "user@example.com",
     "password": "securepassword123",
-    "firebase_uid": "optional_firebase_uid"  // Only needed if linking to existing Firebase account
+    "first_name": "John",
+    "last_name": "Doe"
 }
 ```
 
@@ -96,8 +91,7 @@ Register a new user with email and password using Supabase Auth. Supports option
     "message": "User registered successfully",
     "user_id": "string",
     "email": "string",
-    "email_confirmed": boolean,
-    "firebase_linked": boolean
+    "email_confirmed": boolean
 }
 ```
 
@@ -125,14 +119,12 @@ Common error codes:
 1. All endpoints require HTTPS
 2. Passwords should be sent over HTTPS only
 3. Tokens should be stored securely on the client side
-4. Firebase JWT tokens are verified using Firebase Admin SDK
-5. Supabase JWT tokens are verified using Supabase Auth
+4. Supabase JWT tokens are verified using Supabase Auth
 6. All user data is stored in Supabase with proper RLS policies
 
 ## Implementation Notes
 
-1. The AuthService handles token verification and user mapping between Firebase and Supabase
+1. The AuthService handles token verification using Supabase Auth
 2. User profiles are stored in the `profiles` table in Supabase
-3. Firebase UID is stored in user metadata for linking accounts
-4. Email verification is handled by Supabase Auth
-5. Password requirements are enforced by Supabase Auth
+3. Email verification is handled by Supabase Auth
+4. Password requirements are enforced by Supabase Auth

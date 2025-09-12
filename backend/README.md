@@ -11,7 +11,7 @@
 - 🧑‍🍳 **AI Food Detection**: Snap a pic or list ingredients, get food names and recipes!
 - 📅 **Smart Meal Planning**: Personalized meal plans from your pantry or fridge.
 - 🗂️ **Session Management**: Keeps your cooking journey organized.
-- 🔐 **Flexible Authentication**: Supports both Firebase and Supabase logins.
+- 🔐 **Secure Authentication**: Supabase-powered user authentication and sessions.
 - 📝 **Feedback & History**: Save, review, and improve your meal plans.
 - 💳 **Payment System**: Ready-to-use Paystack integration with subscription plans (disabled by default).
 
