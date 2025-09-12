@@ -3,3 +3,4 @@ flask
 supabase
 marshmallow
 dotenv
+requests
