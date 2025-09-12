@@ -295,6 +295,14 @@ class APIService {
     return this.post('/register', userData, { skipAuth: true })
   }
 
+  async requestPasswordReset(email: string): Promise<APIResponse> {
+    return this.post('/forgot-password', { email }, { skipAuth: true })
+  }
+
+  async resetPassword(payload: { access_token: string; new_password: string }): Promise<APIResponse> {
+    return this.post('/reset-password', payload, { skipAuth: true })
+  }
+
   // Meal plan methods
   async getMealPlans(): Promise<APIResponse> {
     return this.get('/meal_plan')

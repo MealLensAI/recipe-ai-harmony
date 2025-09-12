@@ -21,6 +21,7 @@ const Login = () => {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -104,6 +105,24 @@ const Login = () => {
       }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    const targetEmail = email.trim()
+    if (!targetEmail) {
+      toast({ title: "Email required", description: "Enter your email above first.", variant: "destructive" })
+      return
+    }
+    setIsResetting(true)
+    try {
+      await api.requestPasswordReset(targetEmail)
+      toast({ title: "Check your email", description: "If an account exists, we sent a reset link." })
+    } catch (err) {
+      // Backend returns generic success; still show success to avoid enumeration
+      toast({ title: "Check your email", description: "If an account exists, we sent a reset link." })
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -198,6 +217,14 @@ const Login = () => {
                   "Sign In"
                 )}
               </Button>
+              <div className="flex items-center justify-between text-sm">
+                <Link
+                  to="/forgot-password"
+                  className="text-orange-600 hover:text-orange-700"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </form>
 
             {/* Sign Up Link */}

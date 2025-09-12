@@ -20,12 +20,22 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import TrialBlocker from "./components/TrialBlocker";
 import WelcomePage from "./pages/WelcomePage";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />
+  },
+  {
+    path: "/reset-password",
+    element: <ResetPassword />
   },
   {
     path: "/signup",

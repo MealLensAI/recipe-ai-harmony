@@ -754,3 +754,117 @@ def change_password():
     except Exception as e:
         current_app.logger.error(f"Error changing password: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Server error'}), 500
+
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Request a password reset email to be sent via Supabase Auth.
+    Always returns a generic success message to prevent email enumeration.
+    """
+    try:
+        data = request.get_json() or {}
+        email = str(data.get('email', '')).strip().lower()
+        provided_redirect = str(data.get('redirect_url', '')).strip()
+        if not email or '@' not in email:
+            # Return generic response regardless of validity to avoid enumeration
+            return jsonify({'status': 'success', 'message': 'If an account exists, a reset link has been sent.'}), 200
+
+        # Use anon client for auth action
+        client = get_supabase_client(use_admin=False)
+        if not client:
+            # Still return generic response
+            current_app.logger.error('Supabase client not available for forgot-password')
+            return jsonify({'status': 'success', 'message': 'If an account exists, a reset link has been sent.'}), 200
+
+        # Build redirect URL from environment
+        frontend_base = os.environ.get('FRONTEND_BASE_URL', '').strip().rstrip('/')
+        if not frontend_base:
+            # Try to infer from request origin for local/dev flows
+            try:
+                origin = request.headers.get('Origin', '')
+                if origin:
+                    frontend_base = origin.rstrip('/')
+            except Exception:
+                frontend_base = ''
+        if not frontend_base:
+            frontend_base = 'https://www.meallensai.com'
+        default_redirect = f"{frontend_base}/reset-password"
+        redirect_url = provided_redirect or os.environ.get('RESET_PASSWORD_REDIRECT_URL', default_redirect)
+
+        sent = False
+        try:
+            # supabase-py v2 signature (options dict)
+            client.auth.reset_password_email(email, { 'redirect_to': redirect_url })
+            sent = True
+        except TypeError:
+            try:
+                # Alternate signature (kwarg)
+                client.auth.reset_password_email(email, redirect_to=redirect_url)
+                sent = True
+            except Exception as inner_err:
+                current_app.logger.info(f"reset_password_email kwarg form failed: {str(inner_err)}")
+        except AttributeError:
+            # Fallback to alternate method name if present
+            try:
+                reset_fn = getattr(getattr(client, 'auth', None), 'reset_password_for_email', None)
+                if callable(reset_fn):
+                    try:
+                        reset_fn(email, { 'redirect_to': redirect_url })
+                        sent = True
+                    except TypeError:
+                        reset_fn(email, redirect_to=redirect_url)
+                        sent = True
+            except Exception as e2:
+                current_app.logger.warning(f"Supabase reset password method not available: {str(e2)}")
+
+        if not sent:
+            current_app.logger.warning('Failed to invoke Supabase password reset email (method mismatch or error).')
+
+        # Always return generic success
+        return jsonify({'status': 'success', 'message': 'If an account exists, a reset link has been sent.'}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error in forgot-password: {str(e)}")
+        # Do not reveal details; keep response generic
+        return jsonify({'status': 'success', 'message': 'If an account exists, a reset link has been sent.'}), 200
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """
+    Complete password reset using a Supabase recovery access token from the email link.
+    Body: { access_token: string, new_password: string }
+    """
+    try:
+        data = request.get_json() or {}
+        access_token = str(data.get('access_token') or '').strip()
+        new_password = str(data.get('new_password') or '')
+        if not access_token or not new_password or len(new_password) < 6:
+            return jsonify({'status': 'error', 'message': 'Invalid parameters'}), 400
+
+        # Use admin to get user from token, then update password
+        auth_service = get_auth_service()
+        admin_client = get_supabase_client(use_admin=True)
+        if not auth_service or not admin_client:
+            return jsonify({'status': 'error', 'message': 'Auth service unavailable'}), 500
+
+        try:
+            user_obj = admin_client.auth.get_user(access_token)
+            supa_user = getattr(user_obj, 'user', None) if user_obj else None
+            user_id = getattr(supa_user, 'id', None) if supa_user else None
+        except Exception as e:
+            current_app.logger.error(f"reset-password get_user failed: {str(e)}")
+            user_id = None
+
+        if not user_id:
+            return jsonify({'status': 'error', 'message': 'Invalid or expired token'}), 401
+
+        try:
+            admin_client.auth.admin.update_user_by_id(user_id, { 'password': str(new_password) })
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Failed to update password: {str(e)}'}), 500
+
+        return jsonify({'status': 'success', 'message': 'Password reset successful. Please sign in.'}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error in reset-password: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Server error'}), 500
