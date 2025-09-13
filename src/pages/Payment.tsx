@@ -62,7 +62,7 @@ const MONTHLY_PLANS = [
     label: '$2.5 Weekly',
     price: 2.5,              // USD price
     duration: '1 week',
-    durationDays: 7,         // Use 1 day for testing (change back to 7 for production)
+    durationDays: 1,         // Use 1 day for testing (change back to 7 for production)
     paystackAmount: 2.5,     // USD amount for Paystack
     highlight: false,
     icon: <Camera className="h-8 w-8 text-blue-500" />,

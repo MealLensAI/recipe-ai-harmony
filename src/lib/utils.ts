@@ -207,17 +207,11 @@ export function useProvideAuth(): AuthContextType {
           console.log('✅ refreshAuth completed successfully')
 
           // Trigger trial status refresh after successful login
-          // This will show loading spinner while determining subscription status
+          // Clear only computed access cache; preserve trial/subscription timestamps
           try {
             await import('./trialService')
-            // Clear any cached trial status to force fresh check
             safeRemoveItem('meallensai_user_access_status')
-            // Also clear trial and subscription data to force re-initialization
-            const userId = effectiveUser.uid || 'anon'
-            safeRemoveItem(`meallensai_trial_start:${userId}`)
-            safeRemoveItem(`meallensai_subscription_status:${userId}`)
-            safeRemoveItem(`meallensai_subscription_expires_at:${userId}`)
-            console.log('🔄 Cleared trial/subscription cache after login')
+            console.log('🔄 Cleared user access cache after login (preserved trial start)')
           } catch (error) {
             console.error('Error refreshing trial status after login:', error)
           }
