@@ -63,7 +63,7 @@ const MONTHLY_PLANS = [
     label: '$2.5 Weekly',
     price: 2.5,              // USD price
     duration: '1 week',
-    durationMinutes: 1,    // 1 minute for testing
+    durationMinutes: 10080,    // 1 minute for testing
     paystackAmount: 2.5,     // USD amount for Paystack
     highlight: false,
     icon: <Camera className="h-8 w-8 text-blue-500" />,
@@ -72,7 +72,7 @@ const MONTHLY_PLANS = [
     label: '$5 Per 2 Weeks',
     price: 5,              // USD price
     duration: '2 weeks',
-    durationMinutes: 1,  // 1 minute for testing
+    durationMinutes: 20160,  // 1 minute for testing
     paystackAmount: 5,     // USD amount for Paystack
     highlight: false,
     icon: <Utensils className="h-8 w-8 text-green-500" />,
@@ -81,7 +81,7 @@ const MONTHLY_PLANS = [
     label: '$10 Per Month',
     price: 10,             // USD price
     duration: '1 month',
-    durationMinutes: 1,  // 1 minute for testing
+    durationMinutes: 43200,  // 1 minute for testing
     paystackAmount: 10,    // USD amount for Paystack
     highlight: true,       // Most popular
     icon: <Heart className="h-8 w-8 text-red-500" />,
@@ -92,7 +92,7 @@ const YEARLY_PLAN = {
   label: '$100/year',
   price: 100,              // USD price
   duration: '1 year',
-  durationMinutes: 1,    // 1 minute for testing
+  durationMinutes: 525600,    // 1 minute for testing
   paystackAmount: 100,     // USD amount for Paystack
   highlight: false,
   icon: <Calendar className="h-8 w-8 text-purple-500" />,
@@ -446,7 +446,7 @@ const Payment: React.FC = () => {
         key: publicKey,
         email: resolvedEmail,
         amount: Math.round(plan.paystackAmount * 100), // Convert to cents (smallest USD unit)
-        currency: 'KES',
+        currency: 'USD',
         ref: '' + Math.floor(Math.random() * 1000000000 + 1),
         metadata: {
           custom_fields: [
