@@ -16,6 +16,25 @@ class SubscriptionService:
         self.supabase: Client = create_client(supabase_url, supabase_key)
         self.paystack_secret_key = os.getenv('PAYSTACK_SECRET_KEY')
         self.paystack_public_key = os.getenv('PAYSTACK_PUBLIC_KEY')
+        # Time unit override for testing: set SUB_TIME_UNIT=minutes to make 1 day == 1 minute
+        # Supported values: 'days' (default), 'minutes', 'seconds'
+        self.subscription_time_unit = (os.getenv('SUB_TIME_UNIT') or 'days').strip().lower()
+
+    def _compute_end_date(self, start_date: datetime, duration_days: int) -> datetime:
+        """
+        Compute subscription end date respecting test-time overrides.
+
+        If SUB_TIME_UNIT=minutes, we interpret "duration_days" as minutes for fast testing.
+        If SUB_TIME_UNIT=seconds, interpret as seconds.
+        Default is real days.
+        """
+        unit = self.subscription_time_unit
+        if unit == 'minutes':
+            return start_date + timedelta(minutes=duration_days)
+        if unit == 'seconds':
+            return start_date + timedelta(seconds=duration_days)
+        # default: days
+        return start_date + timedelta(days=duration_days)
         
     def get_user_subscription_status(self, user_id: str) -> Dict[str, Any]:
         """
@@ -41,18 +60,31 @@ class SubscriptionService:
                     }
                 }
             
-            # Get active subscription directly from table
+            # Get ALL subscriptions for user (not just active ones) to check for expiry
             print(f"🔍 Looking for subscriptions for user ID: {supabase_user_id}")
             subscription_result = self.supabase.table('user_subscriptions').select(
                 'id, plan_id, status, current_period_start, current_period_end, created_at, updated_at'
-            ).eq('user_id', supabase_user_id).eq('status', 'active').execute()
+            ).eq('user_id', supabase_user_id).execute()
             print(f"🔍 Subscription query result: {subscription_result.data}")
             
             subscription = None
             has_active_subscription = False
+            # Check if user has ever made any payments (completed transactions)
+            payment_result = self.supabase.table('payment_transactions').select('id').eq('user_id', supabase_user_id).eq('status', 'completed').execute()
+            has_ever_paid = len(payment_result.data) > 0
+            
+            # Also check if user has ever had a subscription (fallback for users who paid before payment transactions were working)
+            has_ever_had_subscription = has_ever_paid or len(subscription_result.data) > 0
+            
+            print(f"🔍 Payment history check:")
+            print(f"   User ID: {supabase_user_id}")
+            print(f"   Payment transactions found: {len(payment_result.data)}")
+            print(f"   Subscriptions found: {len(subscription_result.data)}")
+            print(f"   Has ever paid (transactions): {has_ever_paid}")
+            print(f"   Has ever had subscription: {has_ever_had_subscription}")
             
             if subscription_result.data:
-                # Check if subscription is still active (not expired)
+                # Check all subscriptions for expiry, regardless of current status
                 from datetime import datetime, timezone
                 now = datetime.now(timezone.utc)
                 
@@ -60,7 +92,24 @@ class SubscriptionService:
                     end_date_str = sub.get('current_period_end')
                     if end_date_str:
                         end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
-                        if end_date > now:
+                        print(f"🔍 Checking subscription {sub['id']}: status={sub['status']}, end_date={end_date}, now={now}, expired={end_date <= now}")
+                        
+                        # If subscription is marked as active but expired, auto-expire it
+                        if sub['status'] == 'active' and end_date <= now:
+                            print(f"⚠️ Subscription {sub['id']} is expired, auto-expiring...")
+                            try:
+                                self.supabase.table('user_subscriptions').update({
+                                    'status': 'expired',
+                                    'updated_at': now.isoformat()
+                                }).eq('id', sub['id']).execute()
+                                print(f"✅ Auto-expired subscription {sub['id']} (end_date: {end_date}, now: {now})")
+                            except Exception as e:
+                                print(f"⚠️ Failed to auto-expire subscription {sub['id']}: {e}")
+                            # Don't consider this subscription as active
+                            continue
+                        
+                        # Only consider subscription active if it's marked as active AND not expired
+                        if sub['status'] == 'active' and end_date > now:
                             subscription = {
                                 'id': sub['id'],
                                 'plan_id': sub['plan_id'],
@@ -72,6 +121,7 @@ class SubscriptionService:
                                 'updated_at': sub['updated_at']
                             }
                             has_active_subscription = True
+                            print(f"✅ Subscription {sub['id']} is still active")
                             break
             
             # Get trial info
@@ -83,18 +133,19 @@ class SubscriptionService:
                 trial_data = trial_result.data[0]
                 trial = {
                     'id': trial_data['id'],
-                    'start_date': trial_data['start_date'],
-                    'end_date': trial_data['end_date'],
-                    'is_used': trial_data['is_used'],
-                    'created_at': trial_data['created_at']
+                    'start_date': trial_data.get('start_date'),
+                    'end_date': trial_data.get('end_date'),
+                    'is_used': trial_data.get('is_used'),
+                    'created_at': trial_data.get('created_at')
                 }
-                # Determine trial active
+                # Determine trial active: active ONLY if not used and end_date in future
                 try:
                     from datetime import datetime, timezone
                     if trial_data.get('end_date'):
                         trial_end = datetime.fromisoformat(str(trial_data['end_date']).replace('Z', '+00:00'))
                         now_dt = datetime.now(timezone.utc)
-                        trial_active = trial_end > now_dt
+                        is_used = bool(trial_data.get('is_used'))
+                        trial_active = (trial_end > now_dt) and (not is_used)
                 except Exception:
                     trial_active = False
             
@@ -105,6 +156,7 @@ class SubscriptionService:
                 'success': True,
                 'data': {
                     'has_active_subscription': has_active_subscription,
+                    'has_ever_had_subscription': has_ever_had_subscription,
                     'subscription': subscription,
                     'trial': trial,
                     'can_access_app': can_access_app
@@ -253,9 +305,9 @@ class SubscriptionService:
             plan = plan_result.data[0]
             duration_days = plan.get('duration_days', 30)
             
-            # Calculate subscription end date
+            # Calculate subscription end date (supports SUB_TIME_UNIT override)
             start_date = datetime.now()
-            end_date = start_date + timedelta(days=duration_days)
+            end_date = self._compute_end_date(start_date, duration_days)
             
             # Try to get user from Supabase auth first
             supabase_user_id = user_id if user_id and user_id != 'anon' else None
@@ -329,9 +381,9 @@ class SubscriptionService:
         Activate a subscription for a specific number of days and mark trial as used
         """
         try:
-            # Calculate subscription end date
+            # Calculate subscription end date (supports SUB_TIME_UNIT override)
             start_date = datetime.now()
-            end_date = start_date + timedelta(days=duration_days)
+            end_date = self._compute_end_date(start_date, duration_days)
             
             # Use provided user_id (Supabase auth)
             supabase_user_id = user_id if user_id and user_id != 'anon' and user_id != 'anonymous' else None
@@ -342,6 +394,39 @@ class SubscriptionService:
                     'error': 'User not found - invalid user ID'
                 }
             
+            # Cleanup: remove prior non-active rows to avoid UNIQUE(user_id,status) conflicts
+            try:
+                # Delete old 'expired' and 'cancelled' rows first (test-mode friendly)
+                self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'expired').execute()
+                self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'cancelled').execute()
+                # Expire any stale "active" subscriptions whose end date has passed
+                now_iso = datetime.now().isoformat()
+                self.supabase.table('user_subscriptions').update({
+                    'status': 'expired',
+                    'updated_at': now_iso
+                }).eq('user_id', supabase_user_id).eq('status', 'active').lte('current_period_end', now_iso).execute()
+            except Exception as _:
+                # Non-fatal; continue
+                pass
+            
+            # In test mode (SUB_TIME_UNIT != 'days'), proactively end any existing active subscription to avoid unique constraint conflicts
+            try:
+                if self.subscription_time_unit in ('minutes', 'seconds'):
+                    # In test mode, clear out any non-active rows to avoid UNIQUE collisions,
+                    # then force-end any active row immediately
+                    self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'expired').execute()
+                    self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'cancelled').execute()
+                    now_iso_force = datetime.now().isoformat()
+                    active_subs = self.supabase.table('user_subscriptions').select('id').eq('user_id', supabase_user_id).eq('status', 'active').execute()
+                    if active_subs.data:
+                        self.supabase.table('user_subscriptions').update({
+                            'status': 'expired',
+                            'current_period_end': now_iso_force,
+                            'updated_at': now_iso_force
+                        }).eq('user_id', supabase_user_id).eq('status', 'active').execute()
+            except Exception:
+                pass
+
             # Check if user has a profile, if not create one
             profile_result = self.supabase.table('profiles').select('*').eq('id', supabase_user_id).execute()
             if not profile_result.data:
@@ -439,34 +524,160 @@ class SubscriptionService:
                 'error': str(e)
             }
     
-    def save_payment_transaction(self, user_id: str, paystack_data: Dict[str, Any]) -> Dict[str, Any]:
+    def activate_subscription_for_minutes(self, user_id: str, duration_minutes: int, paystack_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Activate a subscription for a specific number of minutes and mark trial as used
+        """
+        try:
+            # For minutes-based subscriptions, we store the minutes directly in duration_days
+            # and calculate end date using minutes directly
+            duration_days = duration_minutes  # Store minutes in the duration_days field
+            
+            # Calculate subscription end date directly using minutes (UTC time)
+            from datetime import timezone
+            start_date = datetime.now(timezone.utc)
+            end_date = start_date + timedelta(minutes=duration_minutes)
+            
+            print(f"🕐 Subscription time calculation:")
+            print(f"   Duration minutes: {duration_minutes}")
+            print(f"   Start date (UTC): {start_date}")
+            print(f"   End date (UTC): {end_date}")
+            print(f"   Time difference: {end_date - start_date}")
+            
+            # Use provided user_id (Supabase auth)
+            supabase_user_id = user_id if user_id and user_id != 'anon' and user_id != 'anonymous' else None
+            
+            if not supabase_user_id:
+                return {
+                    'success': False,
+                    'error': 'User not found - invalid user ID'
+                }
+            
+            # Cleanup: remove prior non-active rows to avoid UNIQUE(user_id,status) conflicts
+            try:
+                self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).neq('status', 'active').execute()
+            except Exception as cleanup_error:
+                print(f"⚠️ Cleanup warning (non-critical): {cleanup_error}")
+            
+            # Create or get subscription plan
+            plan_name = paystack_data.get('plan', 'Custom Plan')
+            plan_result = self.supabase.table('subscription_plans').select('*').eq('name', plan_name).execute()
+            
+            if not plan_result.data:
+                # Create plan if it doesn't exist
+                plan_data = {
+                    'name': plan_name,
+                    'display_name': plan_name,
+                    'price_usd': paystack_data.get('amount', 0),
+                    'duration_days': duration_days,
+                    'features': ['Full app access'],
+                    'is_active': True
+                }
+                plan_result = self.supabase.table('subscription_plans').insert(plan_data).execute()
+            
+            plan = plan_result.data[0]
+            
+            # Create subscription record
+            subscription_data = {
+                'user_id': supabase_user_id,
+                'plan_id': plan['id'],
+                'current_period_start': start_date.isoformat(),
+                'current_period_end': end_date.isoformat(),
+                'status': 'active',
+                'metadata': {
+                    'paystack_reference': paystack_data.get('reference', ''),
+                    'paystack_transaction_id': paystack_data.get('transaction_id', ''),
+                    'amount_paid': paystack_data.get('amount', 0),
+                    'plan_name': plan_name
+                }
+            }
+            
+            subscription_result = self.supabase.table('user_subscriptions').insert(subscription_data).execute()
+            
+            if subscription_result.data:
+                # Mark trial as used
+                self.supabase.table('user_trials').update({'is_used': True}).eq('user_id', supabase_user_id).execute()
+                
+                # Save payment transaction
+                self.save_payment_transaction(supabase_user_id, paystack_data, plan['id'])
+                
+                return {
+                    'success': True,
+                    'message': 'Subscription activated successfully',
+                    'data': {
+                        'subscription_id': subscription_result.data[0]['id'],
+                        'plan_name': plan_name,
+                        'duration_minutes': duration_minutes,
+                        'start_date': start_date.isoformat(),
+                        'end_date': end_date.isoformat(),
+                        'status': 'active'
+                    }
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Failed to create subscription record'
+                }
+                
+        except Exception as e:
+            print(f"❌ Error activating subscription for minutes: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def save_payment_transaction(self, user_id: str, paystack_data: Dict[str, Any], plan_id: str = None) -> Dict[str, Any]:
         """
         Save payment transaction details
         """
         try:
-            # Prepare transaction data
+            # Get plan_id if not provided
+            if not plan_id:
+                plan_name = paystack_data.get('plan', 'Custom Plan')
+                plan_result = self.supabase.table('subscription_plans').select('id').eq('name', plan_name).execute()
+                if plan_result.data:
+                    plan_id = plan_result.data[0]['id']
+                else:
+                    print(f"⚠️ Warning: Could not find plan_id for plan: {plan_name}")
+                    plan_id = 'unknown-plan-id'  # Fallback
+            
+            # Prepare transaction data (using actual table schema)
             transaction_data = {
                 'user_id': user_id,
+                'plan_id': plan_id,  # Required field
                 'paystack_transaction_id': paystack_data.get('transaction_id', paystack_data.get('id')),
-                'paystack_reference': paystack_data.get('reference'),
-                'amount': float(paystack_data.get('amount', 0)) / 100,  # Convert from kobo to naira
-                'currency': paystack_data.get('currency', 'NGN'),
-                'status': 'success' if paystack_data.get('status') == 'success' else 'pending',
-                'payment_method': paystack_data.get('channel'),
-                'description': paystack_data.get('description', ''),
+                'paystack_reference': paystack_data.get('reference'),  # Use paystack_reference (not payment_reference)
+                'amount': float(paystack_data.get('amount', 0)),  # Already in USD, no conversion needed
+                'currency': paystack_data.get('currency', 'USD'),
+                'status': 'completed' if paystack_data.get('status') == 'success' else 'pending',
+                'payment_method': paystack_data.get('channel', 'paystack'),
                 'metadata': paystack_data
             }
+            
+            print(f"💳 Saving payment transaction:")
+            print(f"   User ID: {user_id}")
+            print(f"   Plan ID: {plan_id}")
+            print(f"   Amount: {transaction_data['amount']}")
+            print(f"   Status: {transaction_data['status']}")
+            print(f"   Reference: {transaction_data['paystack_reference']}")
             
             # Insert transaction record
             result = self.supabase.table('payment_transactions').insert(transaction_data).execute()
             
+            print(f"💳 Payment transaction insert result:")
+            print(f"   Success: {bool(result.data)}")
+            print(f"   Data: {result.data}")
+            print(f"   Error: {result.error if hasattr(result, 'error') else 'None'}")
+            
             if result.data:
+                print(f"✅ Payment transaction saved successfully: {result.data[0]['id']}")
                 return {
                     'success': True,
                     'transaction_id': result.data[0]['id'],
                     'message': 'Payment transaction saved successfully'
                 }
             
+            print(f"❌ Failed to save payment transaction")
             return {
                 'success': False,
                 'error': 'Failed to save transaction'

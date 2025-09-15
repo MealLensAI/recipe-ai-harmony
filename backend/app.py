@@ -53,6 +53,19 @@ except Exception as e:
     print(f"Payment routes error: {e}")
     print("Payment endpoints will be disabled.")
 
+# Lifecycle routes import
+try:
+    from routes.lifecycle_routes import lifecycle_bp
+    LIFECYCLE_ROUTES_ENABLED = True
+    print("Lifecycle routes loaded successfully.")
+except ImportError as e:
+    LIFECYCLE_ROUTES_ENABLED = False
+    print(f"Lifecycle routes not available: {e}")
+except Exception as e:
+    LIFECYCLE_ROUTES_ENABLED = False
+    print(f"Lifecycle routes error: {e}")
+    print("Lifecycle endpoints will be disabled.")
+
 def create_app():
   """
   Factory function to create and configure the Flask application.
@@ -169,6 +182,13 @@ def create_app():
       print("Payment routes registered.")
   else:
       print("Payment routes disabled.")
+
+  # Register lifecycle routes
+  if LIFECYCLE_ROUTES_ENABLED:
+      app.register_blueprint(lifecycle_bp, url_prefix='/api/lifecycle')
+      print("Lifecycle routes registered.")
+  else:
+      print("Lifecycle routes disabled.")
 
   return app
 

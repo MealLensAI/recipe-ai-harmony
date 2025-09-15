@@ -56,13 +56,14 @@ const FEATURES = [
 
 ];
 
-// Pricing plans (USD). DurationDays controls subscription days after payment.
+// Pricing plans (USD). DurationMinutes controls subscription minutes after payment.
+// 🧪 TEST MODE: All plans use 1 minute for quick testing
 const MONTHLY_PLANS = [
   {
     label: '$2.5 Weekly',
     price: 2.5,              // USD price
     duration: '1 week',
-    durationDays: 1,         // Use 1 day for testing (change back to 7 for production)
+    durationMinutes: 1,    // 1 minute for testing
     paystackAmount: 2.5,     // USD amount for Paystack
     highlight: false,
     icon: <Camera className="h-8 w-8 text-blue-500" />,
@@ -71,7 +72,7 @@ const MONTHLY_PLANS = [
     label: '$5 Per 2 Weeks',
     price: 5,              // USD price
     duration: '2 weeks',
-    durationDays: 2,       // Use 2 days for testing
+    durationMinutes: 1,  // 1 minute for testing
     paystackAmount: 5,     // USD amount for Paystack
     highlight: false,
     icon: <Utensils className="h-8 w-8 text-green-500" />,
@@ -80,7 +81,7 @@ const MONTHLY_PLANS = [
     label: '$10 Per Month',
     price: 10,             // USD price
     duration: '1 month',
-    durationDays: 3,       // Use 3 days for testing
+    durationMinutes: 1,  // 1 minute for testing
     paystackAmount: 10,    // USD amount for Paystack
     highlight: true,       // Most popular
     icon: <Heart className="h-8 w-8 text-red-500" />,
@@ -91,13 +92,14 @@ const YEARLY_PLAN = {
   label: '$100/year',
   price: 100,              // USD price
   duration: '1 year',
+  durationMinutes: 1,    // 1 minute for testing
   paystackAmount: 100,     // USD amount for Paystack
   highlight: false,
   icon: <Calendar className="h-8 w-8 text-purple-500" />,
 };
 
 const Payment: React.FC = () => {
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('');
@@ -444,7 +446,7 @@ const Payment: React.FC = () => {
         key: publicKey,
         email: resolvedEmail,
         amount: Math.round(plan.paystackAmount * 100), // Convert to cents (smallest USD unit)
-        currency: 'USD',
+        currency: 'KES',
         ref: '' + Math.floor(Math.random() * 1000000000 + 1),
         metadata: {
           custom_fields: [
@@ -534,7 +536,7 @@ const Payment: React.FC = () => {
               console.log(`👤 User: ${userId}`);
               console.log(`📧 Email: ${email}`);
               console.log(`📋 Plan: ${plan.label}`);
-              console.log(`⏰ Duration: ${plan.durationDays} days`);
+              console.log(`⏰ Duration: ${plan.durationMinutes} minutes`);
               console.log(`🔍 User data from localStorage:`, userData);
               console.log(`🔍 Supabase user ID:`, supabaseUserId);
               console.log(`🔍 Is valid UUID:`, isValidUuid);
@@ -593,7 +595,7 @@ const Payment: React.FC = () => {
               const backendPayload: any = {
                 email: resolvedEmail,
                 plan_name: plan.label,
-                plan_duration_days: plan.durationDays || 30,
+                plan_duration_minutes: plan.durationMinutes || 30,
                 paystack_data: {
                   reference: response.reference,
                   transaction_id: response.transaction_id,
@@ -715,7 +717,12 @@ const Payment: React.FC = () => {
         ) : (
           <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
             <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
-            {isTrialExpired ? 'Your trial has ended. Upgrade to continue using MealLensAI.' : `Trial: ${formattedRemainingTime}`}
+            {isTrialExpired
+              ? (hasEverHadSubscription
+                ? 'Your subscription has ended. Renew to continue using MealLensAI.'
+                : 'Your trial has ended. Upgrade to continue using MealLensAI.')
+              : `Trial: ${formattedRemainingTime}`
+            }
           </div>
         )}
 

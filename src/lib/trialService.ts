@@ -1,3 +1,4 @@
+
 export interface TrialInfo {
   isActive: boolean;
   startDate: Date;
@@ -26,7 +27,7 @@ import { safeGetItem } from '@/lib/utils';
 
 export class TrialService {
   // Trial duration. For production use 24 * 60 * 60 * 1000.
-  private static TRIAL_DURATION = 48 * 60 * 60 * 1000; // 0 seconds for testing
+  private static TRIAL_DURATION = 60 * 1000; // 0 seconds for testing
 
   // Time unit used for subscription testing. Set to 'days' for normal use,
   // change to 'minutes' to speed up testing.
@@ -169,7 +170,7 @@ export class TrialService {
   /**
    * Fetch subscription status from backend
    */
-  static async fetchSubscriptionFromBackend(): Promise<{ hasActiveSubscription: boolean; subscriptionInfo: SubscriptionInfo | null }> {
+  static async fetchSubscriptionFromBackend(): Promise<{ hasActiveSubscription: boolean; subscriptionInfo: SubscriptionInfo | null; trialInfo: any; hasEverHadSubscription?: boolean }> {
     try {
       let userId = this.getCurrentUserId();
       if (userId === 'anon') {
@@ -179,11 +180,12 @@ export class TrialService {
           userId = resolved;
         } else {
           console.log('🔍 No user ID found, cannot fetch subscription from backend');
-          return { hasActiveSubscription: false, subscriptionInfo: null };
+          return { hasActiveSubscription: false, subscriptionInfo: null, trialInfo: null };
         }
       }
 
       console.log('🔄 Fetching subscription status from backend...');
+      console.log('🔍 User ID being used:', userId);
       console.log('🔍 Request URL:', `${this.API_BASE_URL}/subscription/status?user_id=${userId}`);
       const response = await fetch(`${this.API_BASE_URL}/subscription/status?user_id=${userId}`, {
         method: 'GET',
@@ -201,19 +203,34 @@ export class TrialService {
           const data = result.data as any;
           if (data.has_active_subscription && data.subscription) {
             const sub = data.subscription;
+            const now = Date.now();
+            const endTime = new Date(sub.end_date).getTime();
+            const isExpired = endTime <= now;
+
             const subscriptionInfo: SubscriptionInfo = {
-              isActive: true,
-              isExpired: false,
+              isActive: !isExpired,  // Only active if not expired
+              isExpired: isExpired,  // Set based on actual expiration
               startDate: sub.start_date,
               endDate: sub.end_date,
               planId: sub.plan_id,
               planName: sub.plan_name || 'Plan',
-              formattedRemainingTime: this.formatRemaining(new Date(sub.end_date).getTime() - Date.now()),
+              formattedRemainingTime: this.formatRemaining(endTime - now),
               progressPercentage: 0
             };
-            console.log('✅ Active subscription found in backend');
-            return { hasActiveSubscription: true, subscriptionInfo };
+
+            console.log('✅ Subscription found in backend:', {
+              isActive: !isExpired,
+              isExpired: isExpired,
+              endDate: sub.end_date,
+              now: new Date(now).toISOString(),
+              remaining: endTime - now
+            });
+
+            return { hasActiveSubscription: !isExpired, subscriptionInfo, trialInfo: data.trial, hasEverHadSubscription: data.has_ever_had_subscription };
           }
+
+          // Even if no active subscription, return the has_ever_had_subscription flag
+          return { hasActiveSubscription: false, subscriptionInfo: null, trialInfo: data.trial, hasEverHadSubscription: data.has_ever_had_subscription };
         }
       } else {
         console.log('❌ Backend subscription fetch failed:', response.status);
@@ -222,7 +239,7 @@ export class TrialService {
       console.error('❌ Error fetching subscription from backend:', error);
     }
 
-    return { hasActiveSubscription: false, subscriptionInfo: null };
+    return { hasActiveSubscription: false, subscriptionInfo: null, trialInfo: null, hasEverHadSubscription: false };
   }
 
   /**
@@ -262,22 +279,51 @@ export class TrialService {
   }
 
   /**
+   * Get trial information from backend
+   */
+  static async getTrialInfoFromBackend(): Promise<any> {
+    console.log('🔄 Getting trial info from backend...');
+
+    const backendResult = await this.fetchSubscriptionFromBackend();
+
+    if (backendResult.trialInfo) {
+      console.log('✅ Using trial info from backend:', backendResult.trialInfo);
+      return backendResult.trialInfo;
+    }
+
+    console.log('❌ No trial info found in backend');
+    return null;
+  }
+
+  /**
    * Check if user can access the app (either trial active or subscription active)
    */
   static async canAccessApp(): Promise<boolean> {
+    try {
+      let userId = this.getCurrentUserId();
+      if (userId === 'anon') {
+        const resolved = await this.resolveUserIdFromBackend();
+        if (resolved) userId = resolved;
+      }
+      const response = await fetch(`${this.API_BASE_URL}/subscription/status?user_id=${userId}`, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const result = await response.json();
+        const canAccess = !!(result?.data?.can_access_app);
+        console.log('🔍 Access check (backend):', result?.data);
+        return canAccess;
+      }
+    } catch (e) {
+      console.error('Error checking access from backend:', e);
+    }
+    // Fallback: previous local logic
     const hasSubscription = await this.hasActiveSubscription();
     const trialInfo = this.getTrialInfo();
     const trialActive = trialInfo ? !trialInfo.isExpired : false;
-    const canAccess = hasSubscription || trialActive;
-
-    console.log('🔍 Access check:', {
-      hasSubscription,
-      trialActive,
-      canAccess,
-      trialInfo: trialInfo ? { isExpired: trialInfo.isExpired, remainingTime: trialInfo.remainingTime } : null
-    });
-
-    return canAccess;
+    return hasSubscription || trialActive;
   }
 
   /**

@@ -10,7 +10,7 @@ interface TrialBlockerProps {
 const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   const navigate = useNavigate();
   const [showTrialModal, setShowTrialModal] = useState(false);
-  const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, isLoading } = useTrial();
+  const { canAccess, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, isLoading } = useTrial();
 
   // Track current path without relying on router hooks
   const [currentPath, setCurrentPath] = useState<string>(
@@ -99,8 +99,7 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   }
 
   // If user can't access and is on a restricted page, show blocking overlay
-  // But only if they don't have an active subscription
-  if (!canAccess && !hasActiveSubscription && !allowedPaths.includes(currentPath)) {
+  if (!canAccess && !allowedPaths.includes(currentPath)) {
     return (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -110,9 +109,14 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {hasEverHadSubscription ? 'Subscription Expired' : 'Access Restricted'}
+            </h2>
             <p className="text-gray-600 mb-4">
-              Your trial period has expired. Please upgrade to continue using MealLensAI.
+              {hasEverHadSubscription
+                ? 'Your subscription has expired. Please renew to continue using MealLensAI.'
+                : 'Your trial period has expired. Please upgrade to continue using MealLensAI.'
+              }
             </p>
             <button
               onClick={() => {
@@ -120,14 +124,14 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
               }}
               className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 transition-colors"
             >
-              Upgrade Now
+              {hasEverHadSubscription ? 'Renew Subscription' : 'Upgrade Now'}
             </button>
           </div>
         </div>
         <TrialExpiredModal
           isOpen={showTrialModal}
           onClose={() => setShowTrialModal(false)}
-          isSubscriptionExpired={hasActiveSubscription && isSubscriptionExpired}
+          isSubscriptionExpired={hasEverHadSubscription && isSubscriptionExpired}
         />
         {children}
       </>

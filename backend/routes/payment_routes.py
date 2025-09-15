@@ -501,13 +501,13 @@ def handle_payment_success():
         user_id = data.get('user_id')
         email = data.get('email')
         plan_name = data.get('plan_name')
-        plan_duration_days = data.get('plan_duration_days', 30)
+        plan_duration_minutes = data.get('plan_duration_minutes', 30)
         paystack_data = data.get('paystack_data', {})
         
         print(f"👤 User ID: {user_id}")
         print(f"📧 User Email: {email}")
         print(f"📋 Plan Name: {plan_name}")
-        print(f"⏰ Plan Duration: {plan_duration_days} days")
+        print(f"⏰ Plan Duration: {plan_duration_minutes} minutes")
         print(f"💳 Paystack Data: {paystack_data}")
         print(f"📊 Full request data: {data}")
         print("-" * 60)
@@ -527,9 +527,9 @@ def handle_payment_success():
         
         # Now activate subscription for the user
         print(f"🔄 Activating subscription for user ID: {user_id}...")
-        result = subscription_service.activate_subscription_for_days(
+        result = subscription_service.activate_subscription_for_minutes(
             user_id=user_id,  # Use the actual user ID from profiles table
-            duration_days=plan_duration_days,
+            duration_minutes=plan_duration_minutes,
             paystack_data=paystack_data
         )
         
@@ -573,7 +573,7 @@ def handle_payment_success():
                     'data': {
                         'subscription_id': 'existing',
                         'plan_name': plan_name,
-                        'duration_days': plan_duration_days,
+                        'duration_minutes': plan_duration_minutes,
                         'status': 'already_active'
                     }
                 }), 200
@@ -582,7 +582,7 @@ def handle_payment_success():
                 print(f"👤 User ID that failed: {user_id}")
                 print(f"📧 Email that failed: {email}")
                 print(f"📋 Plan that failed: {plan_name}")
-                print(f"⏰ Duration that failed: {plan_duration_days}")
+                print(f"⏰ Duration that failed: {plan_duration_minutes}")
                 print("=" * 60)
                 
                 return jsonify({

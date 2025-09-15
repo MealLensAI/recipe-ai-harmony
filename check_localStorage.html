@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check localStorage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .key {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .value {
+            color: #28a745;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>localStorage Contents</h1>
+
+    <h2>All localStorage Keys:</h2>
+    <div id="allKeys"></div>
+
+    <h2>User-related Keys:</h2>
+    <div id="userKeys"></div>
+
+    <h2>Test User ID:</h2>
+    <div id="testUserId"></div>
+
+    <script>
+        function displayLocalStorage() {
+            const allKeysDiv = document.getElementById('allKeys');
+            const userKeysDiv = document.getElementById('userKeys');
+            const testUserIdDiv = document.getElementById('testUserId');
+
+            // Display all keys
+            let allKeysHtml = '<pre>';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                allKeysHtml += `<span class="key">${key}:</span> <span class="value">${value}</span>\n`;
+            }
+            allKeysHtml += '</pre>';
+            allKeysDiv.innerHTML = allKeysHtml;
+
+            // Display user-related keys
+            let userKeysHtml = '<pre>';
+            const userKeys = ['user', 'currentUser', 'authUser', 'firebase:authUser', 'user_id', 'userId'];
+            userKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    userKeysHtml += `<span class="key">${key}:</span> <span class="value">${value}</span>\n`;
+                }
+            });
+            userKeysHtml += '</pre>';
+            userKeysDiv.innerHTML = userKeysHtml;
+
+            // Test with our known user ID
+            testUserIdDiv.innerHTML = `
+                <pre>
+                <span class="key">Test User ID:</span> <span class="value">cd9d8fed-6e82-4831-9890-99c87a2eb8cc</span>
+                
+                <span class="key">Instructions:</span>
+                1. If you see a different user ID above, that's why the frontend isn't working
+                2. You can manually set the correct user ID by running this in the console:
+                   localStorage.setItem('user', JSON.stringify({uid: 'cd9d8fed-6e82-4831-9890-99c87a2eb8cc'}));
+                3. Then refresh your main app
+                </pre>
+            `;
+        }
+
+        // Auto-run on load
+        window.onload = displayLocalStorage;
+
+        // Also run when localStorage changes
+        window.addEventListener('storage', displayLocalStorage);
+    </script>
+</body>
+
+</html>

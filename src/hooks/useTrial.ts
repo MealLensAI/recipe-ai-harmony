@@ -4,6 +4,7 @@ import { TrialService, TrialInfo, SubscriptionInfo } from '@/lib/trialService';
 export const useTrial = () => {
   const [trialInfo, setTrialInfo] = useState<TrialInfo | null>(null);
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
+  const [hasEverHadSubscription, setHasEverHadSubscription] = useState<boolean>(false);
   const [canAccess, setCanAccess] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -20,6 +21,10 @@ export const useTrial = () => {
       // Get subscription info ONLY from backend
       const subInfo = await TrialService.getSubscriptionInfo();
 
+      // Get hasEverHadSubscription from backend
+      const backendResult = await TrialService.fetchSubscriptionFromBackend();
+      const hasEverPaid = backendResult.hasEverHadSubscription || false;
+
       // Check access (this will also fetch from backend)
       const hasAccess = await TrialService.canAccessApp();
 
@@ -27,11 +32,13 @@ export const useTrial = () => {
         hasAccess,
         hasActiveSubscription: subInfo?.isActive,
         isTrialExpired: info?.isExpired,
+        hasEverPaid,
         isLoading: false
       });
 
       setTrialInfo(info);
       setSubscriptionInfo(subInfo);
+      setHasEverHadSubscription(hasEverPaid);
       setCanAccess(hasAccess);
       setIsLoading(false);
     } catch (error) {
@@ -107,6 +114,7 @@ export const useTrial = () => {
   return {
     trialInfo,
     subscriptionInfo,
+    hasEverHadSubscription,
     canAccess,
     isLoading,
     isTrialExpired: trialInfo?.isExpired ?? false,
