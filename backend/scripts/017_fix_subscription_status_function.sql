@@ -101,3 +101,4 @@ BEGIN
     RAISE NOTICE '✅ Function now properly checks trial and subscription status';
 END $$;
 
+

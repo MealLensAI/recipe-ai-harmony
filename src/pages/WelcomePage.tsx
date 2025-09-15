@@ -238,16 +238,18 @@ const WelcomePage: React.FC = () => {
                             </Badge>
 
                             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
-                                End Food Burnout.
-                                <span className="block text-orange-500">Eat Better With Less Effort.</span>
+                                 End Food Burnout & Eat Better
+                                <span className="block text-orange-500">Get Better Health From Your Food.</span>
                             </h1>
 
                             <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                                MealLensAI ends food burnout and decision fatigue. Get health‑first suggestions for conditions like diabetes, hypertension,
-                                renal care and PCOS. Snap a quick photo or list what you have and get multiple dish ideas from the same ingredients.
-                                When you’re ready to plan, generate automatic 7‑day meal plans tailored to your budget, location and pantry—so dinner
-                                stops being a daily struggle. All powered by AI.
-                            </p>
+                            MealLensAI helps you beat food burnout, improve your health by giving you food suggestions tailored to your health condition. 
+                            Snap your ingredients to get 10+ recipe ideas 
+                            with step-by-step instructions, or health-focused
+                             7-day meal plans for conditions like diabetes
+                              or hypertension. Generate budget-friendly,
+                               location-based meal plans, making dinner
+                                simple again, all powered by AI. </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                                 <Button

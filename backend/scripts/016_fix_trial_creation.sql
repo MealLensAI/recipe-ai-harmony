@@ -77,3 +77,4 @@ BEGIN
     RAISE NOTICE '✅ Fixed existing active trials that were incorrectly marked as used';
 END $$;
 
+
