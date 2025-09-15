@@ -714,13 +714,18 @@ const Payment: React.FC = () => {
               : `Active Subscription: ${subscriptionInfo?.formattedRemainingTime || formattedRemainingTime} remaining`
             }
           </div>
+        ) : hasEverHadSubscription ? (
+          // User has paid before but subscription is expired - show subscription expired message
+          <div className="mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 bg-red-50 border-red-200 text-red-700">
+            <Clock className="h-4 w-4 text-red-600" />
+            Your subscription has ended. Renew to continue using MealLensAI.
+          </div>
         ) : (
+          // User has never paid - show trial status
           <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
             <Clock className={`h-4 w-4 ${isTrialExpired ? 'text-red-600' : 'text-orange-600'}`} />
             {isTrialExpired
-              ? (hasEverHadSubscription
-                ? 'Your subscription has ended. Renew to continue using MealLensAI.'
-                : 'Your trial has ended. Upgrade to continue using MealLensAI.')
+              ? 'Your trial has ended. Upgrade to continue using MealLensAI.'
               : `Trial: ${formattedRemainingTime}`
             }
           </div>
