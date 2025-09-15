@@ -138,14 +138,16 @@ class SubscriptionService:
                     'is_used': trial_data.get('is_used'),
                     'created_at': trial_data.get('created_at')
                 }
-                # Determine trial active: active ONLY if not used and end_date in future
+                # Determine trial active: active if end_date in future (regardless of is_used)
+                # is_used should only be set when trial actually expires, not when user pays
                 try:
                     from datetime import datetime, timezone
                     if trial_data.get('end_date'):
                         trial_end = datetime.fromisoformat(str(trial_data['end_date']).replace('Z', '+00:00'))
                         now_dt = datetime.now(timezone.utc)
-                        is_used = bool(trial_data.get('is_used'))
-                        trial_active = (trial_end > now_dt) and (not is_used)
+                        # Trial is active if end_date is in the future
+                        # is_used is only set when trial actually expires, not when user pays
+                        trial_active = (trial_end > now_dt)
                 except Exception:
                     trial_active = False
             
