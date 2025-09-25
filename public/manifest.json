@@ -1,0 +1,21 @@
+{
+    "name": "MealLensAI - AI-Powered Cooking Assistant",
+    "short_name": "MealLensAI",
+    "description": "AI ingredient recognition, step-by-step recipes, dish detection, and personalized 7-day meal plans for chronic conditions and budget-based planning.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ff6b6b",
+    "icons": [
+        {
+            "src": "/assets/images/favicon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/assets/images/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
