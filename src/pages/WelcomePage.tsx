@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/utils';
 import Logo from '../components/Logo';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
     Camera,
@@ -71,51 +71,51 @@ const WelcomePage: React.FC = () => {
     const features = [
         {
             icon: <Sparkles className="h-8 w-8 text-white" />,
-            title: "Beat Food Burnout",
-            description: "Escape decision fatigue with done-for-you weekly plans and quick, reliable ideas when you’re exhausted or busy.",
+            title: "⭐️ End cooking Burnout",
+            description: "Problem: You buy ingredients for the month, but end up cooking the same 1–2 meals with them again and again. Soon, the food feels boring, food gets exhausting, decision fatigue kicks in, and you feel like you have \"no food\" even when your kitchen is full.\n\nSolution: Snap a photo of those ingredients, and our AI will identify them, suggest 10 new dishes, and guide you step-by-step on how to cook them each.\n\nImpact: No more food burnout—save money, reduce waste, and enjoy exciting new meals from what you already have.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
             icon: <Heart className="h-8 w-8 text-white" />,
-            title: "Health-First Planning",
-            description: "Support chronic conditions like diabetes, hypertension, renal care and PCOS with practical, tasty meal options.",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
-            icon: <Calendar className="h-8 w-8 text-white" />,
-            title: "Automatic 7‑Day Meal Plans",
-            description: "Family-friendly plans for breakfast, lunch, dinner and dessert—so meals run on autopilot without the stress.",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
-            icon: <Camera className="h-8 w-8 text-white" />,
-            title: "Use‑What‑You‑Have Cooking",
-            description: "Turn what’s in your kitchen into real dinners and reduce waste with smart suggestions that fit your pantry.",
+            title: "⭐️ Health-First Food Planning for Chronic Conditions",
+            description: "The Problem: Managing chronic conditions like diabetes, hypertension, renal care, and PCOS through diet is complex and confusing, and you need to eat food that will not worsen your health.\n\nOur Solution: Practical, 7-day meal plan (breakfast, lunch, dinner, dessert) designed specifically for health conditions so you gradually heal or maintain the sickness without getting it worse with AI instructions on how to cook them each.\n\nImpact: We're making healthy eating accessible and sustainable.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
             icon: <Search className="h-8 w-8 text-white" />,
-            title: "Budget & Location‑Based Plans",
-            description: "Tell us your budget and location—get affordable plans and smarter shopping lists matched to local options.",
+            title: "⭐️ Budget & Location-Based Plans",
+            description: "The Problem: Meal planning doesn't account for your budget or local availability\n\nOur Solution: Tell our AI your location and price budget, and our AI will generate 7 7-day meal plan (breakfast, lunch, dinner, dessert), Affordable meal plans that match local options.\n\nImpact: We're making healthy eating affordable for everyone",
+            gradient: "from-orange-500 to-orange-400"
+        },
+        {
+            icon: <Calendar className="h-8 w-8 text-white" />,
+            title: "⭐️ Automatic 7-Day Meal Plans",
+            description: "The Problem: Planning meals for a family is time-consuming and stressful\n\nOur Solution: Family-friendly plans for breakfast, lunch, dinner, and dessert that run on autopilot\n\nImpact: We're eliminating the \"what's for dinner?\" stress",
+            gradient: "from-orange-500 to-orange-400"
+        },
+        {
+            icon: <Camera className="h-8 w-8 text-white" />,
+            title: "⭐️ Use-What-You-Have Cooking",
+            description: "The Problem: Food waste is expensive and environmentally damaging\n\nOur Solution: Turn what's in your kitchen into real dinners with smart suggestions\n\nImpact: We're reducing waste and saving money",
             gradient: "from-orange-500 to-orange-400"
         },
         {
             icon: <Lightbulb className="h-8 w-8 text-white" />,
-            title: "Guided Recipes That Build Confidence",
-            description: "Clear, step‑by‑step instructions plus curated video resources—cook faster, better and with less stress.",
+            title: "⭐️ Guided Recipes That Build Confidence",
+            description: "The Problem: Cooking can be intimidating and time-consuming\n\nOur Solution: Clear, step-by-step instructions plus curated video resources\n\nImpact: We're building cooking confidence and reducing kitchen stress",
             gradient: "from-orange-500 to-orange-400"
         }
     ];
 
     const benefits = [
-        "End food burnout with reliable weekly plans",
-        "Health‑first support for diabetes, hypertension, renal, PCOS",
-        "Automatic 7‑day plans for families and individuals",
-        "Budget & location‑based plans with smart grocery lists",
-        "Use‑what‑you‑have cooking to reduce food waste",
-        "Step‑by‑step recipes with helpful video resources",
-        "No photo required—plan by budget and location too",
-        "Save time and money while eating better"
+        "End Cooking burnout with 10+ new dish suggestions from your ingredients",
+        "Health-first meal plans for diabetes, hypertension, renal care, and PCOS",
+        "Automatic 7-day meal plans that run on autopilot",
+        "Budget & location-based plans with local ingredient availability",
+        "Use-what-you-have cooking to reduce food waste and save money",
+        "Step-by-step guided recipes with video resources for confidence",
+        "AI-powered ingredient detection and meal suggestions",
+        "Save money, reduce waste, and enjoy exciting new meals"
     ];
 
     useEffect(() => {
@@ -238,17 +238,17 @@ const WelcomePage: React.FC = () => {
                             </Badge>
 
                             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
-                                 End Food Burnout & Eat Better
+                                End Cooking Burnout
                                 <span className="block text-orange-500">Get Better Health From Your Food.</span>
                             </h1>
 
                             <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                            MealLensAI helps you beat food burnout, improve your health by giving you food suggestions tailored to your health condition. 
-                            Snap your ingredients to get 10+ recipe ideas 
-                            with step-by-step instructions, or health-focused
-                             7-day meal plans for conditions like diabetes
-                              or hypertension. Generate budget-friendly,
-                               location-based meal plans, making dinner
+                                MealLensAI helps you end cooking burnout, improve your health by giving you food suggestions tailored to your health condition.
+                                Snap your ingredients to get 10+ recipe ideas
+                                with step-by-step instructions, or health-focused
+                                7-day meal plans for conditions like diabetes
+                                or hypertension. Generate budget-friendly,
+                                location-based meal plans, making dinner
                                 simple again, all powered by AI. </p>
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -347,29 +347,60 @@ const WelcomePage: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                        {features.map((feature, index) => (
-                            <div key={index} className="group relative">
-                                <Card className="h-full border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-2xl overflow-hidden">
-                                    <CardHeader className="text-center p-8">
-                                        <div className="flex justify-center mb-6">
-                                            <div className={`w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-lg`}>
-                                                {feature.icon}
-                                            </div>
-                                        </div>
-                                        <CardTitle className="text-xl font-bold text-gray-900 mb-4 leading-tight">
-                                            {feature.title}
-                                        </CardTitle>
-                                        <CardDescription className="text-gray-600 leading-relaxed text-sm">
-                                            {feature.description}
-                                        </CardDescription>
-                                    </CardHeader>
+                    {/* Scrollable Features Container */}
+                    <div className="relative">
+                        <div className="overflow-x-auto pb-4">
+                            <div className="flex gap-6 min-w-max px-4">
+                                {features.map((feature, index) => (
+                                    <div key={index} className="group relative flex-shrink-0 w-96">
+                                        <Card className="h-full border-2 border-gray-200 hover:border-orange-500 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-2xl overflow-hidden">
+                                            <CardHeader className="p-6">
+                                                <div className="flex items-center gap-4 mb-6">
+                                                    <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-lg flex-shrink-0`}>
+                                                        {feature.icon}
+                                                    </div>
+                                                    <CardTitle className="text-lg font-bold text-gray-900 leading-tight">
+                                                        {feature.title}
+                                                    </CardTitle>
+                                                </div>
 
-                                    {/* Subtle hover effect */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 to-orange-400/0 group-hover:from-orange-500/5 group-hover:to-orange-400/5 transition-all duration-300 rounded-2xl"></div>
-                                </Card>
+                                                <div className="space-y-4">
+                                                    {feature.description.split('\n\n').map((section, sectionIndex) => {
+                                                        const [label, ...content] = section.split(': ');
+                                                        const contentText = content.join(': ');
+
+                                                        return (
+                                                            <div key={sectionIndex} className="space-y-2">
+                                                                <h4 className="font-bold text-orange-600 text-sm uppercase tracking-wide flex items-center gap-2">
+                                                                    {label === 'Problem' && '🚨 Problem'}
+                                                                    {label === 'The Problem' && '🚨 Problem'}
+                                                                    {label === 'Solution' && '✨ Solution'}
+                                                                    {label === 'Our Solution' && '✨ Solution'}
+                                                                    {label === 'Impact' && '🎯 Impact'}
+                                                                </h4>
+                                                                <p className="text-gray-700 text-sm leading-relaxed pl-4 border-l-2 border-orange-200 font-medium">
+                                                                    {contentText}
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </CardHeader>
+
+                                            {/* Subtle hover effect */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/0 to-orange-400/0 group-hover:from-orange-500/5 group-hover:to-orange-400/5 transition-all duration-300 rounded-2xl"></div>
+                                        </Card>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
+
+                        {/* Scroll indicators */}
+                        <div className="flex justify-center mt-4 space-x-2">
+                            <div className="w-2 h-2 bg-orange-300 rounded-full"></div>
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-orange-300 rounded-full"></div>
+                        </div>
                     </div>
 
                 </div>
