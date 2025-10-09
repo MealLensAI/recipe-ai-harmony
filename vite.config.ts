@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
 
     proxy: {
-      '/api': 'https://recipe-ai-harmony.onrender.com',
+      '/api': 'http://34.170.200.225:5001',
     },
   },
 })

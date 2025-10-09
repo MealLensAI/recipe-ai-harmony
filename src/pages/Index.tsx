@@ -253,7 +253,7 @@ const Index = () => {
           formData.append('sickness', sicknessInfo!.sicknessType);
           formData.append('location', location);
           formData.append('budget', budget);
-          const response = await fetch('https://ai-utu2.onrender.com/auto_sick_smart_plan', {
+          const response = await fetch('http://34.170.200.225:7017/auto_sick_smart_plan', {
             method: 'POST',
             body: formData,
           });
@@ -286,7 +286,7 @@ const Index = () => {
           // Auto generate based on location and budget only
           formData.append('location', location);
           formData.append('budget', budget);
-          const response = await fetch('https://ai-utu2.onrender.com/auto_generate_plan', {
+          const response = await fetch('http://34.170.200.225:7017/auto_generate_plan', {
             method: 'POST',
             body: formData,
           });
@@ -333,7 +333,7 @@ const Index = () => {
       }
 
       // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? 'https://ai-utu2.onrender.com/sick_smart_plan' : 'https://ai-utu2.onrender.com/smart_plan';
+      const endpoint = sicknessInfo ? 'http://34.170.200.225:7017/sick_smart_plan' : 'http://34.170.200.225:7017/smart_plan';
 
       const response = await fetch(endpoint, {
         method: 'POST',

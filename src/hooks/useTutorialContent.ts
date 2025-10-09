@@ -54,7 +54,7 @@ export const useTutorialContent = () => {
       }
 
       // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? 'https://ai-utu2.onrender.com/sick_meal_plan_instructions' : 'https://ai-utu2.onrender.com/meal_plan_instructions';
+      const endpoint = sicknessInfo ? 'http://34.170.200.225:7017/sick_meal_plan_instructions' : 'http://34.170.200.225:7017/meal_plan_instructions';
 
       const instrRes = await fetch(endpoint, {
         method: 'POST',
@@ -84,7 +84,7 @@ export const useTutorialContent = () => {
       // 2. Get resources (YouTube and Google) using the correct form data
       const formData = new FormData();
       formData.append('food_choice_index', recipeName);
-      const resRes = await fetch('https://ai-utu2.onrender.com/resources', {
+      const resRes = await fetch('http://34.170.200.225:7017/resources', {
         method: 'POST',
         body: formData,
       });
