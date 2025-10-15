@@ -11,6 +11,38 @@ export interface MealPlan {
   lunch_ingredients?: string[];
   dinner_ingredients?: string[];
   snack_ingredients?: string[];
+  // Enhanced nutritional information
+  breakfast_name?: string;
+  breakfast_calories?: number;
+  breakfast_protein?: number;
+  breakfast_carbs?: number;
+  breakfast_fat?: number;
+  breakfast_benefit?: string;
+  lunch_name?: string;
+  lunch_calories?: number;
+  lunch_protein?: number;
+  lunch_carbs?: number;
+  lunch_fat?: number;
+  lunch_benefit?: string;
+  dinner_name?: string;
+  dinner_calories?: number;
+  dinner_protein?: number;
+  dinner_carbs?: number;
+  dinner_fat?: number;
+  dinner_benefit?: string;
+  snack_name?: string;
+  snack_calories?: number;
+  snack_protein?: number;
+  snack_carbs?: number;
+  snack_fat?: number;
+  snack_benefit?: string;
+}
+
+export interface HealthAssessment {
+  bmi: number;
+  bmi_category: string;
+  bmr: number;
+  daily_calories: number;
 }
 
 export interface SavedMealPlan {
@@ -21,6 +53,8 @@ export interface SavedMealPlan {
   mealPlan: MealPlan[];
   createdAt: string;
   updatedAt: string;
+  healthAssessment?: HealthAssessment; // Added for medical-grade plans
+  userInfo?: any; // Store user health profile
 }
 
 export const useMealPlans = () => {
@@ -46,9 +80,9 @@ export const useMealPlans = () => {
         }
 
         const result = await response.json();
-        
+
         console.log('[DEBUG] Received meal plans response:', result);
-        
+
         if (result.status === 'success' && result.meal_plans) {
           const plans = result.meal_plans.map((plan: any) => ({
             id: plan.id,
@@ -88,7 +122,7 @@ export const useMealPlans = () => {
     };
   };
 
-  const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date) => {
+  const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date, healthAssessment?: HealthAssessment, userInfo?: any) => {
     setLoading(true);
     try {
       const now = new Date();
@@ -100,7 +134,9 @@ export const useMealPlans = () => {
         end_date: weekDates.endDate,
         meal_plan: mealPlan,
         created_at: now.toISOString(),
-        updated_at: now.toISOString()
+        updated_at: now.toISOString(),
+        health_assessment: healthAssessment,
+        user_info: userInfo
       };
 
       console.log('[DEBUG] Sending meal plan data:', planData);
@@ -129,7 +165,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success' && result.data) {
         const newPlan: SavedMealPlan = {
           id: result.data.id,
@@ -139,6 +175,8 @@ export const useMealPlans = () => {
           mealPlan: result.data.mealPlan,
           createdAt: result.data.createdAt,
           updatedAt: result.data.updatedAt,
+          healthAssessment: result.data.healthAssessment,
+          userInfo: result.data.userInfo
         };
         setSavedPlans(prev => [newPlan, ...prev]);
         setCurrentPlan(newPlan);
@@ -164,9 +202,9 @@ export const useMealPlans = () => {
           'Content-Type': 'application/json',
           ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
         },
-        body: JSON.stringify({ 
-          meal_plan: mealPlan, 
-          updated_at: now.toISOString() 
+        body: JSON.stringify({
+          meal_plan: mealPlan,
+          updated_at: now.toISOString()
         })
       });
 
@@ -175,7 +213,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success') {
         // Update local state
         setSavedPlans(prev => prev.map(plan => plan.id === id ? {
@@ -215,7 +253,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success') {
         setSavedPlans(prev => {
           const remainingPlans = prev.filter(plan => plan.id !== id);
@@ -243,10 +281,10 @@ export const useMealPlans = () => {
   const duplicateMealPlan = async (id: string, newStartDate: Date) => {
     const originalPlan = savedPlans.find(p => p.id === id);
     if (!originalPlan) return;
-    
+
     const weekDates = generateWeekDates(newStartDate);
     const now = new Date();
-    
+
     const planData = {
       name: weekDates.name,
       start_date: weekDates.startDate,
@@ -270,7 +308,7 @@ export const useMealPlans = () => {
     }
 
     const result = await response.json();
-    
+
     if (result.status === 'success' && result.data) {
       const duplicatedPlan: SavedMealPlan = {
         id: result.data.id,
@@ -305,7 +343,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success') {
         setSavedPlans([]);
         setCurrentPlan(null);
@@ -336,7 +374,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success' && result.meal_plans) {
         const plans = result.meal_plans.map((plan: any) => ({
           id: plan.id,

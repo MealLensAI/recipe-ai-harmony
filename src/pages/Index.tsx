@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, List, Upload, Utensils, ChefHat, Search, Plus, Calendar, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
+import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
+import HealthAssessmentCard from '../components/HealthAssessmentCard';
 import MealTypeFilter from '../components/MealTypeFilter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CookingTutorialModal from '../components/CookingTutorialModal';
@@ -36,7 +38,7 @@ const countries = [
 ];
 
 const Index = () => {
-  const [inputType, setInputType] = useState<'image' | 'ingredient_list' | 'auto_sick' | 'auto_healthy'>('ingredient_list');
+  const [inputType, setInputType] = useState<'image' | 'ingredient_list' | 'auto_medical' | 'auto_sick' | 'auto_healthy'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -62,10 +64,10 @@ const Index = () => {
     selectMealPlan,
     clearAllPlans,
     refreshMealPlans
-  , loading: mealPlansLoading } = useMealPlans();
+    , loading: mealPlansLoading } = useMealPlans();
 
   const { toast } = useToast();
-  const { getSicknessInfo } = useSicknessSettings();
+  const { getSicknessInfo, getHealthProfilePayload, isHealthProfileComplete } = useSicknessSettings();
 
   const prevShowPlanManager = useRef(showPlanManager);
   useEffect(() => {
@@ -216,6 +218,18 @@ const Index = () => {
       }
     }
 
+    // Validate Medical AI requirements
+    if (inputType === 'auto_medical') {
+      if (!isHealthProfileComplete()) {
+        toast({
+          title: "Complete Health Profile Required",
+          description: "Please complete your health profile in Settings to use Medical AI nutrition planning",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     // Validate auto-generate requirements
     if (isAutoGenerateEnabled) {
       if (getSicknessInfo()) {
@@ -245,6 +259,91 @@ const Index = () => {
 
     try {
       const sicknessInfo = getSicknessInfo();
+      const healthProfilePayload = getHealthProfilePayload();
+
+      // Handle Medical AI Auto-Generate
+      if (inputType === 'auto_medical' && isHealthProfileComplete()) {
+        console.log('[Index] Using Medical AI Nutrition Plan endpoint');
+
+        const response = await fetch('http://127.0.0.1:7017/ai_nutrition_plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(healthProfilePayload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate medical nutrition plan');
+        }
+
+        const data = await response.json();
+        console.log('[Index] Medical AI Response:', data);
+
+        if (data.success && data.meal_plan) {
+          // Transform the response to match our MealPlan interface
+          const transformedMealPlan: MealPlan[] = data.meal_plan.map((dayPlan: any) => ({
+            day: dayPlan.day,
+            breakfast: dayPlan.breakfast_name,
+            lunch: dayPlan.lunch_name,
+            dinner: dayPlan.dinner_name,
+            snack: dayPlan.snack_name,
+            breakfast_ingredients: dayPlan.breakfast_ingredients,
+            lunch_ingredients: dayPlan.lunch_ingredients,
+            dinner_ingredients: dayPlan.dinner_ingredients,
+            snack_ingredients: dayPlan.snack_ingredients,
+            // Enhanced nutritional data
+            breakfast_name: dayPlan.breakfast_name,
+            breakfast_calories: dayPlan.breakfast_calories,
+            breakfast_protein: dayPlan.breakfast_protein,
+            breakfast_carbs: dayPlan.breakfast_carbs,
+            breakfast_fat: dayPlan.breakfast_fat,
+            breakfast_benefit: dayPlan.breakfast_benefit,
+            lunch_name: dayPlan.lunch_name,
+            lunch_calories: dayPlan.lunch_calories,
+            lunch_protein: dayPlan.lunch_protein,
+            lunch_carbs: dayPlan.lunch_carbs,
+            lunch_fat: dayPlan.lunch_fat,
+            lunch_benefit: dayPlan.lunch_benefit,
+            dinner_name: dayPlan.dinner_name,
+            dinner_calories: dayPlan.dinner_calories,
+            dinner_protein: dayPlan.dinner_protein,
+            dinner_carbs: dayPlan.dinner_carbs,
+            dinner_fat: dayPlan.dinner_fat,
+            dinner_benefit: dayPlan.dinner_benefit,
+            snack_name: dayPlan.snack_name,
+            snack_calories: dayPlan.snack_calories,
+            snack_protein: dayPlan.snack_protein,
+            snack_carbs: dayPlan.snack_carbs,
+            snack_fat: dayPlan.snack_fat,
+            snack_benefit: dayPlan.snack_benefit,
+          }));
+
+          // Save the medical-grade meal plan with health assessment
+          const savedPlan = await saveMealPlan(
+            transformedMealPlan,
+            selectedDate,
+            data.health_assessment,
+            data.user_info
+          );
+
+          setShowInputModal(false);
+          setIngredientList('');
+          setSelectedImage(null);
+          setImagePreview(null);
+          setLocation('');
+          setBudget('');
+          setIsAutoGenerateEnabled(false);
+          setInputType('ingredient_list'); // Reset to default
+
+          toast({
+            title: "Medical Nutrition Plan Created!",
+            description: `Your doctor-approved meal plan for ${savedPlan?.name} has been created with personalized nutritional guidance.`,
+          });
+          return;
+        }
+      }
+
       const formData = new FormData();
 
       if (isAutoGenerateEnabled) {
@@ -474,21 +573,45 @@ const Index = () => {
         type: 'breakfast',
         time: '15 mins',
         rating: 5,
-        originalTitle: dayPlan.breakfast // Keep original for display
+        originalTitle: dayPlan.breakfast, // Keep original for display
+        // Enhanced nutrition data
+        name: dayPlan.breakfast_name || extractFoodName(dayPlan.breakfast),
+        ingredients: dayPlan.breakfast_ingredients || [],
+        calories: dayPlan.breakfast_calories,
+        protein: dayPlan.breakfast_protein,
+        carbs: dayPlan.breakfast_carbs,
+        fat: dayPlan.breakfast_fat,
+        benefit: dayPlan.breakfast_benefit
       },
       {
         title: extractFoodName(dayPlan.lunch),
         type: 'lunch',
         time: '25 mins',
         rating: 4,
-        originalTitle: dayPlan.lunch
+        originalTitle: dayPlan.lunch,
+        // Enhanced nutrition data
+        name: dayPlan.lunch_name || extractFoodName(dayPlan.lunch),
+        ingredients: dayPlan.lunch_ingredients || [],
+        calories: dayPlan.lunch_calories,
+        protein: dayPlan.lunch_protein,
+        carbs: dayPlan.lunch_carbs,
+        fat: dayPlan.lunch_fat,
+        benefit: dayPlan.lunch_benefit
       },
       {
         title: extractFoodName(dayPlan.dinner),
         type: 'dinner',
         time: '35 mins',
         rating: 5,
-        originalTitle: dayPlan.dinner
+        originalTitle: dayPlan.dinner,
+        // Enhanced nutrition data
+        name: dayPlan.dinner_name || extractFoodName(dayPlan.dinner),
+        ingredients: dayPlan.dinner_ingredients || [],
+        calories: dayPlan.dinner_calories,
+        protein: dayPlan.dinner_protein,
+        carbs: dayPlan.dinner_carbs,
+        fat: dayPlan.dinner_fat,
+        benefit: dayPlan.dinner_benefit
       },
     ];
     if (dayPlan.snack) {
@@ -497,7 +620,15 @@ const Index = () => {
         type: 'snack',
         time: '5 mins',
         rating: 4,
-        originalTitle: dayPlan.snack
+        originalTitle: dayPlan.snack,
+        // Enhanced nutrition data
+        name: dayPlan.snack_name || extractFoodName(dayPlan.snack),
+        ingredients: dayPlan.snack_ingredients || [],
+        calories: dayPlan.snack_calories,
+        protein: dayPlan.snack_protein,
+        carbs: dayPlan.snack_carbs,
+        fat: dayPlan.snack_fat,
+        benefit: dayPlan.snack_benefit
       });
     }
     return selectedMealType === 'all'
@@ -594,13 +725,13 @@ const Index = () => {
           <div className="bg-white rounded-xl p-3 shadow-sm border border-[#e2e8f0]">
             <div className="overflow-x-auto pb-1">
               <div className="flex gap-2 whitespace-nowrap">
-                {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((day) => (
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                   <button
                     key={day}
                     onClick={() => setSelectedDay(day)}
                     className={`px-3 py-1.5 rounded-full border transition-colors text-sm ${selectedDay === day ? 'bg-[#FF6B6B] text-white border-[#FF6B6B]' : 'bg-gray-100 text-[#2D3436] border-gray-200'}`}
                   >
-                    {day.slice(0,3)}
+                    {day.slice(0, 3)}
                   </button>
                 ))}
               </div>
@@ -628,7 +759,12 @@ const Index = () => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
-                    {getSicknessInfo() && (
+                    {currentPlan?.healthAssessment ? (
+                      <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-blue-100 to-green-100 text-green-900 border-2 border-green-300 rounded-full text-xs sm:text-sm font-bold">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        🏥 Medical-Grade Plan
+                      </div>
+                    ) : getSicknessInfo() && (
                       <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs sm:text-sm font-medium">
                         <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
                         Health-aware meal plan
@@ -664,21 +800,54 @@ const Index = () => {
                 />
               </div>
 
+              {/* Health Assessment Card - Show if available */}
+              {currentPlan?.healthAssessment && (
+                <div className="mb-6">
+                  <HealthAssessmentCard
+                    healthAssessment={currentPlan.healthAssessment}
+                    userInfo={currentPlan.userInfo}
+                  />
+                </div>
+              )}
+
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                  {getRecipesForSelectedDay().map((recipe, index) => (
-                    <RecipeCard
-                      key={`${selectedDay}-${recipe.type}-${index}`}
-                      title={recipe.title}
-                      originalTitle={recipe.originalTitle}
-                      time={recipe.time}
-                      rating={recipe.rating}
-                      mealType={recipe.type as any}
-                      onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
-                    />
-                  ))}
+                  {getRecipesForSelectedDay().map((recipe, index) => {
+                    // Use EnhancedRecipeCard if nutritional data is available
+                    const hasNutritionData = recipe.calories !== undefined && recipe.protein !== undefined;
+
+                    if (hasNutritionData) {
+                      return (
+                        <EnhancedRecipeCard
+                          key={`${selectedDay}-${recipe.type}-${index}`}
+                          mealType={recipe.type as 'breakfast' | 'lunch' | 'dinner' | 'snack'}
+                          name={recipe.name}
+                          ingredients={recipe.ingredients}
+                          calories={recipe.calories}
+                          protein={recipe.protein}
+                          carbs={recipe.carbs}
+                          fat={recipe.fat}
+                          benefit={recipe.benefit}
+                          onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                        />
+                      );
+                    }
+
+                    // Fallback to regular RecipeCard for basic plans
+                    return (
+                      <RecipeCard
+                        key={`${selectedDay}-${recipe.type}-${index}`}
+                        title={recipe.title}
+                        originalTitle={recipe.originalTitle}
+                        time={recipe.time}
+                        rating={recipe.rating}
+                        mealType={recipe.type as any}
+                        onClick={() => handleRecipeClick(recipe.originalTitle || recipe.title, recipe.type)}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </React.Fragment>
@@ -789,22 +958,52 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Sickness Indicator */}
+            {/* Health Profile Indicator */}
             {getSicknessInfo() && (
-              <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className={`mb-6 p-4 rounded-lg ${isHealthProfileComplete()
+                ? 'bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-300'
+                : 'bg-orange-50 border border-orange-200'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                  <span className="text-sm font-semibold text-orange-800">Health-aware meal planning</span>
+                  {isHealthProfileComplete() ? (
+                    <>
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      <span className="text-sm font-semibold text-green-900">🏥 Medical-Grade AI Nutrition Plan</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                      <span className="text-sm font-semibold text-orange-800">Health-aware meal planning</span>
+                    </>
+                  )}
                 </div>
-                <p className="text-sm text-orange-700">
-                  Your meal plan will be customized for your condition: <strong>{getSicknessInfo()?.sicknessType}</strong>
-                </p>
+                {isHealthProfileComplete() ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-green-800">
+                      Your complete health profile will generate a <strong>doctor-approved meal plan</strong> with:
+                    </p>
+                    <ul className="text-xs text-green-700 space-y-1 ml-4">
+                      <li>• Full nutritional breakdown (calories, protein, carbs, fats)</li>
+                      <li>• Health assessment (BMI, BMR, daily calorie needs)</li>
+                      <li>• Condition-specific health benefits for each meal</li>
+                      <li>• Personalized for: <strong>{getSicknessInfo()?.sicknessType}</strong></li>
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-orange-700">
+                      Your meal plan will be customized for: <strong>{getSicknessInfo()?.sicknessType}</strong>
+                    </p>
+                    <p className="text-xs text-orange-600">
+                      💡 <strong>Tip:</strong> Complete your full health profile in Settings to unlock medical-grade AI nutrition plans with detailed nutritional data!
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Toggle Buttons - Only show when auto-generate is OFF */}
             {!isAutoGenerateEnabled && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <button
                   onClick={() => setInputType('ingredient_list')}
                   className={`p-4 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
@@ -836,6 +1035,29 @@ const Index = () => {
                     </div>
                   </div>
                 </button>
+
+                {/* Medical AI Auto-Generate Button */}
+                {getSicknessInfo() && (
+                  <button
+                    onClick={() => setInputType('auto_medical')}
+                    className={`p-4 rounded-xl border-2 transition-all ${inputType === 'auto_medical'
+                      ? 'border-green-500 bg-green-500 text-white'
+                      : isHealthProfileComplete()
+                        ? 'border-green-200 bg-gradient-to-br from-green-50 to-blue-50 text-green-800 hover:border-green-400'
+                        : 'border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50 text-orange-800 hover:border-orange-400'
+                      }`}
+                  >
+                    <div className="flex items-center justify-center">
+                      <span className="text-2xl mr-3">🏥</span>
+                      <div>
+                        <div className="font-semibold">Medical AI</div>
+                        <div className="text-sm opacity-90">
+                          {isHealthProfileComplete() ? 'Auto-generate' : 'Complete profile needed'}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                )}
               </div>
             )}
 
@@ -905,6 +1127,123 @@ const Index = () => {
                       </p>
                     </div>
                   </div>
+                </div>
+              ) : inputType === 'auto_medical' ? (
+                // Medical AI Auto-Generate form
+                <div className="space-y-6">
+                  {isHealthProfileComplete() ? (
+                    <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-3xl">🏥</span>
+                        <div>
+                          <h3 className="text-xl font-bold text-green-900">Medical AI Nutrition Plan</h3>
+                          <p className="text-sm text-green-700">Doctor-approved meal plans with detailed nutrition</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-4 bg-white border border-green-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-2">Your Health Profile</h4>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-600">Age:</span>
+                              <span className="ml-2 font-medium">{getSicknessInfo()?.age} years</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Gender:</span>
+                              <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.gender}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Height:</span>
+                              <span className="ml-2 font-medium">{getSicknessInfo()?.height} cm</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Weight:</span>
+                              <span className="ml-2 font-medium">{getSicknessInfo()?.weight} kg</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Activity:</span>
+                              <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.activityLevel?.replace('_', ' ')}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Goal:</span>
+                              <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.goal?.replace('_', ' ')}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-green-100 border border-green-300 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-green-600">🎯</span>
+                            <span className="font-semibold text-green-900">Health Condition</span>
+                          </div>
+                          <p className="text-green-800 font-medium">{getSicknessInfo()?.sicknessType}</p>
+                        </div>
+
+                        <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-blue-600">✨</span>
+                            <span className="font-semibold text-blue-900">What You'll Get</span>
+                          </div>
+                          <ul className="text-sm text-blue-800 space-y-1">
+                            <li>• Complete 7-day meal plan with exact portions</li>
+                            <li>• Detailed nutritional breakdown (calories, protein, carbs, fats)</li>
+                            <li>• Health assessment (BMI, BMR, daily calorie needs)</li>
+                            <li>• Condition-specific health benefits for each meal</li>
+                            <li>• Doctor-approved recipes for your health condition</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-3xl">🏥</span>
+                        <div>
+                          <h3 className="text-xl font-bold text-orange-900">Complete Your Health Profile</h3>
+                          <p className="text-sm text-orange-700">Unlock medical-grade AI nutrition planning</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-4 bg-white border border-orange-200 rounded-lg">
+                          <h4 className="font-semibold text-gray-900 mb-2">Current Health Information</h4>
+                          <div className="text-sm text-gray-600 mb-3">
+                            <span className="font-medium">Health Condition:</span> {getSicknessInfo()?.sicknessType}
+                          </div>
+                          <div className="text-sm text-orange-700">
+                            <strong>Missing information:</strong> Age, Gender, Height, Weight, Activity Level, Health Goal
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-orange-100 border border-orange-300 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-orange-600">💡</span>
+                            <span className="font-semibold text-orange-900">Next Steps</span>
+                          </div>
+                          <ol className="text-sm text-orange-800 space-y-1">
+                            <li>1. Go to Settings page</li>
+                            <li>2. Complete your health profile</li>
+                            <li>3. Return here to generate medical-grade meal plans</li>
+                          </ol>
+                        </div>
+
+                        <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-blue-600">✨</span>
+                            <span className="font-semibold text-blue-900">What You'll Unlock</span>
+                          </div>
+                          <ul className="text-sm text-blue-800 space-y-1">
+                            <li>• Complete 7-day meal plan with exact portions</li>
+                            <li>• Detailed nutritional breakdown (calories, protein, carbs, fats)</li>
+                            <li>• Health assessment (BMI, BMR, daily calorie needs)</li>
+                            <li>• Condition-specific health benefits for each meal</li>
+                            <li>• Doctor-approved recipes for your health condition</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : inputType === 'ingredient_list' ? (
                 <div>

@@ -3,12 +3,24 @@ import { useState, useEffect } from 'react';
 export interface SicknessSettings {
   hasSickness: boolean;
   sicknessType: string;
+  age?: number;
+  gender?: 'male' | 'female' | 'other';
+  height?: number; // in cm
+  weight?: number; // in kg
+  activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  goal?: 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness';
 }
 
 export const useSicknessSettings = () => {
   const [settings, setSettings] = useState<SicknessSettings>({
     hasSickness: false,
-    sicknessType: ''
+    sicknessType: '',
+    age: undefined,
+    gender: undefined,
+    height: undefined,
+    weight: undefined,
+    activityLevel: undefined,
+    goal: undefined
   });
   const [loading, setLoading] = useState(false);
 
@@ -67,8 +79,40 @@ export const useSicknessSettings = () => {
     }
     return {
       hasSickness: true,
-      sicknessType: settings.sicknessType
+      sicknessType: settings.sicknessType,
+      age: settings.age,
+      gender: settings.gender,
+      height: settings.height,
+      weight: settings.weight,
+      activityLevel: settings.activityLevel,
+      goal: settings.goal
     };
+  };
+
+  const getHealthProfilePayload = () => {
+    if (!settings.hasSickness || !settings.age || !settings.gender || !settings.height || !settings.weight || !settings.activityLevel || !settings.goal) {
+      return null;
+    }
+    return {
+      age: settings.age,
+      weight: settings.weight,
+      height: settings.height,
+      gender: settings.gender,
+      activity_level: settings.activityLevel,
+      condition: settings.sicknessType,
+      goal: settings.goal
+    };
+  };
+
+  const isHealthProfileComplete = () => {
+    return settings.hasSickness &&
+      !!settings.age &&
+      !!settings.gender &&
+      !!settings.height &&
+      !!settings.weight &&
+      !!settings.activityLevel &&
+      !!settings.goal &&
+      !!settings.sicknessType;
   };
 
   return {
@@ -76,6 +120,8 @@ export const useSicknessSettings = () => {
     loading,
     updateSettings,
     saveSettings,
-    getSicknessInfo
+    getSicknessInfo,
+    getHealthProfilePayload,
+    isHealthProfileComplete
   };
 }; 
