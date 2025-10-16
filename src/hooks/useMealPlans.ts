@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { APP_CONFIG } from '@/lib/config';
+import { safeGetItem } from '@/lib/utils';
 
 export interface MealPlan {
   day: string;
@@ -67,12 +68,14 @@ export const useMealPlans = () => {
     const fetchPlans = async () => {
       setLoading(true);
       try {
+        const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-          }
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include'
         });
 
         if (!response.ok) {
@@ -92,6 +95,8 @@ export const useMealPlans = () => {
             mealPlan: plan.meal_plan,
             createdAt: plan.created_at,
             updatedAt: plan.updated_at,
+            healthAssessment: plan.health_assessment,
+            userInfo: plan.user_info
           }));
           console.log('[DEBUG] Processed meal plans:', plans);
           setSavedPlans(plans);
@@ -141,12 +146,16 @@ export const useMealPlans = () => {
 
       console.log('[DEBUG] Sending meal plan data:', planData);
 
+      const token = safeGetItem('access_token');
+      console.log('[DEBUG] Using access token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
+        credentials: 'include',
         body: JSON.stringify(planData)
       });
 
@@ -196,12 +205,14 @@ export const useMealPlans = () => {
     setLoading(true);
     try {
       const now = new Date();
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
+        credentials: 'include',
         body: JSON.stringify({
           meal_plan: mealPlan,
           updated_at: now.toISOString()
@@ -240,12 +251,14 @@ export const useMealPlans = () => {
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
     try {
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -294,12 +307,14 @@ export const useMealPlans = () => {
       updated_at: now.toISOString()
     };
 
+    const token = safeGetItem('access_token');
     const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
+      credentials: 'include',
       body: JSON.stringify(planData)
     });
 
@@ -330,12 +345,14 @@ export const useMealPlans = () => {
   const clearAllPlans = async () => {
     setLoading(true);
     try {
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/clear`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -361,12 +378,14 @@ export const useMealPlans = () => {
   const refreshMealPlans = async () => {
     setLoading(true);
     try {
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -384,6 +403,8 @@ export const useMealPlans = () => {
           mealPlan: plan.meal_plan,
           createdAt: plan.created_at,
           updatedAt: plan.updated_at,
+          healthAssessment: plan.health_assessment,
+          userInfo: plan.user_info
         }));
         setSavedPlans(plans);
         setCurrentPlan(plans.length > 0 ? plans[0] : null);

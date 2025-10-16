@@ -67,9 +67,12 @@ const Index = () => {
     , loading: mealPlansLoading } = useMealPlans();
 
   const { toast } = useToast();
-  const { getSicknessInfo, getHealthProfilePayload, isHealthProfileComplete } = useSicknessSettings();
+  const { getSicknessInfo, getHealthProfilePayload, isHealthProfileComplete, settings: sicknessSettings } = useSicknessSettings();
 
   const prevShowPlanManager = useRef(showPlanManager);
+  const isInitialMount = useRef(true);
+  const prevSicknessStatus = useRef(sicknessSettings.hasSickness);
+
   useEffect(() => {
     if (prevShowPlanManager.current && !showPlanManager) {
       // Modal just closed
@@ -77,6 +80,22 @@ const Index = () => {
     }
     prevShowPlanManager.current = showPlanManager;
   }, [showPlanManager, refreshMealPlans]);
+
+  // Refresh meal plans when sickness settings change (but not on initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevSicknessStatus.current = sicknessSettings.hasSickness;
+      return;
+    }
+
+    if (prevSicknessStatus.current !== sicknessSettings.hasSickness) {
+      console.log('[Index] Sickness settings changed, refreshing meal plans');
+      refreshMealPlans();
+      prevSicknessStatus.current = sicknessSettings.hasSickness;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sicknessSettings.hasSickness]);
 
   useEffect(() => {
     if (!currentPlan) {
