@@ -3,7 +3,7 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { LogOut, Home, Camera, History, CalendarDays, User } from "lucide-react"
+import { LogOut, Home, Camera, History, CalendarDays, User, Heart } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import Navbar from "./Navbar"
 
@@ -34,6 +34,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
   const navItems = [
     { icon: CalendarDays, label: "Meal Planner", path: "/" },
+    { icon: Heart, label: "Sickness", path: "/sickness" },
     { icon: Home, label: "AI Kitchen", path: "/ai-kitchen" },
     { icon: Camera, label: "Detect Food", path: "/detected" },
     { icon: History, label: "History", path: "/history" },

@@ -9,6 +9,7 @@ import Signup from "./pages/Signup"
 import DetectFoodPage from "./pages/DetectFoodPage"
 import AIResponsePage from "./pages/AIResponsePage"
 import Index from "./pages/Index"
+import Sickness from "./pages/Sickness"
 import ProtectedRoute from "./components/ProtectedRoute"
 import MainLayout from "./components/MainLayout"
 import { Toaster } from "@/components/ui/toaster"
@@ -92,6 +93,18 @@ const router = createBrowserRouter([
         <TrialBlocker>
           <MainLayout>
             <Index />
+          </MainLayout>
+        </TrialBlocker>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/sickness",
+    element: (
+      <ProtectedRoute>
+        <TrialBlocker>
+          <MainLayout>
+            <Sickness />
           </MainLayout>
         </TrialBlocker>
       </ProtectedRoute>
