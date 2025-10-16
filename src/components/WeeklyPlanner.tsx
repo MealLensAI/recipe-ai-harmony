@@ -48,9 +48,33 @@ interface WeeklyPlannerProps {
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay }) => {
+  const [foodImages, setFoodImages] = useState<Record<string, string>>({});
+
   // Helper function to extract clean food name from meal description
   const extractFoodName = (mealDescription: string): string => {
     return mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();
+  };
+
+  // Fetch food image for a meal
+  const fetchFoodImage = async (foodName: string) => {
+    if (foodImages[foodName]) return; // Already fetched
+
+    try {
+      const response = await fetch('https://get-images-qa23.onrender.com/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: foodName }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.image_url) {
+          setFoodImages(prev => ({ ...prev, [foodName]: data.image_url }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching food image:', error);
+    }
   };
 
   // Helper function to get meal preview for a day
@@ -112,6 +136,18 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
     setExpandedDay(selectedDay);
   }, [selectedDay]);
 
+  // Fetch images for all meals when meal plan changes
+  useEffect(() => {
+    if (mealPlan.length > 0) {
+      mealPlan.forEach(dayPlan => {
+        if (dayPlan.breakfast_name) fetchFoodImage(dayPlan.breakfast_name);
+        if (dayPlan.lunch_name) fetchFoodImage(dayPlan.lunch_name);
+        if (dayPlan.dinner_name) fetchFoodImage(dayPlan.dinner_name);
+        if (dayPlan.snack_name) fetchFoodImage(dayPlan.snack_name);
+      });
+    }
+  }, [mealPlan]);
+
   const handleDayClick = (day: string) => {
     setExpandedDay(prev => (prev === day ? null : day));
     onDaySelect(day);
@@ -131,8 +167,8 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
               <div
                 onClick={() => handleDayClick(day)}
                 className={`flex items-center py-2 px-3 rounded-lg cursor-pointer transition-colors ${expandedDay === day
-                    ? 'bg-[#FF6B6B] text-white'
-                    : 'text-[#2D3436] hover:bg-[#f8f9fa]'
+                  ? 'bg-[#FF6B6B] text-white'
+                  : 'text-[#2D3436] hover:bg-[#f8f9fa]'
                   }`}
               >
                 {isExpanded ? (
@@ -153,7 +189,20 @@ const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect,
                   {/* Breakfast */}
                   <div className="bg-yellow-50 p-2 border border-yellow-200 rounded">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[#e09026]">🥞</span>
+                      <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                        {foodImages[mealPreview.breakfast.name] ? (
+                          <img
+                            src={foodImages[mealPreview.breakfast.name]}
+                            alt={mealPreview.breakfast.name}
+                            className="w-full h-full object-cover"
+                            onLoad={() => fetchFoodImage(mealPreview.breakfast.name)}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-yellow-200 flex items-center justify-center text-xs">
+                            🥞
+                          </div>
+                        )}
+                      </div>
                       <span className="text-[#1e293b] font-medium truncate">{mealPreview.breakfast.name}</span>
                     </div>
                     {mealPreview.breakfast.calories && (

@@ -66,6 +66,7 @@ const Settings = () => {
       if (!settings.weight) missingFields.push('Weight');
       if (!settings.activityLevel) missingFields.push('Activity Level');
       if (!settings.goal) missingFields.push('Health Goal');
+      if (!settings.location) missingFields.push('Location');
 
       if (missingFields.length > 0) {
         toast({
@@ -405,6 +406,20 @@ const Settings = () => {
                           <SelectItem value="improve_fitness">Improve Fitness</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Location */}
+                    <div className="space-y-2">
+                      <Label htmlFor="location">Location *</Label>
+                      <Input
+                        id="location"
+                        placeholder="e.g., Nigeria, United States, Canada"
+                        value={settings.location || ''}
+                        onChange={(e) => updateSettings({ location: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Your location helps us provide region-specific food recommendations and nutritional guidelines.
+                      </p>
                     </div>
                   </div>
                 )}

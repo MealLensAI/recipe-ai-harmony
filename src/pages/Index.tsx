@@ -264,6 +264,7 @@ const Index = () => {
       // Handle Medical AI Auto-Generate
       if (inputType === 'auto_medical' && isHealthProfileComplete()) {
         console.log('[Index] Using Medical AI Nutrition Plan endpoint');
+        console.log('[Index] Health Profile Payload:', healthProfilePayload);
 
         const response = await fetch('http://127.0.0.1:7017/ai_nutrition_plan', {
           method: 'POST',
@@ -348,44 +349,111 @@ const Index = () => {
 
       if (isAutoGenerateEnabled) {
         if (getSicknessInfo()) {
-          // Auto generate based on sickness, location, and budget
-          formData.append('sickness', sicknessInfo!.sicknessType);
+          // Auto generate based on health profile, location, and budget
+          if (!isHealthProfileComplete()) {
+            toast({
+              title: "Complete Health Profile Required",
+              description: "Please complete your health profile in Settings to auto-generate health-aware meal plans",
+              variant: "destructive"
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Use sick_smart_plan with budget_state=true for auto-generation
+          formData.append('image_or_ingredient_list', 'ingredient_list');
+          formData.append('ingredient_list', ''); // Empty for auto-generation
+          formData.append('age', healthProfilePayload!.age.toString());
+          formData.append('weight', healthProfilePayload!.weight.toString());
+          formData.append('height', healthProfilePayload!.height.toString());
+          formData.append('gender', healthProfilePayload!.gender);
+          formData.append('activity_level', healthProfilePayload!.activity_level);
+          formData.append('condition', healthProfilePayload!.condition);
+          formData.append('goal', healthProfilePayload!.goal);
           formData.append('location', location);
+          formData.append('budget_state', 'true');
           formData.append('budget', budget);
-          const response = await fetch('http://34.170.200.225:7017/auto_sick_smart_plan', {
+
+          console.log('[Index] Using Sick Smart Plan (Auto) with budget_state=true');
+
+          const response = await fetch('http://127.0.0.1:7017/sick_smart_plan', {
             method: 'POST',
             body: formData,
           });
 
           if (!response.ok) {
-            throw new Error('Failed to generate meal plan');
+            throw new Error('Failed to auto-generate therapeutic meal plan');
           }
 
           const data = await response.json();
-          console.log('[Index] Auto Sick API Response:', data);
-          console.log('[Index] Meal Plan Data:', data.meal_plan);
+          console.log('[Index] Auto Sick Smart Plan Response:', data);
 
-          // Save the new meal plan and await the result
-          const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+          if (data.success && data.meal_plan) {
+            // Transform the response to match our MealPlan interface
+            const transformedMealPlan: MealPlan[] = data.meal_plan.map((dayPlan: any) => ({
+              day: dayPlan.day,
+              breakfast: dayPlan.breakfast_name,
+              lunch: dayPlan.lunch_name,
+              dinner: dayPlan.dinner_name,
+              snack: dayPlan.snack_name,
+              breakfast_ingredients: dayPlan.breakfast_ingredients,
+              lunch_ingredients: dayPlan.lunch_ingredients,
+              dinner_ingredients: dayPlan.dinner_ingredients,
+              snack_ingredients: dayPlan.snack_ingredients,
+              // Enhanced nutritional data
+              breakfast_name: dayPlan.breakfast_name,
+              breakfast_calories: dayPlan.breakfast_calories,
+              breakfast_protein: dayPlan.breakfast_protein,
+              breakfast_carbs: dayPlan.breakfast_carbs,
+              breakfast_fat: dayPlan.breakfast_fat,
+              breakfast_benefit: dayPlan.breakfast_benefit,
+              lunch_name: dayPlan.lunch_name,
+              lunch_calories: dayPlan.lunch_calories,
+              lunch_protein: dayPlan.lunch_protein,
+              lunch_carbs: dayPlan.lunch_carbs,
+              lunch_fat: dayPlan.lunch_fat,
+              lunch_benefit: dayPlan.lunch_benefit,
+              dinner_name: dayPlan.dinner_name,
+              dinner_calories: dayPlan.dinner_calories,
+              dinner_protein: dayPlan.dinner_protein,
+              dinner_carbs: dayPlan.dinner_carbs,
+              dinner_fat: dayPlan.dinner_fat,
+              dinner_benefit: dayPlan.dinner_benefit,
+              snack_name: dayPlan.snack_name,
+              snack_calories: dayPlan.snack_calories,
+              snack_protein: dayPlan.snack_protein,
+              snack_carbs: dayPlan.snack_carbs,
+              snack_fat: dayPlan.snack_fat,
+              snack_benefit: dayPlan.snack_benefit,
+            }));
 
-          setShowInputModal(false);
-          setIngredientList('');
-          setSelectedImage(null);
-          setImagePreview(null);
-          setLocation('');
-          setBudget('');
-          setIsAutoGenerateEnabled(false);
+            // Save the therapeutic meal plan with health assessment
+            const savedPlan = await saveMealPlan(
+              transformedMealPlan,
+              selectedDate,
+              data.health_assessment,
+              data.user_info
+            );
 
-          toast({
-            title: "Success!",
-            description: `Your auto-generated meal plan for ${savedPlan?.name} has been created and saved!`,
-          });
-          return;
+            setShowInputModal(false);
+            setIngredientList('');
+            setSelectedImage(null);
+            setImagePreview(null);
+            setLocation('');
+            setBudget('');
+            setIsAutoGenerateEnabled(false);
+
+            toast({
+              title: "Auto-Generated Therapeutic Plan Created!",
+              description: `Your location and budget-based meal plan for ${savedPlan?.name} has been created with nutritional guidance.`,
+            });
+            return;
+          }
         } else {
           // Auto generate based on location and budget only
           formData.append('location', location);
           formData.append('budget', budget);
-          const response = await fetch('http://34.170.200.225:7017/auto_generate_plan', {
+          const response = await fetch('http://127.0.0.1:7017/auto_generate_plan', {
             method: 'POST',
             body: formData,
           });
@@ -426,42 +494,134 @@ const Index = () => {
         formData.append('image', selectedImage!);
       }
 
-      // Add sickness information if user has sickness
-      if (sicknessInfo) {
-        formData.append('sickness', sicknessInfo.sicknessType);
-      }
-
       // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? 'http://34.170.200.225:7017/sick_smart_plan' : 'http://34.170.200.225:7017/smart_plan';
+      if (sicknessInfo) {
+        // Sick Smart Plan - requires complete health profile
+        if (!isHealthProfileComplete()) {
+          toast({
+            title: "Complete Health Profile Required",
+            description: "Please complete your health profile in Settings to generate health-aware meal plans",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-      });
+        // Add all health profile parameters
+        formData.append('age', healthProfilePayload!.age.toString());
+        formData.append('weight', healthProfilePayload!.weight.toString());
+        formData.append('height', healthProfilePayload!.height.toString());
+        formData.append('gender', healthProfilePayload!.gender);
+        formData.append('activity_level', healthProfilePayload!.activity_level);
+        formData.append('condition', healthProfilePayload!.condition);
+        formData.append('goal', healthProfilePayload!.goal);
+        formData.append('location', healthProfilePayload!.location);
+        formData.append('budget_state', 'false');
+        formData.append('budget', '0');
 
-      if (!response.ok) {
-        throw new Error('Failed to generate meal plan');
+        console.log('[Index] Using Sick Smart Plan endpoint with health profile');
+
+        const response = await fetch('http://127.0.0.1:7017/sick_smart_plan', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate therapeutic meal plan');
+        }
+
+        const data = await response.json();
+        console.log('[Index] Sick Smart Plan Response:', data);
+
+        if (data.success && data.meal_plan) {
+          // Transform the response to match our MealPlan interface (same as medical AI)
+          const transformedMealPlan: MealPlan[] = data.meal_plan.map((dayPlan: any) => ({
+            day: dayPlan.day,
+            breakfast: dayPlan.breakfast_name,
+            lunch: dayPlan.lunch_name,
+            dinner: dayPlan.dinner_name,
+            snack: dayPlan.snack_name,
+            breakfast_ingredients: dayPlan.breakfast_ingredients,
+            lunch_ingredients: dayPlan.lunch_ingredients,
+            dinner_ingredients: dayPlan.dinner_ingredients,
+            snack_ingredients: dayPlan.snack_ingredients,
+            // Enhanced nutritional data
+            breakfast_name: dayPlan.breakfast_name,
+            breakfast_calories: dayPlan.breakfast_calories,
+            breakfast_protein: dayPlan.breakfast_protein,
+            breakfast_carbs: dayPlan.breakfast_carbs,
+            breakfast_fat: dayPlan.breakfast_fat,
+            breakfast_benefit: dayPlan.breakfast_benefit,
+            lunch_name: dayPlan.lunch_name,
+            lunch_calories: dayPlan.lunch_calories,
+            lunch_protein: dayPlan.lunch_protein,
+            lunch_carbs: dayPlan.lunch_carbs,
+            lunch_fat: dayPlan.lunch_fat,
+            lunch_benefit: dayPlan.lunch_benefit,
+            dinner_name: dayPlan.dinner_name,
+            dinner_calories: dayPlan.dinner_calories,
+            dinner_protein: dayPlan.dinner_protein,
+            dinner_carbs: dayPlan.dinner_carbs,
+            dinner_fat: dayPlan.dinner_fat,
+            dinner_benefit: dayPlan.dinner_benefit,
+            snack_name: dayPlan.snack_name,
+            snack_calories: dayPlan.snack_calories,
+            snack_protein: dayPlan.snack_protein,
+            snack_carbs: dayPlan.snack_carbs,
+            snack_fat: dayPlan.snack_fat,
+            snack_benefit: dayPlan.snack_benefit,
+          }));
+
+          // Save the therapeutic meal plan with health assessment
+          const savedPlan = await saveMealPlan(
+            transformedMealPlan,
+            selectedDate,
+            data.health_assessment,
+            data.user_info
+          );
+
+          setShowInputModal(false);
+          setIngredientList('');
+          setSelectedImage(null);
+          setImagePreview(null);
+
+          toast({
+            title: "Therapeutic Meal Plan Created!",
+            description: `Your health-aware meal plan for ${savedPlan?.name} has been created using your available ingredients.`,
+          });
+          return;
+        }
+      } else {
+        // Regular smart plan for healthy users
+        const response = await fetch('http://127.0.0.1:7017/smart_plan', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate meal plan');
+        }
+
+        const data = await response.json();
+        console.log('[Index] Smart Plan Response:', data);
+        console.log('[Index] Meal Plan Data:', data.meal_plan);
+
+        // Save the new meal plan and await the result
+        const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+
+        setShowInputModal(false);
+        setIngredientList('');
+        setSelectedImage(null);
+        setImagePreview(null);
+        setLocation('');
+        setBudget('');
+        setIsAutoGenerateEnabled(false);
+
+        toast({
+          title: "Success!",
+          description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
+        });
       }
-
-      const data = await response.json();
-      console.log('[Index] API Response:', data);
-      console.log('[Index] Meal Plan Data:', data.meal_plan);
-
-      // Save the new meal plan and await the result
-      const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
-
-      setShowInputModal(false);
-      setIngredientList('');
-      setSelectedImage(null);
-      setImagePreview(null);
-      setLocation('');
-      setBudget('');
-      setIsAutoGenerateEnabled(false);
-
-      toast({
-        title: "Success!",
-        description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
-      });
     } catch (error: any) {
       // Log the error in detail
       console.error('Error generating meal plan:', error);
@@ -936,7 +1096,7 @@ const Index = () => {
                 <div className="flex items-center gap-3">
                   <ChefHat className="w-5 h-5 text-[#2D3436]" />
                   <div>
-                    <h3 className="text-sm font-semibold text-[#2D3436]">Auto-Generate Meal Plan</h3>
+                    <h3 className="text-sm font-semibold text-[#2D3436]"> Auto Generate with Budget & Location</h3>
                     <p className="text-xs text-[#1e293b]">
                       {getSicknessInfo()
                         ? `Based on your health condition: ${getSicknessInfo()?.sicknessType}`
@@ -1077,7 +1237,7 @@ const Index = () => {
                       )}
                       <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-blue-800'
                         }`}>
-                        Auto-Generate Meal Plan
+                        Auto Generate with Budget & Location
                       </h3>
                     </div>
                     <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-blue-700'

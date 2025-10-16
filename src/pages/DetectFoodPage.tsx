@@ -74,7 +74,7 @@ const DetectFoodPage = () => {
     formData.append("image", selectedImage)
 
     try {
-      const response = await fetch("http://34.170.200.225:7017/food_detect", {
+      const response = await fetch("http://127.0.0.1:7017/food_detect", {
         method: "POST",
         body: formData,
       })
@@ -139,7 +139,7 @@ const DetectFoodPage = () => {
         setLoadingResources(true)
         try {
           console.log("[DetectFood] Fetching resources for:", data.food_detected)
-          const resResponse = await fetch("http://34.170.200.225:7017/food_detect_resources", {
+          const resResponse = await fetch("http://127.0.0.1:7017/food_detect_resources", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ food_detected: data.food_detected }),

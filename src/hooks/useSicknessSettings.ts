@@ -9,6 +9,7 @@ export interface SicknessSettings {
   weight?: number; // in kg
   activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   goal?: 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness';
+  location?: string;
 }
 
 export const useSicknessSettings = () => {
@@ -20,7 +21,8 @@ export const useSicknessSettings = () => {
     height: undefined,
     weight: undefined,
     activityLevel: undefined,
-    goal: undefined
+    goal: undefined,
+    location: undefined
   });
   const [loading, setLoading] = useState(false);
 
@@ -85,12 +87,13 @@ export const useSicknessSettings = () => {
       height: settings.height,
       weight: settings.weight,
       activityLevel: settings.activityLevel,
-      goal: settings.goal
+      goal: settings.goal,
+      location: settings.location
     };
   };
 
   const getHealthProfilePayload = () => {
-    if (!settings.hasSickness || !settings.age || !settings.gender || !settings.height || !settings.weight || !settings.activityLevel || !settings.goal) {
+    if (!settings.hasSickness || !settings.age || !settings.gender || !settings.height || !settings.weight || !settings.activityLevel || !settings.goal || !settings.location) {
       return null;
     }
     return {
@@ -100,7 +103,8 @@ export const useSicknessSettings = () => {
       gender: settings.gender,
       activity_level: settings.activityLevel,
       condition: settings.sicknessType,
-      goal: settings.goal
+      goal: settings.goal,
+      location: settings.location
     };
   };
 
@@ -112,7 +116,8 @@ export const useSicknessSettings = () => {
       !!settings.weight &&
       !!settings.activityLevel &&
       !!settings.goal &&
-      !!settings.sicknessType;
+      !!settings.sicknessType &&
+      !!settings.location;
   };
 
   return {
