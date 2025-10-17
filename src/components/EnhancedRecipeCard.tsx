@@ -134,12 +134,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
             <div className="relative h-48">
                 {imageLoading && (
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" 
-                             style={{
-                               animation: 'shimmer 2s infinite',
-                               backgroundSize: '200% 100%',
-                             }} 
-                        />
+                        <div className="absolute inset-0 animate-shimmer" />
                     </div>
                 )}
                 <img
