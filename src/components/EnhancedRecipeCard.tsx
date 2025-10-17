@@ -132,21 +132,19 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
         >
             {/* Food Image */}
             <div className="relative h-48">
-                {imageLoading && (
+                {imageLoading ? (
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
                         <div className="absolute inset-0 animate-shimmer" />
                     </div>
-                )}
-                <img
-                    src={foodImage || getFallbackImage()}
-                    alt={name}
-                    className="w-full h-full object-cover"
-                    onLoad={handleImageLoad}
-                    onError={handleImageError}
-                    style={{ display: imageLoading ? 'none' : 'block' }}
-                />
-                {!imageLoading && (
+                ) : (
                     <>
+                        <img
+                            src={foodImage || getFallbackImage()}
+                            alt={name}
+                            className="w-full h-full object-cover"
+                            onLoad={handleImageLoad}
+                            onError={handleImageError}
+                        />
                         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
                             <span className="text-lg">{getMealIcon(mealType)}</span>
                         </div>
