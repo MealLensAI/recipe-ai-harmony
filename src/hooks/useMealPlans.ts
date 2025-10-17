@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { APP_CONFIG } from '@/lib/config';
+import { safeGetItem } from '@/lib/utils';
 
 export interface MealPlan {
   day: string;
@@ -11,6 +12,38 @@ export interface MealPlan {
   lunch_ingredients?: string[];
   dinner_ingredients?: string[];
   snack_ingredients?: string[];
+  // Enhanced nutritional information
+  breakfast_name?: string;
+  breakfast_calories?: number;
+  breakfast_protein?: number;
+  breakfast_carbs?: number;
+  breakfast_fat?: number;
+  breakfast_benefit?: string;
+  lunch_name?: string;
+  lunch_calories?: number;
+  lunch_protein?: number;
+  lunch_carbs?: number;
+  lunch_fat?: number;
+  lunch_benefit?: string;
+  dinner_name?: string;
+  dinner_calories?: number;
+  dinner_protein?: number;
+  dinner_carbs?: number;
+  dinner_fat?: number;
+  dinner_benefit?: string;
+  snack_name?: string;
+  snack_calories?: number;
+  snack_protein?: number;
+  snack_carbs?: number;
+  snack_fat?: number;
+  snack_benefit?: string;
+}
+
+export interface HealthAssessment {
+  bmi: number;
+  bmi_category: string;
+  bmr: number;
+  daily_calories: number;
 }
 
 export interface SavedMealPlan {
@@ -21,9 +54,14 @@ export interface SavedMealPlan {
   mealPlan: MealPlan[];
   createdAt: string;
   updatedAt: string;
+  healthAssessment?: HealthAssessment; // Added for medical-grade plans
+  userInfo?: any; // Store user health profile
+  // Sickness tracking
+  hasSickness?: boolean; // Whether plan was created with sickness settings
+  sicknessType?: string; // Type of sickness when plan was created
 }
 
-export const useMealPlans = () => {
+export const useMealPlans = (filterBySickness?: boolean) => {
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,12 +71,14 @@ export const useMealPlans = () => {
     const fetchPlans = async () => {
       setLoading(true);
       try {
+        const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-          }
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include'
         });
 
         if (!response.ok) {
@@ -46,9 +86,9 @@ export const useMealPlans = () => {
         }
 
         const result = await response.json();
-        
+
         console.log('[DEBUG] Received meal plans response:', result);
-        
+
         if (result.status === 'success' && result.meal_plans) {
           const plans = result.meal_plans.map((plan: any) => ({
             id: plan.id,
@@ -58,10 +98,49 @@ export const useMealPlans = () => {
             mealPlan: plan.meal_plan,
             createdAt: plan.created_at,
             updatedAt: plan.updated_at,
+            healthAssessment: plan.health_assessment,
+            userInfo: plan.user_info,
+            hasSickness: plan.has_sickness || false,
+            sicknessType: plan.sickness_type || ''
           }));
           console.log('[DEBUG] Processed meal plans:', plans);
-          setSavedPlans(plans);
-          if (plans.length > 0) setCurrentPlan(plans[0]);
+          // Debug: Check if meal plans have sickness data
+          if (plans.length > 0) {
+            console.log('[DEBUG] First meal plan sickness data:', {
+              id: plans[0].id,
+              name: plans[0].name,
+              hasSickness: plans[0].hasSickness,
+              sicknessType: plans[0].sicknessType,
+              rawBackendData: result.meal_plans[0] // Show raw backend data
+            });
+          }
+          // Debug: Check if meal plans have nutritional data
+          if (plans.length > 0 && plans[0].mealPlan && plans[0].mealPlan.length > 0) {
+            const firstDay = plans[0].mealPlan[0];
+            console.log('[DEBUG] First day meal plan data:', {
+              hasBreakfastCalories: firstDay.breakfast_calories !== undefined,
+              hasBreakfastProtein: firstDay.breakfast_protein !== undefined,
+              hasHealthAssessment: plans[0].healthAssessment !== undefined,
+              sampleData: {
+                breakfast_calories: firstDay.breakfast_calories,
+                breakfast_protein: firstDay.breakfast_protein,
+                breakfast_name: firstDay.breakfast_name
+              }
+            });
+          }
+          // Filter plans based on sickness profile
+          let filteredPlans = plans;
+          if (filterBySickness !== undefined) {
+            filteredPlans = plans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
+            console.log(`[DEBUG] Filtered plans for sickness=${filterBySickness}:`, {
+              totalPlans: plans.length,
+              filteredPlans: filteredPlans.length,
+              filteredPlanIds: filteredPlans.map((p: SavedMealPlan) => ({ id: p.id, name: p.name, hasSickness: p.hasSickness }))
+            });
+          }
+
+          setSavedPlans(filteredPlans);
+          if (filteredPlans.length > 0) setCurrentPlan(filteredPlans[0]);
         } else {
           console.error('Error fetching meal plans:', result.message);
           setSavedPlans([]);
@@ -75,7 +154,7 @@ export const useMealPlans = () => {
       setLoading(false);
     };
     fetchPlans();
-  }, []);
+  }, [filterBySickness]);
 
   const generateWeekDates = (startDate: Date): { startDate: string; endDate: string; name: string } => {
     const endDate = new Date(startDate);
@@ -88,7 +167,7 @@ export const useMealPlans = () => {
     };
   };
 
-  const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date) => {
+  const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date, healthAssessment?: HealthAssessment, userInfo?: any, sicknessSettings?: { hasSickness: boolean; sicknessType: string }) => {
     setLoading(true);
     try {
       const now = new Date();
@@ -100,17 +179,25 @@ export const useMealPlans = () => {
         end_date: weekDates.endDate,
         meal_plan: mealPlan,
         created_at: now.toISOString(),
-        updated_at: now.toISOString()
+        updated_at: now.toISOString(),
+        health_assessment: healthAssessment,
+        user_info: userInfo,
+        has_sickness: sicknessSettings?.hasSickness || false,
+        sickness_type: sicknessSettings?.sicknessType || ''
       };
 
       console.log('[DEBUG] Sending meal plan data:', planData);
+
+      const token = safeGetItem('access_token');
+      console.log('[DEBUG] Using access token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
 
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
+        credentials: 'include',
         body: JSON.stringify(planData)
       });
 
@@ -129,7 +216,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success' && result.data) {
         const newPlan: SavedMealPlan = {
           id: result.data.id,
@@ -139,6 +226,10 @@ export const useMealPlans = () => {
           mealPlan: result.data.mealPlan,
           createdAt: result.data.createdAt,
           updatedAt: result.data.updatedAt,
+          healthAssessment: result.data.healthAssessment,
+          userInfo: result.data.userInfo,
+          hasSickness: sicknessSettings?.hasSickness || false,
+          sicknessType: sicknessSettings?.sicknessType || ''
         };
         setSavedPlans(prev => [newPlan, ...prev]);
         setCurrentPlan(newPlan);
@@ -158,15 +249,17 @@ export const useMealPlans = () => {
     setLoading(true);
     try {
       const now = new Date();
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ 
-          meal_plan: mealPlan, 
-          updated_at: now.toISOString() 
+        credentials: 'include',
+        body: JSON.stringify({
+          meal_plan: mealPlan,
+          updated_at: now.toISOString()
         })
       });
 
@@ -175,7 +268,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success') {
         // Update local state
         setSavedPlans(prev => prev.map(plan => plan.id === id ? {
@@ -202,12 +295,14 @@ export const useMealPlans = () => {
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
     try {
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -215,7 +310,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success') {
         setSavedPlans(prev => {
           const remainingPlans = prev.filter(plan => plan.id !== id);
@@ -236,32 +331,45 @@ export const useMealPlans = () => {
   const selectMealPlan = (id: string) => {
     const plan = savedPlans.find(p => p.id === id);
     if (plan) {
+      console.log('[DEBUG] Selecting meal plan:', {
+        id: plan.id,
+        name: plan.name,
+        hasSickness: plan.hasSickness,
+        sicknessType: plan.sicknessType,
+        fullPlan: plan
+      });
       setCurrentPlan(plan);
+    } else {
+      console.error('[DEBUG] Plan not found for id:', id);
     }
   };
 
   const duplicateMealPlan = async (id: string, newStartDate: Date) => {
     const originalPlan = savedPlans.find(p => p.id === id);
     if (!originalPlan) return;
-    
+
     const weekDates = generateWeekDates(newStartDate);
     const now = new Date();
-    
+
     const planData = {
       name: weekDates.name,
       start_date: weekDates.startDate,
       end_date: weekDates.endDate,
       meal_plan: originalPlan.mealPlan,
       created_at: now.toISOString(),
-      updated_at: now.toISOString()
+      updated_at: now.toISOString(),
+      has_sickness: originalPlan.hasSickness || false,
+      sickness_type: originalPlan.sicknessType || ''
     };
 
+    const token = safeGetItem('access_token');
     const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
+      credentials: 'include',
       body: JSON.stringify(planData)
     });
 
@@ -270,7 +378,7 @@ export const useMealPlans = () => {
     }
 
     const result = await response.json();
-    
+
     if (result.status === 'success' && result.data) {
       const duplicatedPlan: SavedMealPlan = {
         id: result.data.id,
@@ -280,6 +388,8 @@ export const useMealPlans = () => {
         mealPlan: result.data.mealPlan,
         createdAt: result.data.createdAt,
         updatedAt: result.data.updatedAt,
+        hasSickness: originalPlan.hasSickness || false,
+        sicknessType: originalPlan.sicknessType || ''
       };
       setSavedPlans(prev => [duplicatedPlan, ...prev]);
       setCurrentPlan(duplicatedPlan);
@@ -292,12 +402,14 @@ export const useMealPlans = () => {
   const clearAllPlans = async () => {
     setLoading(true);
     try {
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/clear`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -305,7 +417,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success') {
         setSavedPlans([]);
         setCurrentPlan(null);
@@ -323,12 +435,14 @@ export const useMealPlans = () => {
   const refreshMealPlans = async () => {
     setLoading(true);
     try {
+      const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...(window.localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('access_token')}` } : {})
-        }
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -336,7 +450,7 @@ export const useMealPlans = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'success' && result.meal_plans) {
         const plans = result.meal_plans.map((plan: any) => ({
           id: plan.id,
@@ -346,9 +460,23 @@ export const useMealPlans = () => {
           mealPlan: plan.meal_plan,
           createdAt: plan.created_at,
           updatedAt: plan.updated_at,
+          healthAssessment: plan.health_assessment,
+          userInfo: plan.user_info,
+          hasSickness: plan.has_sickness || false,
+          sicknessType: plan.sickness_type || ''
         }));
-        setSavedPlans(plans);
-        setCurrentPlan(plans.length > 0 ? plans[0] : null);
+        // Filter plans based on sickness profile
+        let filteredPlans = plans;
+        if (filterBySickness !== undefined) {
+          filteredPlans = plans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
+          console.log(`[DEBUG] Refresh filtered plans for sickness=${filterBySickness}:`, {
+            totalPlans: plans.length,
+            filteredPlans: filteredPlans.length
+          });
+        }
+
+        setSavedPlans(filteredPlans);
+        setCurrentPlan(filteredPlans.length > 0 ? filteredPlans[0] : null);
       } else {
         setSavedPlans([]);
         setCurrentPlan(null);

@@ -54,7 +54,7 @@ export const useTutorialContent = () => {
       }
 
       // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? 'http://34.170.200.225:7017/sick_meal_plan_instructions' : 'http://34.170.200.225:7017/meal_plan_instructions';
+      const endpoint = sicknessInfo ? 'http://127.0.0.1:7017/sick_meal_plan_instructions' : 'http://127.0.0.1:7017/meal_plan_instructions';
 
       const instrRes = await fetch(endpoint, {
         method: 'POST',
@@ -84,7 +84,7 @@ export const useTutorialContent = () => {
       // 2. Get resources (YouTube and Google) using the correct form data
       const formData = new FormData();
       formData.append('food_choice_index', recipeName);
-      const resRes = await fetch('http://34.170.200.225:7017/resources', {
+      const resRes = await fetch('http://127.0.0.1:7017/resources', {
         method: 'POST',
         body: formData,
       });

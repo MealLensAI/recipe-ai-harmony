@@ -110,7 +110,7 @@ const AIResponsePage: FC = () => {
     }
 
     try {
-      const response = await fetch("http://34.170.200.225:7017/process", {
+      const response = await fetch("http://127.0.0.1:7017/process", {
         method: "POST",
         body: formData,
       })
@@ -155,7 +155,7 @@ const AIResponsePage: FC = () => {
 
       console.log('Fetching instructions with analysisId:', analysisId)
 
-      const instrRes = await fetch("http://34.170.200.225:7017/instructions", {
+      const instrRes = await fetch("http://127.0.0.1:7017/instructions", {
         method: "POST",
         body: formData,
       })
@@ -180,7 +180,7 @@ const AIResponsePage: FC = () => {
       // 2. Get resources (YouTube and Google)
       const resForm = new FormData()
       resForm.append("food_choice_index", suggestion)
-      const resRes = await fetch("http://34.170.200.225:7017/resources", {
+      const resRes = await fetch("http://127.0.0.1:7017/resources", {
         method: "POST",
         body: resForm,
       })

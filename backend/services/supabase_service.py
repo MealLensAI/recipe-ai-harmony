@@ -340,8 +340,11 @@ class SupabaseService:
             start_date = plan_data.get('startDate') or plan_data.get('start_date')
             end_date = plan_data.get('endDate') or plan_data.get('end_date')
             meal_plan = plan_data.get('mealPlan') or plan_data.get('meal_plan')
+            has_sickness = plan_data.get('has_sickness', False)
+            sickness_type = plan_data.get('sickness_type', '')
             
             print(f"[DEBUG] Extracted data - name: {name}, start_date: {start_date}, end_date: {end_date}")
+            print(f"[DEBUG] sickness data - has_sickness: {has_sickness}, sickness_type: {sickness_type}")
             print(f"[DEBUG] meal_plan data: {meal_plan}")
             print(f"[DEBUG] meal_plan type: {type(meal_plan)}")
 
@@ -352,6 +355,8 @@ class SupabaseService:
                 'start_date': start_date,
                 'end_date': end_date,
                 'meal_plan': meal_plan,
+                'has_sickness': has_sickness,
+                'sickness_type': sickness_type,
                 'created_at': plan_data.get('created_at') or datetime.utcnow().isoformat() + 'Z',
                 'updated_at': plan_data.get('updated_at') or datetime.utcnow().isoformat() + 'Z'
             }
@@ -375,7 +380,9 @@ class SupabaseService:
                     'endDate': inserted_data['end_date'],
                     'mealPlan': inserted_data['meal_plan'],
                     'createdAt': inserted_data['created_at'],
-                    'updatedAt': inserted_data['updated_at']
+                    'updatedAt': inserted_data['updated_at'],
+                    'hasSickness': inserted_data.get('has_sickness', False),
+                    'sicknessType': inserted_data.get('sickness_type', '')
                 }
             else:
                 print(f"[ERROR] Supabase insert error: No data returned")

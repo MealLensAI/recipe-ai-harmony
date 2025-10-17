@@ -37,12 +37,14 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
       const data = await response.json();
       console.log('[RecipeCard] API response JSON:', data);
 
-      if (data.image_url) {
+      if (data.image_url && !data.error) {
         setFoodImage(data.image_url);
         setImageLoading(false);
         console.log('[RecipeCard] Set foodImage to:', data.image_url);
       } else {
-        throw new Error('No image URL in response');
+        console.log('[RecipeCard] No image found, using fallback');
+        setFoodImage(getFallbackImage());
+        setImageLoading(false);
       }
     } catch (error) {
       console.error('[RecipeCard] Error fetching food image:', error);
@@ -59,10 +61,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
 
   const getFallbackImage = () => {
     const fallbackImages = {
-      breakfast: 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Floading-circle&psig=AOvVaw28Iyc-z4JEXpGmOScNoX_Q&ust=1752286755158000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCODk74Dfs44DFQAAAAAdAAAAABAE',
-      lunch: 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Floading-circle&psig=AOvVaw28Iyc-z4JEXpGmOScNoX_Q&ust=1752286755158000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCODk74Dfs44DFQAAAAAdAAAAABAE',
-      dinner: 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Floading-circle&psig=AOvVaw28Iyc-z4JEXpGmOScNoX_Q&ust=1752286755158000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCODk74Dfs44DFQAAAAAdAAAAABAE',
-      snack: 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.istockphoto.com%2Fphotos%2Floading-circle&psig=AOvVaw28Iyc-z4JEXpGmOScNoX_Q&ust=1752286755158000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCODk74Dfs44DFQAAAAAdAAAAABAE'
+      breakfast: 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+      lunch: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+      dinner: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
+      snack: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop'
     };
     return fallbackImages[mealType] || fallbackImages.dinner;
   };
@@ -99,48 +101,49 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
   };
 
   return (
-    <div 
+    <div
       className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer transform hover:scale-105"
       onClick={onClick}
     >
       <div className="relative h-48">
-        {imageLoading && (
-          <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-            <div className="text-gray-400 text-sm">Loading image...</div>
+        {imageLoading ? (
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
+            <div className="absolute inset-0 animate-shimmer" />
           </div>
+        ) : (
+          <>
+            <img
+              src={foodImage || getFallbackImage()}
+              alt={title}
+              className="w-full h-full object-cover"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
+              <span className="text-lg">{getMealTypeIcon()}</span>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
+          </>
         )}
-        <img 
-          src={foodImage || getFallbackImage()}
-          alt={title}
-          className="w-full h-full object-cover"
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          style={{ display: imageLoading ? 'none' : 'block' }}
-        />
-        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
-          <span className="text-lg">{getMealTypeIcon()}</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
       </div>
-      
+
       <div className="p-4">
         <h3 className="font-semibold text-[#2D3436] mb-2 text-sm leading-tight line-clamp-2">
           {originalTitle || title}
         </h3>
-        
+
         <div className="flex items-center justify-between">
           <div className="flex items-center text-[#1e293b] text-xs">
             <Clock className="w-3 h-3 mr-1" />
             <span>{time}</span>
           </div>
-          
+
           <div className="flex items-center">
             {[...Array(5)].map((_, i) => (
-              <Star 
+              <Star
                 key={i}
-                className={`w-3 h-3 ${
-                  i < rating ? 'text-[#e09026] fill-current' : 'text-gray-300'
-                }`}
+                className={`w-3 h-3 ${i < rating ? 'text-[#e09026] fill-current' : 'text-gray-300'
+                  }`}
               />
             ))}
           </div>

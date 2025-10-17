@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Plus, Trash2, Copy, Edit, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
+import { Calendar, Plus, Trash2, Copy, Edit, ChevronLeft, ChevronRight, MoreVertical, Heart, Shield } from 'lucide-react';
 import { SavedMealPlan, useMealPlans } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from './LoadingSpinner';
@@ -8,19 +8,27 @@ interface MealPlanManagerProps {
   onNewPlan: () => void;
   onEditPlan: (plan: SavedMealPlan) => void;
   onSelectPlan?: (plan: SavedMealPlan) => void;
+  filterBySickness?: boolean; // Add filter parameter
 }
 
-const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan, onSelectPlan }) => {
-  const { savedPlans, currentPlan, selectMealPlan, deleteMealPlan, duplicateMealPlan, generateWeekDates, loading } = useMealPlans();
+const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan, onSelectPlan, filterBySickness }) => {
+  const { savedPlans, currentPlan, selectMealPlan, deleteMealPlan, duplicateMealPlan, generateWeekDates, loading } = useMealPlans(filterBySickness);
   const { toast } = useToast();
+
+  // Debug logging for filtering
+  console.log('[MealPlanManager] Filtering by sickness:', {
+    filterBySickness,
+    totalPlans: savedPlans.length,
+    planTypes: savedPlans.map(p => ({ id: p.id, name: p.name, hasSickness: p.hasSickness, sicknessType: p.sicknessType }))
+  });
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
@@ -82,6 +90,33 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
     return formatDateRange(weekDates.startDate, weekDates.endDate);
   };
 
+  const renderSicknessIndicator = (plan: SavedMealPlan) => {
+    // Debug logging
+    console.log('[MealPlanManager] Rendering sickness indicator for plan:', {
+      id: plan.id,
+      name: plan.name,
+      hasSickness: plan.hasSickness,
+      sicknessType: plan.sicknessType,
+      planData: plan
+    });
+
+    if (plan.hasSickness) {
+      return (
+        <div className="flex items-center gap-1 bg-red-50 text-red-700 px-2 py-1 rounded-full text-xs font-medium">
+          <Heart className="w-3 h-3" />
+          <span>{plan.sicknessType || 'Health Plan'}</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
+          <Shield className="w-3 h-3" />
+          <span>Regular Plan</span>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-[#e2e8f0]">
       {/* Header */}
@@ -108,7 +143,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
             Change Week
           </button>
         </div>
-        
+
         <div className="flex items-center justify-between">
           <button
             onClick={handlePreviousWeek}
@@ -116,16 +151,16 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
           >
             <ChevronLeft className="w-5 h-5 text-[#2D3436]" />
           </button>
-          
+
           <div className="text-center">
             <div className="text-sm text-[#1e293b]">
-              {selectedDate.toLocaleDateString('en-US', { 
-                month: 'long', 
-                year: 'numeric' 
+              {selectedDate.toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric'
               })}
             </div>
           </div>
-          
+
           <button
             onClick={handleNextWeek}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -165,11 +200,10 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
             {savedPlans.map((plan) => (
               <div
                 key={plan.id}
-                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                  currentPlan?.id === plan.id
-                    ? 'border-[#FF6B6B] bg-[#FF6B6B]/5'
-                    : 'border-gray-200 hover:border-[#FF6B6B]/50 hover:bg-gray-50'
-                }`}
+                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${currentPlan?.id === plan.id
+                  ? 'border-[#FF6B6B] bg-[#FF6B6B]/5'
+                  : 'border-gray-200 hover:border-[#FF6B6B]/50 hover:bg-gray-50'
+                  }`}
                 onClick={() => {
                   selectMealPlan(plan.id);
                   if (onSelectPlan) onSelectPlan(plan);
@@ -177,7 +211,10 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-[#2D3436]">{plan.name}</h4>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-[#2D3436]">{plan.name}</h4>
+                      {renderSicknessIndicator(plan)}
+                    </div>
                     <p className="text-sm text-[#1e293b]">
                       {formatDateRange(plan.startDate, plan.endDate)}
                     </p>
@@ -185,7 +222,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                       Updated {new Date(plan.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
                       onClick={(e) => {
@@ -197,7 +234,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                     >
                       <Edit className="w-4 h-4" />
                     </button>
-                    
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -208,7 +245,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
                     >
                       <Copy className="w-4 h-4" />
                     </button>
-                    
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
