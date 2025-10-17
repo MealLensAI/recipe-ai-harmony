@@ -47,7 +47,7 @@ interface WeeklyPlannerProps {
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const SicknessWeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay }) => {
+const WeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDaySelect, mealPlan = [], startDay }) => {
   const [foodImages, setFoodImages] = useState<Record<string, string>>({});
 
   // Helper function to extract clean food name from meal description
@@ -342,4 +342,4 @@ const SicknessWeeklyPlanner: React.FC<WeeklyPlannerProps> = ({ selectedDay, onDa
   );
 };
 
-export default SicknessWeeklyPlanner;
+export default WeeklyPlanner;

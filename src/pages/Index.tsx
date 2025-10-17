@@ -55,6 +55,9 @@ const Index = () => {
   const [budget, setBudget] = useState('');
   const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
 
+  const { toast } = useToast();
+  const { getSicknessInfo, getHealthProfilePayload, isHealthProfileComplete, settings: sicknessSettings } = useSicknessSettings();
+
   const {
     currentPlan,
     saveMealPlan,
@@ -64,10 +67,7 @@ const Index = () => {
     selectMealPlan,
     clearAllPlans,
     refreshMealPlans
-    , loading: mealPlansLoading } = useMealPlans();
-
-  const { toast } = useToast();
-  const { getSicknessInfo, getHealthProfilePayload, isHealthProfileComplete, settings: sicknessSettings } = useSicknessSettings();
+    , loading: mealPlansLoading } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
 
   const prevShowPlanManager = useRef(showPlanManager);
   const isInitialMount = useRef(true);
@@ -344,7 +344,8 @@ const Index = () => {
             transformedMealPlan,
             selectedDate,
             data.health_assessment,
-            data.user_info
+            data.user_info,
+            { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
           );
 
           setShowInputModal(false);
@@ -451,7 +452,8 @@ const Index = () => {
               transformedMealPlan,
               selectedDate,
               data.health_assessment,
-              data.user_info
+              data.user_info,
+              { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
             );
 
             setShowInputModal(false);
@@ -486,7 +488,13 @@ const Index = () => {
           console.log('[Index] Meal Plan Data:', data.meal_plan);
 
           // Save the new meal plan and await the result
-          const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+          const savedPlan = await saveMealPlan(
+            data.meal_plan,
+            selectedDate,
+            undefined,
+            undefined,
+            { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
+          );
 
           setShowInputModal(false);
           setIngredientList('');
@@ -596,7 +604,8 @@ const Index = () => {
             transformedMealPlan,
             selectedDate,
             data.health_assessment,
-            data.user_info
+            data.user_info,
+            { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
           );
 
           setShowInputModal(false);
@@ -626,7 +635,13 @@ const Index = () => {
         console.log('[Index] Meal Plan Data:', data.meal_plan);
 
         // Save the new meal plan and await the result
-        const savedPlan = await saveMealPlan(data.meal_plan, selectedDate);
+        const savedPlan = await saveMealPlan(
+          data.meal_plan,
+          selectedDate,
+          undefined,
+          undefined,
+          { hasSickness: sicknessSettings.hasSickness, sicknessType: sicknessSettings.sicknessType }
+        );
 
         setShowInputModal(false);
         setIngredientList('');
@@ -740,12 +755,29 @@ const Index = () => {
     // Always show the first day's recipes (the selected day)
     const dayPlan = rotatedPlan[0];
     if (!dayPlan) return [];
+
+    // Debug: Log the current plan and day plan data
+    console.log('[DEBUG] getRecipesForSelectedDay - Current Plan:', {
+      id: currentPlan?.id,
+      name: currentPlan?.name,
+      hasSickness: currentPlan?.hasSickness,
+      sicknessType: currentPlan?.sicknessType
+    });
+    console.log('[DEBUG] getRecipesForSelectedDay - Day Plan Data:', {
+      breakfast: dayPlan.breakfast,
+      breakfast_calories: dayPlan.breakfast_calories,
+      breakfast_protein: dayPlan.breakfast_protein,
+      hasNutritionalData: !!(dayPlan.breakfast_calories || dayPlan.breakfast_protein)
+    });
     // Helper function to extract clean food name from meal description
     const extractFoodName = (mealDescription: string): string => {
       // Remove the "(buy: ...)" part and any extra text
       const cleanName = mealDescription.replace(/\s*\(buy:[^)]*\)/, '').trim();
       return cleanName;
     };
+    // Include nutritional data if current health settings indicate sickness
+    const shouldIncludeNutritionData = sicknessSettings.hasSickness;
+
     const recipes = [
       {
         title: extractFoodName(dayPlan.breakfast),
@@ -753,14 +785,14 @@ const Index = () => {
         time: '15 mins',
         rating: 5,
         originalTitle: dayPlan.breakfast, // Keep original for display
-        // Enhanced nutrition data
-        name: dayPlan.breakfast_name || extractFoodName(dayPlan.breakfast),
-        ingredients: dayPlan.breakfast_ingredients || [],
-        calories: dayPlan.breakfast_calories,
-        protein: dayPlan.breakfast_protein,
-        carbs: dayPlan.breakfast_carbs,
-        fat: dayPlan.breakfast_fat,
-        benefit: dayPlan.breakfast_benefit
+        // Include nutritional data if current health settings indicate sickness
+        name: shouldIncludeNutritionData ? (dayPlan.breakfast_name || extractFoodName(dayPlan.breakfast)) : undefined,
+        ingredients: shouldIncludeNutritionData ? (dayPlan.breakfast_ingredients || []) : undefined,
+        calories: shouldIncludeNutritionData ? dayPlan.breakfast_calories : undefined,
+        protein: shouldIncludeNutritionData ? dayPlan.breakfast_protein : undefined,
+        carbs: shouldIncludeNutritionData ? dayPlan.breakfast_carbs : undefined,
+        fat: shouldIncludeNutritionData ? dayPlan.breakfast_fat : undefined,
+        benefit: shouldIncludeNutritionData ? dayPlan.breakfast_benefit : undefined
       },
       {
         title: extractFoodName(dayPlan.lunch),
@@ -768,14 +800,14 @@ const Index = () => {
         time: '25 mins',
         rating: 4,
         originalTitle: dayPlan.lunch,
-        // Enhanced nutrition data
-        name: dayPlan.lunch_name || extractFoodName(dayPlan.lunch),
-        ingredients: dayPlan.lunch_ingredients || [],
-        calories: dayPlan.lunch_calories,
-        protein: dayPlan.lunch_protein,
-        carbs: dayPlan.lunch_carbs,
-        fat: dayPlan.lunch_fat,
-        benefit: dayPlan.lunch_benefit
+        // Include nutritional data if current health settings indicate sickness
+        name: shouldIncludeNutritionData ? (dayPlan.lunch_name || extractFoodName(dayPlan.lunch)) : undefined,
+        ingredients: shouldIncludeNutritionData ? (dayPlan.lunch_ingredients || []) : undefined,
+        calories: shouldIncludeNutritionData ? dayPlan.lunch_calories : undefined,
+        protein: shouldIncludeNutritionData ? dayPlan.lunch_protein : undefined,
+        carbs: shouldIncludeNutritionData ? dayPlan.lunch_carbs : undefined,
+        fat: shouldIncludeNutritionData ? dayPlan.lunch_fat : undefined,
+        benefit: shouldIncludeNutritionData ? dayPlan.lunch_benefit : undefined
       },
       {
         title: extractFoodName(dayPlan.dinner),
@@ -783,14 +815,14 @@ const Index = () => {
         time: '35 mins',
         rating: 5,
         originalTitle: dayPlan.dinner,
-        // Enhanced nutrition data
-        name: dayPlan.dinner_name || extractFoodName(dayPlan.dinner),
-        ingredients: dayPlan.dinner_ingredients || [],
-        calories: dayPlan.dinner_calories,
-        protein: dayPlan.dinner_protein,
-        carbs: dayPlan.dinner_carbs,
-        fat: dayPlan.dinner_fat,
-        benefit: dayPlan.dinner_benefit
+        // Include nutritional data if current health settings indicate sickness
+        name: shouldIncludeNutritionData ? (dayPlan.dinner_name || extractFoodName(dayPlan.dinner)) : undefined,
+        ingredients: shouldIncludeNutritionData ? (dayPlan.dinner_ingredients || []) : undefined,
+        calories: shouldIncludeNutritionData ? dayPlan.dinner_calories : undefined,
+        protein: shouldIncludeNutritionData ? dayPlan.dinner_protein : undefined,
+        carbs: shouldIncludeNutritionData ? dayPlan.dinner_carbs : undefined,
+        fat: shouldIncludeNutritionData ? dayPlan.dinner_fat : undefined,
+        benefit: shouldIncludeNutritionData ? dayPlan.dinner_benefit : undefined
       },
     ];
     if (dayPlan.snack) {
@@ -800,14 +832,14 @@ const Index = () => {
         time: '5 mins',
         rating: 4,
         originalTitle: dayPlan.snack,
-        // Enhanced nutrition data
-        name: dayPlan.snack_name || extractFoodName(dayPlan.snack),
-        ingredients: dayPlan.snack_ingredients || [],
-        calories: dayPlan.snack_calories,
-        protein: dayPlan.snack_protein,
-        carbs: dayPlan.snack_carbs,
-        fat: dayPlan.snack_fat,
-        benefit: dayPlan.snack_benefit
+        // Include nutritional data if current health settings indicate sickness
+        name: shouldIncludeNutritionData ? (dayPlan.snack_name || extractFoodName(dayPlan.snack)) : undefined,
+        ingredients: shouldIncludeNutritionData ? (dayPlan.snack_ingredients || []) : undefined,
+        calories: shouldIncludeNutritionData ? dayPlan.snack_calories : undefined,
+        protein: shouldIncludeNutritionData ? dayPlan.snack_protein : undefined,
+        carbs: shouldIncludeNutritionData ? dayPlan.snack_carbs : undefined,
+        fat: shouldIncludeNutritionData ? dayPlan.snack_fat : undefined,
+        benefit: shouldIncludeNutritionData ? dayPlan.snack_benefit : undefined
       });
     }
     return selectedMealType === 'all'
@@ -994,16 +1026,22 @@ const Index = () => {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {getRecipesForSelectedDay().map((recipe, index) => {
-                    // Use EnhancedRecipeCard if nutritional data is available
-                    const hasNutritionData = recipe.calories !== undefined && recipe.protein !== undefined;
+                    // Use EnhancedRecipeCard if current health settings indicate sickness, otherwise use basic RecipeCard
+                    const shouldShowEnhancedUI = sicknessSettings.hasSickness;
 
-                    if (hasNutritionData) {
+                    console.log('[DEBUG] Index page - Health settings:', {
+                      hasSickness: sicknessSettings.hasSickness,
+                      shouldShowEnhancedUI,
+                      recipeTitle: recipe.title
+                    });
+
+                    if (shouldShowEnhancedUI) {
                       return (
                         <EnhancedRecipeCard
                           key={`${selectedDay}-${recipe.type}-${index}`}
                           mealType={recipe.type as 'breakfast' | 'lunch' | 'dinner' | 'snack'}
-                          name={recipe.name}
-                          ingredients={recipe.ingredients}
+                          name={recipe.name || recipe.title}
+                          ingredients={recipe.ingredients || []}
                           calories={recipe.calories}
                           protein={recipe.protein}
                           carbs={recipe.carbs}
@@ -1014,7 +1052,6 @@ const Index = () => {
                       );
                     }
 
-                    // Fallback to regular RecipeCard for basic plans
                     return (
                       <RecipeCard
                         key={`${selectedDay}-${recipe.type}-${index}`}
@@ -1074,6 +1111,7 @@ const Index = () => {
               }}
               onEditPlan={handleEditPlan}
               onSelectPlan={handleSelectPlan}
+              filterBySickness={sicknessSettings.hasSickness}
             />
           </div>
         </div>

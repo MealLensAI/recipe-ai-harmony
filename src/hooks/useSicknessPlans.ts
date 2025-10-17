@@ -58,7 +58,7 @@ export interface SavedMealPlan {
   userInfo?: any; // Store user health profile
 }
 
-export const useSicknessPlans = () => {
+export const useMealPlans = () => {
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,7 +69,7 @@ export const useSicknessPlans = () => {
       setLoading(true);
       try {
         const token = safeGetItem('access_token');
-        const response = await fetch(`${APP_CONFIG.api.base_url}/api/sickness_plan`, {
+        const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ export const useSicknessPlans = () => {
     try {
       const now = new Date();
       const token = safeGetItem('access_token');
-      const response = await fetch(`${APP_CONFIG.api.base_url}/api/sickness_plans/${id}`, {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +252,7 @@ export const useSicknessPlans = () => {
     setLoading(true);
     try {
       const token = safeGetItem('access_token');
-      const response = await fetch(`${APP_CONFIG.api.base_url}/api/sickness_plans/${id}`, {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -346,7 +346,7 @@ export const useSicknessPlans = () => {
     setLoading(true);
     try {
       const token = safeGetItem('access_token');
-      const response = await fetch(`${APP_CONFIG.api.base_url}/api/sickness_plans/clear`, {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/clear`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

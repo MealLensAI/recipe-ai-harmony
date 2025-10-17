@@ -15,7 +15,7 @@ const mealTypes = [
   { id: 'snack', label: 'Dessert', icon: Cookie }
 ];
 
-const SicknessMealTypeFilter: React.FC<MealTypeFilterProps> = ({ selectedType, onTypeSelect }) => {
+const MealTypeFilter: React.FC<MealTypeFilterProps> = ({ selectedType, onTypeSelect }) => {
   return (
     <div className="border-b border-[#e2e8f0] mb-6">
       {/* Scrollable row on mobile, normal layout on desktop */}
@@ -26,10 +26,11 @@ const SicknessMealTypeFilter: React.FC<MealTypeFilterProps> = ({ selectedType, o
             <button
               key={type.id}
               onClick={() => onTypeSelect(type.id)}
-              className={`shrink-0 flex items-center gap-2 pb-2 sm:pb-3 px-1 text-xs sm:text-sm font-medium transition-colors border-b-2 ${selectedType === type.id
+              className={`shrink-0 flex items-center gap-2 pb-2 sm:pb-3 px-1 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                selectedType === type.id
                   ? 'text-[#FF6B6B] border-[#FF6B6B]'
                   : 'text-[#1e293b] border-transparent hover:text-[#FF6B6B]'
-                }`}
+              }`}
             >
               <Icon className="w-4 h-4" />
               {type.label}
@@ -41,4 +42,4 @@ const SicknessMealTypeFilter: React.FC<MealTypeFilterProps> = ({ selectedType, o
   );
 };
 
-export default SicknessMealTypeFilter;
+export default MealTypeFilter;

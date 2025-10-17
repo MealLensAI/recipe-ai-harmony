@@ -3,7 +3,7 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { LogOut, Utensils, Camera, User, Settings, ChevronDown, Heart } from "lucide-react"
+import { LogOut, Utensils, Camera, User, Settings, ChevronDown } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,17 +77,6 @@ const Navbar = () => {
                 }`}
             >
               Meal Planner
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/sickness")}
-              className={`transition-colors ${isActive("/sickness")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-                }`}
-            >
-              <Heart className="h-4 w-4 mr-2" />
-              Sickness
             </Button>
             <Button
               variant="ghost"
@@ -170,7 +159,7 @@ const Navbar = () => {
 
         {/* Mobile Navigation */}
         <div className="md:hidden border-t border-gray-100 py-3">
-          <div className="grid grid-cols-5 gap-1">
+          <div className="grid grid-cols-4 gap-1">
 
             <Button
               variant="ghost"
@@ -182,18 +171,6 @@ const Navbar = () => {
             >
               <Settings className="h-5 w-5" />
               <span>Meal Planner</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/sickness")}
-              className={`flex flex-col items-center justify-center h-16 text-xs space-y-1 transition-colors ${isActive("/sickness")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-                }`}
-            >
-              <Heart className="h-5 w-5" />
-              <span>Sickness</span>
             </Button>
 
             <Button

@@ -45,12 +45,14 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
             const data = await response.json();
             console.log('[EnhancedRecipeCard] API response JSON:', data);
 
-            if (data.image_url) {
+            if (data.image_url && !data.error) {
                 setFoodImage(data.image_url);
                 setImageLoading(false);
                 console.log('[EnhancedRecipeCard] Set foodImage to:', data.image_url);
             } else {
-                throw new Error('No image URL in response');
+                console.log('[EnhancedRecipeCard] No image found, using fallback');
+                setFoodImage(getFallbackImage());
+                setImageLoading(false);
             }
         } catch (error) {
             console.error('[EnhancedRecipeCard] Error fetching food image:', error);
@@ -131,8 +133,13 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
             {/* Food Image */}
             <div className="relative h-48">
                 {imageLoading && (
-                    <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-                        <div className="text-gray-400 text-sm">Loading image...</div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" 
+                             style={{
+                               animation: 'shimmer 2s infinite',
+                               backgroundSize: '200% 100%',
+                             }} 
+                        />
                     </div>
                 )}
                 <img
@@ -143,21 +150,25 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                     onError={handleImageError}
                     style={{ display: imageLoading ? 'none' : 'block' }}
                 />
-                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
-                    <span className="text-lg">{getMealIcon(mealType)}</span>
-                </div>
-                <div className="absolute top-3 right-3">
-                    <Badge className={`${getMealTypeColor(mealType)} border`}>
-                        {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
-                    </Badge>
-                </div>
-                {hasNutritionData && calories && (
-                    <div className="absolute bottom-3 right-3 bg-orange-500/90 backdrop-blur-sm px-2 py-1 text-white text-xs font-semibold flex items-center gap-1">
-                        <Flame className="h-3 w-3" />
-                        {calories} cal
-                    </div>
+                {!imageLoading && (
+                    <>
+                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
+                            <span className="text-lg">{getMealIcon(mealType)}</span>
+                        </div>
+                        <div className="absolute top-3 right-3">
+                            <Badge className={`${getMealTypeColor(mealType)} border`}>
+                                {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
+                            </Badge>
+                        </div>
+                        {hasNutritionData && calories && (
+                            <div className="absolute bottom-3 right-3 bg-orange-500/90 backdrop-blur-sm px-2 py-1 text-white text-xs font-semibold flex items-center gap-1">
+                                <Flame className="h-3 w-3" />
+                                {calories} cal
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
+                    </>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
             </div>
 
             <CardContent className="p-4">
