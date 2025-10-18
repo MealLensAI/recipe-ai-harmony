@@ -3,7 +3,7 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { LogOut, Utensils, Camera, User, Settings, ChevronDown } from "lucide-react"
+import { LogOut, Utensils, Camera, User, Settings, ChevronDown, Building2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,6 +145,10 @@ const Navbar = () => {
                 <DropdownMenuItem onClick={() => navigate("/payment")}>
                   <span className="mr-2">💳</span>
                   <span>Payment</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/enterprise")}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <span>My Organizations</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
