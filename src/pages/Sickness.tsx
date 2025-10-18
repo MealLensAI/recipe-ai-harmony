@@ -1215,18 +1215,18 @@ const Index = () => {
 
             {/* Toggle Buttons - Only show when auto-generate is OFF */}
             {!isAutoGenerateEnabled && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <button
                   onClick={() => setInputType('ingredient_list')}
-                  className={`p-4 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
+                  className={`p-6 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
                     ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
                     : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
                     }`}
                 >
                   <div className="flex items-center justify-center">
-                    <List className="w-5 h-5 mr-3" />
+                    <List className="w-6 h-6 mr-4" />
                     <div>
-                      <div className="font-semibold">Type Ingredients</div>
+                      <div className="font-semibold text-lg">Type Ingredients</div>
                       <div className="text-sm opacity-90">Enter manually</div>
                     </div>
                   </div>
@@ -1234,15 +1234,15 @@ const Index = () => {
 
                 <button
                   onClick={() => setInputType('image')}
-                  className={`p-4 rounded-xl border-2 transition-all ${inputType === 'image'
+                  className={`p-6 rounded-xl border-2 transition-all ${inputType === 'image'
                     ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
                     : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
                     }`}
                 >
                   <div className="flex items-center justify-center">
-                    <Camera className="w-5 h-5 mr-3" />
+                    <Camera className="w-6 h-6 mr-4" />
                     <div>
-                      <div className="font-semibold">Upload Image</div>
+                      <div className="font-semibold text-lg">Upload Image</div>
                       <div className="text-sm opacity-90">Take a photo</div>
                     </div>
                   </div>
