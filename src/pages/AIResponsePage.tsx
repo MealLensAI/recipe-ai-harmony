@@ -509,7 +509,12 @@ const AIResponsePage: FC = () => {
                       <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
                       {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
                         <div className="space-y-6">
-                          {resources.GoogleSearch.map((item: any, idx: number) => (
+                          {resources.GoogleSearch
+                            .filter((item: any) => 
+                              !item.title.toLowerCase().includes('gnu make') &&
+                              !item.description.toLowerCase().includes('gnu make')
+                            )
+                            .map((item: any, idx: number) => (
                             <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                               <div className="p-6">
                                 <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
@@ -525,6 +530,16 @@ const AIResponsePage: FC = () => {
                               </div>
                             </div>
                           ))}
+                          {resources.GoogleSearch.filter((item: any) => 
+                            item.title.toLowerCase().includes('gnu make') ||
+                            item.description.toLowerCase().includes('gnu make')
+                          ).length > 0 && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                              <p className="text-yellow-800 text-sm">
+                                ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <p className="text-center text-gray-600">No articles available.</p>

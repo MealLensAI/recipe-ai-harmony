@@ -24,6 +24,25 @@ const WebResources: React.FC<WebResourcesProps> = ({ resources, onImageError }) 
     setLoadingImages({});
   }, [resources]);
 
+  // Debug logging for received resources
+  useEffect(() => {
+    console.log('[WebResources] Received resources:', resources);
+    console.log('[WebResources] Resources length:', resources?.length || 0);
+
+    if (resources && resources.length > 0) {
+      resources.forEach((resource, index) => {
+        console.log(`[WebResources] Resource ${index}:`, resource);
+
+        // Check if any resource contains GNU make
+        const resourceString = JSON.stringify(resource);
+        if (resourceString.toLowerCase().includes('gnu make')) {
+          console.error(`🚨 CRITICAL: Resource ${index} contains GNU make content!`);
+          console.error('Resource data:', resource);
+        }
+      });
+    }
+  }, [resources]);
+
   const fetchOgImage = async (url: string, index: number) => {
     setLoadingImages((prev) => ({ ...prev, [index]: true }));
     try {
@@ -34,9 +53,9 @@ const WebResources: React.FC<WebResourcesProps> = ({ resources, onImageError }) 
       const html = await response.text();
       // Parse the HTML for og:image or twitter:image
       const ogImageMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-                           html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
       const twitterImageMatch = html.match(/<meta[^>]+property=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
-                                html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']twitter:image["']/i);
+        html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']twitter:image["']/i);
       let imageUrl = '';
       if (ogImageMatch && ogImageMatch[1]) {
         imageUrl = ogImageMatch[1];
@@ -71,7 +90,7 @@ const WebResources: React.FC<WebResourcesProps> = ({ resources, onImageError }) 
                   <span className="text-gray-400">Loading image...</span>
                 </div>
               ) : imgSrc ? (
-                <img 
+                <img
                   src={imgSrc}
                   alt={resource.title}
                   className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300"

@@ -234,17 +234,6 @@ export class TrialService {
         }
       } else {
         console.log('❌ Backend subscription fetch failed:', response.status);
-
-        // If backend fetch fails and we have an active frontend trial, try to create a backend trial
-        const frontendTrial = this.getTrialInfo();
-        if (frontendTrial && !frontendTrial.isExpired) {
-          console.log('🔄 Backend trial missing but frontend trial active, attempting to create backend trial...');
-          try {
-            await this.createBackendTrial(userId, 48); // 48 hours to match frontend
-          } catch (e) {
-            console.log('❌ Failed to create backend trial:', e);
-          }
-        }
       }
     } catch (error) {
       console.error('❌ Error fetching subscription from backend:', error);
@@ -304,40 +293,6 @@ export class TrialService {
 
     console.log('❌ No trial info found in backend');
     return null;
-  }
-
-  /**
-   * Create a trial in the backend
-   */
-  static async createBackendTrial(userId: string, durationHours: number = 48): Promise<boolean> {
-    try {
-      console.log('🔄 Creating backend trial for user:', userId, 'duration:', durationHours, 'hours');
-
-      const response = await fetch(`${this.API_BASE_URL}/subscription/create-trial`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          user_id: userId,
-          duration_days: Math.ceil(durationHours / 24) // Convert hours to days
-        }),
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          console.log('✅ Backend trial created successfully:', result);
-          return true;
-        } else {
-          console.log('❌ Backend trial creation failed:', result.error);
-        }
-      } else {
-        console.log('❌ Backend trial creation request failed:', response.status);
-      }
-    } catch (error) {
-      console.error('❌ Error creating backend trial:', error);
-    }
-    return false;
   }
 
   /**

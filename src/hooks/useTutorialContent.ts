@@ -95,6 +95,14 @@ export const useTutorialContent = () => {
 
       const resData = await resRes.json();
       console.log('[useTutorialContent] Resources API response:', resData);
+      console.log('[useTutorialContent] Raw response string:', JSON.stringify(resData));
+
+      // Check if response contains GNU make
+      const responseString = JSON.stringify(resData);
+      if (responseString.toLowerCase().includes('gnu make')) {
+        console.error('🚨 CRITICAL: API response contains GNU make content!');
+        console.error('Full response:', resData);
+      }
 
       // Flatten and parse YouTube resources (same as HTML code)
       const ytResults = (resData.YoutubeSearch || []).flat().map((item: any) => ({
@@ -113,7 +121,35 @@ export const useTutorialContent = () => {
         url: item.link,
         image: item.image || '',
       }));
-      setWebResources(googleResults);
+      console.log('[useTutorialContent] Processed Google results:', googleResults);
+      
+      // Check processed results for GNU make
+      const processedString = JSON.stringify(googleResults);
+      if (processedString.toLowerCase().includes('gnu make')) {
+        console.error('🚨 CRITICAL: Processed Google results contain GNU make content!');
+        console.error('Processed results:', googleResults);
+        
+        // TEMPORARY FIX: Filter out GNU make content and show error message
+        const filteredResults = googleResults.filter(item => 
+          !item.title.toLowerCase().includes('gnu make') &&
+          !item.description.toLowerCase().includes('gnu make')
+        );
+        
+        if (filteredResults.length === 0) {
+          console.warn('⚠️ All Google results filtered out due to GNU make content. API needs to be fixed.');
+          // Show a fallback message instead of GNU make content
+          setWebResources([{
+            title: '⚠️ Google Search Temporarily Unavailable',
+            description: 'The search API is currently returning incorrect results. Please try again later or contact support.',
+            url: '#',
+            image: ''
+          }]);
+        } else {
+          setWebResources(filteredResults);
+        }
+      } else {
+        setWebResources(googleResults);
+      }
 
     } catch (error) {
       console.error('[useTutorialContent] Error generating content:', error);
