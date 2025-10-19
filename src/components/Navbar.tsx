@@ -20,7 +20,7 @@ const Navbar = () => {
   const location = useLocation()
   const { toast } = useToast()
   const { user, signOut, isAuthenticated } = useAuth()
-  const [canCreateOrganizations, setCanCreateOrganizations] = useState(true)
+  const [canCreateOrganizations, setCanCreateOrganizations] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -31,7 +31,12 @@ const Navbar = () => {
   const checkUserPermissions = async () => {
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      if (!token) return
+      if (!token) {
+        console.log('No token found, cannot check permissions')
+        return
+      }
+
+      console.log('Checking user permissions with token:', token.substring(0, 20) + '...')
 
       const response = await fetch('http://localhost:5001/api/enterprise/can-create', {
         headers: {
@@ -39,14 +44,21 @@ const Navbar = () => {
         }
       })
 
+      console.log('Permission check response status:', response.status)
+
       if (response.ok) {
         const data = await response.json()
+        console.log('Permission check response data:', data)
         setCanCreateOrganizations(data.can_create)
+      } else {
+        const errorData = await response.text()
+        console.error('Permission check failed:', response.status, errorData)
+        setCanCreateOrganizations(false)
       }
     } catch (error: any) {
       console.error('Failed to check user permissions:', error)
-      // Default to allowing creation if check fails
-      setCanCreateOrganizations(true)
+      // Default to false if check fails - better to be restrictive
+      setCanCreateOrganizations(false)
     }
   }
 

@@ -53,7 +53,9 @@ def require_auth(f):
 def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple[bool, str]:
     """
     Check if a user can create organizations.
-    Only users who are NOT invited members of other organizations can create organizations.
+    Users can create organizations if:
+    1. They are NOT invited members of other organizations, AND
+    2. They either own organizations OR they signed up as an organization user
     
     Returns:
         tuple: (can_create, reason)
@@ -69,9 +71,28 @@ def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple
         # Check if user already owns any organizations
         owned_orgs = supabase.table('enterprises').select('id').eq('created_by', user_id).execute()
         
-        # For now, we'll allow users to create multiple organizations
-        # You can change this logic if you want to limit to one organization per user
-        return True, "User can create organizations"
+        # If user owns organizations, they can create more
+        if owned_orgs.data:
+            return True, "User can create organizations"
+        
+        # If user doesn't own any organizations, check if they signed up as an organization user
+        # Get user metadata from Supabase Auth to check signup_type
+        try:
+            user_response = supabase.auth.admin.get_user_by_id(user_id)
+            if user_response and user_response.user:
+                user_metadata = user_response.user.user_metadata or {}
+                signup_type = user_metadata.get('signup_type', 'individual')
+                
+                if signup_type == 'organization':
+                    return True, "User can create organizations (signed up as organization user)"
+                else:
+                    return False, "Individual users cannot create organizations. Only users who signed up as organizations can access organization features."
+            else:
+                # If we can't get user metadata, default to individual
+                return False, "Individual users cannot create organizations. Only users who signed up as organizations can access organization features."
+        except Exception as metadata_error:
+            # If we can't check metadata, default to individual for security
+            return False, f"Individual users cannot create organizations. Error checking signup type: {str(metadata_error)}"
         
     except Exception as e:
         return False, f"Error checking user permissions: {str(e)}"

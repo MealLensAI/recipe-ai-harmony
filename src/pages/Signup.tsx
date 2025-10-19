@@ -147,7 +147,8 @@ const Signup = () => {
         email: formData.email,
         password: formData.password,
         first_name: formData.firstName,
-        last_name: formData.lastName
+        last_name: formData.lastName,
+        signup_type: isOrganizationSignup ? 'organization' : 'individual'
       })
 
       if (registerResult.status !== 'success') {
@@ -301,8 +302,8 @@ const Signup = () => {
                 type="button"
                 onClick={() => setIsOrganizationSignup(false)}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${!isOrganizationSignup
-                    ? 'bg-white text-orange-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-white text-orange-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
                   }`}
               >
                 <User className="h-4 w-4" />
@@ -312,8 +313,8 @@ const Signup = () => {
                 type="button"
                 onClick={() => setIsOrganizationSignup(true)}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${isOrganizationSignup
-                    ? 'bg-white text-orange-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-white text-orange-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
                   }`}
               >
                 <Building2 className="h-4 w-4" />

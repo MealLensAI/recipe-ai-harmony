@@ -303,6 +303,7 @@ def _validate_registration_data(data: dict) -> tuple[dict, int]:
     password = data.get('password', '')
     first_name = data.get('first_name', '').strip()
     last_name = data.get('last_name', '').strip()
+    signup_type = data.get('signup_type', 'individual').strip().lower()
     
     # Validate email format
     if '@' not in email or '.' not in email.split('@')[-1]:
@@ -320,12 +321,21 @@ def _validate_registration_data(data: dict) -> tuple[dict, int]:
             'error_type': 'validation_error'
         }, 400
     
+    # Validate signup_type
+    if signup_type not in ['individual', 'organization']:
+        return None, {
+            'status': 'error',
+            'message': 'Invalid signup_type. Must be "individual" or "organization"',
+            'error_type': 'validation_error'
+        }, 400
+    
     # Return cleaned data if validation passes
     return {
         'email': email,
         'password': password,
         'first_name': first_name,
-        'last_name': last_name
+        'last_name': last_name,
+        'signup_type': signup_type
     }, None, None
 
 
@@ -356,7 +366,7 @@ def _check_user_exists(supabase: Client, email: str) -> Optional[str]:
 
 
 def _create_user_with_client_auth(supabase: Client, email: str, password: str, 
-                               first_name: str, last_name: str) -> tuple[Optional[str], Optional[dict]]:
+                               first_name: str, last_name: str, signup_type: str = 'individual') -> tuple[Optional[str], Optional[dict]]:
     """Attempt to create a user using client auth.
     
     Args:
@@ -381,12 +391,13 @@ def _create_user_with_client_auth(supabase: Client, email: str, password: str,
         }
         
         # Add user metadata if available
-        if first_name or last_name:
+        if first_name or last_name or signup_type:
             auth_data["options"]["data"].update({
                 k: v for k, v in {
                     "first_name": first_name,
                     "last_name": last_name,
-                    "full_name": f"{first_name} {last_name}" if first_name and last_name else None
+                    "full_name": f"{first_name} {last_name}" if first_name and last_name else None,
+                    "signup_type": signup_type
                 }.items() if v is not None
             })
         
@@ -415,7 +426,7 @@ def _create_user_with_client_auth(supabase: Client, email: str, password: str,
 
 
 def _create_user_with_admin_api(supabase: Client, email: str, password: str,
-                             first_name: str, last_name: str) -> tuple[Optional[str], Optional[dict]]:
+                             first_name: str, last_name: str, signup_type: str = 'individual') -> tuple[Optional[str], Optional[dict]]:
     """Attempt to create a user using the admin API.
     
     Args:
@@ -438,7 +449,8 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
             'email_confirm': True,
             'user_metadata': {
                 'first_name': first_name or "",
-                'last_name': last_name or ""
+                'last_name': last_name or "",
+                'signup_type': signup_type
             }
         }
         
@@ -568,6 +580,7 @@ def register_user():
         password = validated_data['password']
         first_name = validated_data['first_name']
         last_name = validated_data['last_name']
+        signup_type = validated_data['signup_type']
         
         current_app.logger.info(f"Processing registration for email: {email}")
         
@@ -584,14 +597,14 @@ def register_user():
         
         # 1. Try to create user with client auth first
         user_id, error_response = _create_user_with_client_auth(
-            supabase, email, password, first_name, last_name
+            supabase, email, password, first_name, last_name, signup_type
         )
         
         # 2. If client auth fails, try admin API
         if not user_id:
             current_app.logger.info("Falling back to admin API for user creation")
             user_id, error_response = _create_user_with_admin_api(
-                supabase, email, password, first_name, last_name
+                supabase, email, password, first_name, last_name, signup_type
             )
             
             if not user_id:
