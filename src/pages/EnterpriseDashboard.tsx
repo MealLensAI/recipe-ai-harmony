@@ -56,9 +56,12 @@ export default function EnterpriseDashboard() {
     const [showCreateUserForm, setShowCreateUserForm] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean, user: any }>({ isOpen: false, user: null });
     const [isLoading, setIsLoading] = useState(true);
+    const [canCreateOrganizations, setCanCreateOrganizations] = useState(true);
+    const [permissionReason, setPermissionReason] = useState('');
 
     useEffect(() => {
         loadEnterprises();
+        checkUserPermissions();
     }, []);
 
     useEffect(() => {
@@ -66,6 +69,29 @@ export default function EnterpriseDashboard() {
             loadEnterpriseDetails(selectedEnterprise.id);
         }
     }, [selectedEnterprise]);
+
+    const checkUserPermissions = async () => {
+        try {
+            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+            if (!token) return;
+
+            const response = await fetch('http://localhost:5001/api/enterprise/can-create', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setCanCreateOrganizations(data.can_create);
+                setPermissionReason(data.reason);
+            }
+        } catch (error: any) {
+            console.error('Failed to check user permissions:', error);
+            // Default to allowing creation if check fails
+            setCanCreateOrganizations(true);
+        }
+    };
 
     const loadEnterprises = async () => {
         try {
@@ -243,18 +269,32 @@ export default function EnterpriseDashboard() {
                             <CardContent className="p-8">
                                 <Building2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                                 <h2 className="text-2xl font-bold mb-2">No Organizations Yet</h2>
-                                <p className="text-gray-600 mb-6">
-                                    Register your clinic, hospital, or practice to start inviting patients and managing their nutrition plans.
-                                </p>
-                                <Button onClick={() => setShowRegistrationForm(true)}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Register Organization
-                                </Button>
+                                {canCreateOrganizations ? (
+                                    <>
+                                        <p className="text-gray-600 mb-6">
+                                            Register your clinic, hospital, or practice to start inviting patients and managing their nutrition plans.
+                                        </p>
+                                        <Button onClick={() => setShowRegistrationForm(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Register Organization
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-gray-600 mb-6">
+                                            {permissionReason || "You don't have permission to create organizations."}
+                                        </p>
+                                        <p className="text-sm text-gray-500">
+                                            As an invited user, you can only access organizations you've been invited to.
+                                            Contact your organization administrator if you need access to additional features.
+                                        </p>
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
 
-                    {showRegistrationForm && (
+                    {showRegistrationForm && canCreateOrganizations && (
                         <EnterpriseRegistrationForm
                             onClose={() => setShowRegistrationForm(false)}
                             onSuccess={loadEnterprises}
@@ -273,10 +313,12 @@ export default function EnterpriseDashboard() {
                         <h1 className="text-3xl font-bold">Enterprise Dashboard</h1>
                         <p className="text-gray-600 mt-1">Manage your organization and invite users</p>
                     </div>
-                    <Button onClick={() => setShowRegistrationForm(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Register New Organization
-                    </Button>
+                    {canCreateOrganizations && (
+                        <Button onClick={() => setShowRegistrationForm(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Register New Organization
+                        </Button>
+                    )}
                 </div>
 
                 {/* Enterprise Stats */}
@@ -500,7 +542,7 @@ export default function EnterpriseDashboard() {
                     </TabsContent>
                 </Tabs>
 
-                {showRegistrationForm && (
+                {showRegistrationForm && canCreateOrganizations && (
                     <EnterpriseRegistrationForm
                         onClose={() => setShowRegistrationForm(false)}
                         onSuccess={loadEnterprises}

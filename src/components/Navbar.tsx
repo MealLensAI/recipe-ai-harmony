@@ -13,12 +13,42 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/utils"
+import { useState, useEffect } from "react"
 
 const Navbar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
   const { user, signOut, isAuthenticated } = useAuth()
+  const [canCreateOrganizations, setCanCreateOrganizations] = useState(true)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkUserPermissions()
+    }
+  }, [isAuthenticated])
+
+  const checkUserPermissions = async () => {
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch('http://localhost:5001/api/enterprise/can-create', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setCanCreateOrganizations(data.can_create)
+      }
+    } catch (error: any) {
+      console.error('Failed to check user permissions:', error)
+      // Default to allowing creation if check fails
+      setCanCreateOrganizations(true)
+    }
+  }
 
   const isActive = (path: string) => location.pathname === path
 
@@ -146,10 +176,12 @@ const Navbar = () => {
                   <span className="mr-2">💳</span>
                   <span>Payment</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/enterprise")}>
-                  <Building2 className="mr-2 h-4 w-4" />
-                  <span>My Organizations</span>
-                </DropdownMenuItem>
+                {canCreateOrganizations && (
+                  <DropdownMenuItem onClick={() => navigate("/enterprise")}>
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span>My Organizations</span>
+                  </DropdownMenuItem>
+                )}
 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>

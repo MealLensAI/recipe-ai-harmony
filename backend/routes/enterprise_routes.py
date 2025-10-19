@@ -50,6 +50,32 @@ def require_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple[bool, str]:
+    """
+    Check if a user can create organizations.
+    Only users who are NOT invited members of other organizations can create organizations.
+    
+    Returns:
+        tuple: (can_create, reason)
+    """
+    try:
+        # Check if user is a member (not owner) of any organization
+        result = supabase.table('organization_users').select('id, role').eq('user_id', user_id).execute()
+        
+        if result.data:
+            # User is a member of at least one organization
+            return False, "Invited users cannot create organizations. Only organization owners can create new organizations."
+        
+        # Check if user already owns any organizations
+        owned_orgs = supabase.table('enterprises').select('id').eq('created_by', user_id).execute()
+        
+        # For now, we'll allow users to create multiple organizations
+        # You can change this logic if you want to limit to one organization per user
+        return True, "User can create organizations"
+        
+    except Exception as e:
+        return False, f"Error checking user permissions: {str(e)}"
+
 
 @enterprise_bp.route('/api/enterprise/register', methods=['POST'])
 @require_auth
@@ -65,6 +91,11 @@ def register_enterprise():
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
         supabase = get_supabase_client()
+        
+        # Check if user can create organizations
+        can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        if not can_create:
+            return jsonify({'error': reason}), 403
         
         # Check if enterprise with this email already exists
         existing = supabase.table('enterprises').select('id').eq('email', data['email']).execute()
@@ -94,6 +125,24 @@ def register_enterprise():
         
     except Exception as e:
         return jsonify({'error': f'Failed to register enterprise: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/can-create', methods=['GET'])
+@require_auth
+def can_create_organization():
+    """Check if the current user can create organizations"""
+    try:
+        supabase = get_supabase_client()
+        can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        
+        return jsonify({
+            'success': True,
+            'can_create': can_create,
+            'reason': reason
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to check permissions: {str(e)}'}), 500
 
 
 @enterprise_bp.route('/api/enterprise/my-enterprises', methods=['GET'])
