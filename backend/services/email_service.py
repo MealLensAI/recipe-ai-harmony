@@ -310,7 +310,7 @@ class EmailService:
         to_email: str, 
         enterprise_name: str, 
         inviter_name: str,
-        login_url: str = "http://localhost:5173/login"
+        login_url: str = "http://localhost:5001/api/enterprise/logout-and-login"
     ) -> bool:
         """
         Send an email to a user who was created by an organization admin
@@ -408,11 +408,15 @@ class EmailService:
                     <p>Click the button below to log in and get started:</p>
                     
                     <div style="text-align: center;">
-                        <a href="{login_url}" class="button">Login to MeallensAI</a>
+                        <a href="{login_url}" class="button" target="_blank">Login to MeallensAI</a>
                     </div>
                     
                     <p>Or copy and paste this link into your browser:</p>
                     <p style="word-break: break-all; color: #666;">{login_url}</p>
+                    
+                    <p style="font-size: 12px; color: #666; margin-top: 20px;">
+                        <strong>Note:</strong> If you're already logged in as someone else, please log out first or open this link in a new browser tab/incognito window.
+                    </p>
                     
                     <p>Once logged in, you'll have access to:</p>
                     <ul>

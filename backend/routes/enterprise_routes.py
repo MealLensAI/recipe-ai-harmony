@@ -788,6 +788,16 @@ def delete_organization_user(user_relation_id):
         return jsonify({'error': f'Failed to delete user: {str(e)}'}), 500
 
 
+@enterprise_bp.route('/api/enterprise/logout-and-login', methods=['GET'])
+def logout_and_login():
+    """Logout any existing user and redirect to login page"""
+    from flask import redirect, url_for
+    
+    # This endpoint will be called from the email link
+    # It will redirect to the frontend logout-and-login page
+    return redirect('http://localhost:5173/logout-and-login')
+
+
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_relation_id>', methods=['PUT'])
 @require_auth
 def update_user_relation(enterprise_id, user_relation_id):

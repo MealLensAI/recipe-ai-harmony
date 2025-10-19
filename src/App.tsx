@@ -28,12 +28,17 @@ import { Analytics } from "@/lib/analytics";
 import { ROUTE_SEO, updateMeta } from "@/lib/seo";
 import EnterpriseDashboard from "./pages/EnterpriseDashboard";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import LogoutAndLogin from "./pages/LogoutAndLogin";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />
+  },
+  {
+    path: "/logout-and-login",
+    element: <LogoutAndLogin />
   },
   {
     path: "/onboarding",
