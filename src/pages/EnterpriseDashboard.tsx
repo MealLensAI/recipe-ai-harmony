@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Users, Mail, Plus, MailOpen, Clock, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { Building2, Users, Mail, Plus, MailOpen, XCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EnterpriseRegistrationForm } from '@/components/enterprise/EnterpriseRegistrationForm';
 import { CreateUserForm } from '@/components/enterprise/CreateUserForm';
@@ -322,7 +322,7 @@ export default function EnterpriseDashboard() {
                 </div>
 
                 {/* Enterprise Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card>
                         <CardContent className="p-4">
                             <div className="flex items-center space-x-2">
@@ -330,30 +330,6 @@ export default function EnterpriseDashboard() {
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Total Users</p>
                                     <p className="text-2xl font-bold">{users.length}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <CheckCircle className="h-8 w-8 text-green-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">Active Users</p>
-                                    <p className="text-2xl font-bold">{selectedEnterprise?.stats?.active_users || 0}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <Clock className="h-8 w-8 text-orange-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">Pending Invites</p>
-                                    <p className="text-2xl font-bold">{selectedEnterprise?.stats?.pending_invitations || 0}</p>
                                 </div>
                             </div>
                         </CardContent>
