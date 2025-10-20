@@ -271,8 +271,8 @@ To verify the migration:
 The frontend is now fully compatible with API Version 2.0 (WHtR-based) as specified in the API documentation dated October 19, 2025.
 
 **Backend Endpoints Used:**
-- `http://127.0.0.1:7017/ai_nutrition_plan`
-- `http://127.0.0.1:7017/sick_smart_plan`
+- `http://34.170.200.225:7017/ai_nutrition_plan`
+- `http://34.170.200.225:7017/sick_smart_plan`
 
 Both endpoints now receive the `waist` parameter and return `whtr`/`whtr_category` in the response.
 

@@ -45,7 +45,7 @@ def test_payment_real_user():
     
     try:
         response = requests.post(
-            "http://127.0.0.1:5001/api/payment/success",
+            "http://34.170.200.225:5001/api/payment/success",
             json=test_data,
             headers={"Content-Type": "application/json"},
             timeout=30
@@ -65,7 +65,7 @@ def test_payment_real_user():
             print(f"❌ Payment success endpoint failed with status {response.status_code}")
             
     except requests.exceptions.ConnectionError:
-        print("❌ Could not connect to backend. Is it running on http://127.0.0.1:5001?")
+        print("❌ Could not connect to backend. Is it running on http://34.170.200.225:5001?")
     except requests.exceptions.Timeout:
         print("❌ Request timed out")
     except Exception as e:

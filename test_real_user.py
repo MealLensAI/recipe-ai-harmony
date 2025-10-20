@@ -20,7 +20,7 @@ def test_with_real_user():
         
         print("🔄 Attempting login to get real user ID...")
         response = requests.post(
-            "http://127.0.0.1:5001/api/login",
+            "http://34.170.200.225:5001/api/login",
             json=login_data,
             headers={"Content-Type": "application/json"},
             timeout=10
@@ -53,7 +53,7 @@ def test_subscription_status(user_id):
     
     try:
         response = requests.get(
-            f"http://127.0.0.1:5001/api/subscription/status?user_id={user_id}",
+            f"http://34.170.200.225:5001/api/subscription/status?user_id={user_id}",
             timeout=10
         )
         
@@ -88,7 +88,7 @@ def test_payment_with_real_user(user_id):
     
     try:
         response = requests.post(
-            f"http://127.0.0.1:5001/api/payment/success",
+            f"http://34.170.200.225:5001/api/payment/success",
             json=test_payment_data,
             headers={"Content-Type": "application/json"},
             timeout=10

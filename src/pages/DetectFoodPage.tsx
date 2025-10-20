@@ -74,7 +74,7 @@ const DetectFoodPage = () => {
     formData.append("image", selectedImage)
 
     try {
-      const response = await fetch("http://127.0.0.1:7017/food_detect", {
+      const response = await fetch("http://34.170.200.225:7017/food_detect", {
         method: "POST",
         body: formData,
       })
@@ -139,7 +139,7 @@ const DetectFoodPage = () => {
         setLoadingResources(true)
         try {
           console.log("[DetectFood] Fetching resources for:", data.food_detected)
-          const resResponse = await fetch("http://127.0.0.1:7017/food_detect_resources", {
+          const resResponse = await fetch("http://34.170.200.225:7017/food_detect_resources", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ food_detected: data.food_detected }),
@@ -441,36 +441,36 @@ const DetectFoodPage = () => {
                         <div className="space-y-6">
                           {/* Flatten the nested arrays like in the HTML version */}
                           {resources.GoogleSearch.flat()
-                            .filter((item: any) => 
+                            .filter((item: any) =>
                               !item.title.toLowerCase().includes('gnu make') &&
                               !item.description.toLowerCase().includes('gnu make')
                             )
                             .map((item: any, idx: number) => (
-                            <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                              <div className="p-6">
-                                <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
-                                <a
-                                  href={item.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                                >
-                                  Read More
-                                </a>
+                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                                <div className="p-6">
+                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
+                                  <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
+                                  <a
+                                    href={item.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
+                                  >
+                                    Read More
+                                  </a>
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                          {resources.GoogleSearch.flat().filter((item: any) => 
+                            ))}
+                          {resources.GoogleSearch.flat().filter((item: any) =>
                             item.title.toLowerCase().includes('gnu make') ||
                             item.description.toLowerCase().includes('gnu make')
                           ).length > 0 && (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                              <p className="text-yellow-800 text-sm">
-                                ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
-                              </p>
-                            </div>
-                          )}
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p className="text-yellow-800 text-sm">
+                                  ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
+                                </p>
+                              </div>
+                            )}
                         </div>
                       ) : (
                         <p className="text-center text-gray-600">No articles available.</p>
