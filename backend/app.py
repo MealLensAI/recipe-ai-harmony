@@ -66,6 +66,19 @@ except Exception as e:
     print(f"Lifecycle routes error: {e}")
     print("Lifecycle endpoints will be disabled.")
 
+# Enterprise routes import
+try:
+    from routes.enterprise_routes import enterprise_bp
+    ENTERPRISE_ROUTES_ENABLED = True
+    print("Enterprise routes loaded successfully.")
+except ImportError as e:
+    ENTERPRISE_ROUTES_ENABLED = False
+    print(f"Enterprise routes not available: {e}")
+except Exception as e:
+    ENTERPRISE_ROUTES_ENABLED = False
+    print(f"Enterprise routes error: {e}")
+    print("Enterprise endpoints will be disabled.")
+
 def create_app():
   """
   Factory function to create and configure the Flask application.
@@ -189,6 +202,13 @@ def create_app():
       print("Lifecycle routes registered.")
   else:
       print("Lifecycle routes disabled.")
+
+  # Register enterprise routes
+  if ENTERPRISE_ROUTES_ENABLED:
+      app.register_blueprint(enterprise_bp)
+      print("Enterprise routes registered.")
+  else:
+      print("Enterprise routes disabled.")
 
   return app
 

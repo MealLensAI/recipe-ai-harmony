@@ -64,6 +64,7 @@ const Settings = () => {
       if (!settings.gender) missingFields.push('Gender');
       if (!settings.height) missingFields.push('Height');
       if (!settings.weight) missingFields.push('Weight');
+      if (!settings.waist) missingFields.push('Waist Circumference');
       if (!settings.activityLevel) missingFields.push('Activity Level');
       if (!settings.goal) missingFields.push('Health Goal');
       if (!settings.location) missingFields.push('Location');
@@ -100,6 +101,15 @@ const Settings = () => {
         toast({
           title: "Invalid Weight",
           description: "Please enter a valid weight between 20 and 300 kg.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (settings.waist && (settings.waist < 60 || settings.waist > 150)) {
+        toast({
+          title: "Invalid Waist Circumference",
+          description: "Please enter a valid waist circumference between 60 and 150 cm.",
           variant: "destructive"
         });
         return;
@@ -351,6 +361,23 @@ const Settings = () => {
                           min="20"
                           max="300"
                         />
+                      </div>
+
+                      {/* Waist Circumference */}
+                      <div className="space-y-2">
+                        <Label htmlFor="waist">Waist Circumference (cm) *</Label>
+                        <Input
+                          id="waist"
+                          type="number"
+                          placeholder="e.g., 85"
+                          value={settings.waist || ''}
+                          onChange={(e) => updateSettings({ waist: parseFloat(e.target.value) || undefined })}
+                          min="60"
+                          max="150"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Measure at navel (belly button) level. Used for WHtR (Waist-to-Height Ratio) calculation.
+                        </p>
                       </div>
                     </div>
 

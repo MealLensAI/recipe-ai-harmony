@@ -40,8 +40,8 @@ export interface MealPlan {
 }
 
 export interface HealthAssessment {
-  bmi: number;
-  bmi_category: string;
+  whtr: number;
+  whtr_category: string;
   bmr: number;
   daily_calories: number;
 }

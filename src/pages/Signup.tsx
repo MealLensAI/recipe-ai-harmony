@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle, Building2, Users } from "lucide-react"
 import { useAuth, safeSetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
 
@@ -25,9 +25,17 @@ const Signup = () => {
     password: "",
     confirmPassword: "",
   })
+  const [organizationData, setOrganizationData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    organization_type: "clinic"
+  })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isOrganizationSignup, setIsOrganizationSignup] = useState(false)
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -40,6 +48,11 @@ const Signup = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleOrganizationInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setOrganizationData(prev => ({ ...prev, [name]: value }))
   }
 
   const validateForm = () => {
@@ -91,6 +104,35 @@ const Signup = () => {
       })
       return false
     }
+
+    // Validate organization data if organization signup
+    if (isOrganizationSignup) {
+      if (!organizationData.name.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Organization name is required.",
+          variant: "destructive",
+        })
+        return false
+      }
+      if (!organizationData.email.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Organization email is required.",
+          variant: "destructive",
+        })
+        return false
+      }
+      if (!organizationData.email.includes('@')) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter a valid organization email address.",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
     return true
   }
 
@@ -105,7 +147,8 @@ const Signup = () => {
         email: formData.email,
         password: formData.password,
         first_name: formData.firstName,
-        last_name: formData.lastName
+        last_name: formData.lastName,
+        signup_type: isOrganizationSignup ? 'organization' : 'individual'
       })
 
       if (registerResult.status !== 'success') {
@@ -147,6 +190,31 @@ const Signup = () => {
             title: "Account Created!",
             description: "Welcome to MealLensAI! Your account has been successfully created.",
           })
+
+          // If organization signup, register the organization after user creation
+          if (isOrganizationSignup) {
+            try {
+              const orgResponse = await fetch('http://localhost:5001/api/enterprise/register', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${loginResult.access_token}`
+                },
+                body: JSON.stringify(organizationData)
+              })
+
+              if (orgResponse.ok) {
+                toast({
+                  title: "Organization Registered!",
+                  description: "Your organization has been successfully registered.",
+                })
+              } else {
+                console.warn('Failed to register organization, but user account was created')
+              }
+            } catch (error) {
+              console.warn('Failed to register organization, but user account was created:', error)
+            }
+          }
 
           // After signup, walk the user through onboarding first
           navigate("/onboarding", { replace: true })
@@ -217,10 +285,43 @@ const Signup = () => {
         {/* Signup Card */}
         <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl font-bold text-center text-gray-900">Create Your Account</CardTitle>
-            <p className="text-center text-gray-600">Start your journey with AI-powered food detection</p>
+            <CardTitle className="text-2xl font-bold text-center text-gray-900">
+              {isOrganizationSignup ? "Register Your Organization" : "Create Your Account"}
+            </CardTitle>
+            <p className="text-center text-gray-600">
+              {isOrganizationSignup
+                ? "Set up your organization and start inviting patients"
+                : "Start your journey with AI-powered food detection"
+              }
+            </p>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Signup Type Toggle */}
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setIsOrganizationSignup(false)}
+                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${!isOrganizationSignup
+                  ? 'bg-white text-orange-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+                  }`}
+              >
+                <User className="h-4 w-4" />
+                <span className="font-medium">Individual</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOrganizationSignup(true)}
+                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-all duration-200 ${isOrganizationSignup
+                  ? 'bg-white text-orange-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800'
+                  }`}
+              >
+                <Building2 className="h-4 w-4" />
+                <span className="font-medium">Organization</span>
+              </button>
+            </div>
+
             {/* Email Signup Form */}
             <form onSubmit={handleEmailSignup} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -265,7 +366,7 @@ const Signup = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email Address
+                  {isOrganizationSignup ? "Your Email Address" : "Email Address"}
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -273,14 +374,114 @@ const Signup = () => {
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder={isOrganizationSignup ? "your.email@organization.com" : "Enter your email"}
                     value={formData.email}
                     onChange={handleInputChange}
                     className="pl-10 h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                     required
                   />
                 </div>
+                {isOrganizationSignup && (
+                  <p className="text-xs text-gray-500">
+                    This will be your login email for managing the organization
+                  </p>
+                )}
               </div>
+
+              {/* Organization Details */}
+              {isOrganizationSignup && (
+                <>
+                  <Separator className="my-6" />
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2 text-orange-600">
+                      <Building2 className="h-5 w-5" />
+                      <h3 className="font-semibold">Organization Details</h3>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgName" className="text-sm font-medium text-gray-700">
+                        Organization Name *
+                      </Label>
+                      <Input
+                        id="orgName"
+                        name="name"
+                        type="text"
+                        placeholder="e.g., Dr. Smith Medical Clinic"
+                        value={organizationData.name}
+                        onChange={handleOrganizationInputChange}
+                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgEmail" className="text-sm font-medium text-gray-700">
+                        Organization Email *
+                      </Label>
+                      <Input
+                        id="orgEmail"
+                        name="email"
+                        type="email"
+                        placeholder="contact@organization.com"
+                        value={organizationData.email}
+                        onChange={handleOrganizationInputChange}
+                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgPhone" className="text-sm font-medium text-gray-700">
+                        Phone Number
+                      </Label>
+                      <Input
+                        id="orgPhone"
+                        name="phone"
+                        type="tel"
+                        placeholder="+1234567890"
+                        value={organizationData.phone}
+                        onChange={handleOrganizationInputChange}
+                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgAddress" className="text-sm font-medium text-gray-700">
+                        Address
+                      </Label>
+                      <Input
+                        id="orgAddress"
+                        name="address"
+                        type="text"
+                        placeholder="123 Main St, City, State"
+                        value={organizationData.address}
+                        onChange={handleOrganizationInputChange}
+                        className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgType" className="text-sm font-medium text-gray-700">
+                        Organization Type *
+                      </Label>
+                      <select
+                        id="orgType"
+                        name="organization_type"
+                        value={organizationData.organization_type}
+                        onChange={handleOrganizationInputChange}
+                        className="w-full h-12 px-3 border border-gray-300 rounded-md focus:border-orange-500 focus:ring-orange-500"
+                        required
+                      >
+                        <option value="clinic">Clinic</option>
+                        <option value="hospital">Hospital</option>
+                        <option value="doctor">Individual Doctor</option>
+                        <option value="nutritionist">Nutritionist</option>
+                        <option value="wellness">Wellness Center</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
@@ -392,10 +593,10 @@ const Signup = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                    Creating account...
+                    {isOrganizationSignup ? "Registering organization..." : "Creating account..."}
                   </>
                 ) : (
-                  "Create Account"
+                  isOrganizationSignup ? "Register Organization" : "Create Account"
                 )}
               </Button>
             </form>
@@ -411,6 +612,11 @@ const Signup = () => {
                   Sign in here
                 </Link>
               </p>
+              {isOrganizationSignup && (
+                <p className="text-xs text-gray-500 mt-2">
+                  After registration, you'll be able to invite patients and manage your organization
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -99,7 +99,8 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
   }
 
   // If user can't access and is on a restricted page, show blocking overlay
-  if (!canAccess && !allowedPaths.includes(currentPath)) {
+  // Only show blocking if trial is actually expired (use frontend trial logic as primary source)
+  if (isTrialExpired && !hasActiveSubscription && !allowedPaths.includes(currentPath)) {
     return (
       <>
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">

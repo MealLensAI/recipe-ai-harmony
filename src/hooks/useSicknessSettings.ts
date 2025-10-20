@@ -7,6 +7,7 @@ export interface SicknessSettings {
   gender?: 'male' | 'female' | 'other';
   height?: number; // in cm
   weight?: number; // in kg
+  waist?: number; // in cm (measured at navel level)
   activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   goal?: 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness';
   location?: string;
@@ -20,6 +21,7 @@ export const useSicknessSettings = () => {
     gender: undefined,
     height: undefined,
     weight: undefined,
+    waist: undefined,
     activityLevel: undefined,
     goal: undefined,
     location: undefined
@@ -86,6 +88,7 @@ export const useSicknessSettings = () => {
       gender: settings.gender,
       height: settings.height,
       weight: settings.weight,
+      waist: settings.waist,
       activityLevel: settings.activityLevel,
       goal: settings.goal,
       location: settings.location
@@ -93,13 +96,14 @@ export const useSicknessSettings = () => {
   };
 
   const getHealthProfilePayload = () => {
-    if (!settings.hasSickness || !settings.age || !settings.gender || !settings.height || !settings.weight || !settings.activityLevel || !settings.goal || !settings.location) {
+    if (!settings.hasSickness || !settings.age || !settings.gender || !settings.height || !settings.weight || !settings.waist || !settings.activityLevel || !settings.goal || !settings.location) {
       return null;
     }
     return {
       age: settings.age,
       weight: settings.weight,
       height: settings.height,
+      waist: settings.waist,
       gender: settings.gender,
       activity_level: settings.activityLevel,
       condition: settings.sicknessType,
@@ -114,6 +118,7 @@ export const useSicknessSettings = () => {
       !!settings.gender &&
       !!settings.height &&
       !!settings.weight &&
+      !!settings.waist &&
       !!settings.activityLevel &&
       !!settings.goal &&
       !!settings.sicknessType &&

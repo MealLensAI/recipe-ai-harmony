@@ -26,12 +26,20 @@ import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import { Analytics } from "@/lib/analytics";
 import { ROUTE_SEO, updateMeta } from "@/lib/seo";
+import EnterpriseDashboard from "./pages/EnterpriseDashboard";
+import AcceptInvitation from "./pages/AcceptInvitation";
+import OrganizationAccessGuard from "./components/OrganizationAccessGuard";
+import LogoutAndLogin from "./pages/LogoutAndLogin";
 
 // Create router with future flags to eliminate deprecation warnings
 const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />
+  },
+  {
+    path: "/logout-and-login",
+    element: <LogoutAndLogin />
   },
   {
     path: "/onboarding",
@@ -156,6 +164,20 @@ const router = createBrowserRouter([
         </TrialBlocker>
       </ProtectedRoute>
     )
+  },
+  {
+    path: "/enterprise",
+    element: (
+      <ProtectedRoute>
+        <OrganizationAccessGuard>
+          <EnterpriseDashboard />
+        </OrganizationAccessGuard>
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/accept-invitation",
+    element: <AcceptInvitation />
   },
   {
     path: "*",

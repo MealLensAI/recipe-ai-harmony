@@ -291,7 +291,7 @@ class APIService {
     return this.post('/login', credentials, { skipAuth: true })
   }
 
-  async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string }): Promise<RegisterResponse> {
+  async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string; signup_type?: string }): Promise<RegisterResponse> {
     return this.post('/register', userData, { skipAuth: true })
   }
 
