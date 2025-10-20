@@ -9,18 +9,18 @@ interface HealthAssessmentCardProps {
 }
 
 const HealthAssessmentCard: React.FC<HealthAssessmentCardProps> = ({ healthAssessment, userInfo }) => {
-    const getBMIColor = (category: string) => {
-        switch (category.toLowerCase()) {
-            case 'underweight':
-                return 'text-blue-600 bg-blue-50';
-            case 'normal':
-                return 'text-green-600 bg-green-50';
-            case 'overweight':
-                return 'text-orange-600 bg-orange-50';
-            case 'obese':
-                return 'text-red-600 bg-red-50';
-            default:
-                return 'text-gray-600 bg-gray-50';
+    const getWHtRColor = (category: string) => {
+        const lowerCategory = category.toLowerCase();
+        if (lowerCategory.includes('underweight')) {
+            return 'text-blue-600 bg-blue-50';
+        } else if (lowerCategory.includes('healthy') || lowerCategory.includes('normal')) {
+            return 'text-green-600 bg-green-50';
+        } else if (lowerCategory.includes('overweight') || lowerCategory.includes('increased risk')) {
+            return 'text-orange-600 bg-orange-50';
+        } else if (lowerCategory.includes('obese') || lowerCategory.includes('high risk')) {
+            return 'text-red-600 bg-red-50';
+        } else {
+            return 'text-gray-600 bg-gray-50';
         }
     };
 
@@ -37,16 +37,17 @@ const HealthAssessmentCard: React.FC<HealthAssessmentCardProps> = ({ healthAsses
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* BMI */}
+                    {/* WHtR (Waist-to-Height Ratio) */}
                     <div className="bg-white p-4 border border-gray-200">
                         <div className="flex items-center gap-2 mb-2">
                             <Activity className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-gray-600">BMI</span>
+                            <span className="text-sm font-medium text-gray-600">WHtR</span>
                         </div>
-                        <div className="text-2xl font-bold text-gray-900">{healthAssessment.bmi.toFixed(1)}</div>
-                        <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium ${getBMIColor(healthAssessment.bmi_category)}`}>
-                            {healthAssessment.bmi_category}
+                        <div className="text-2xl font-bold text-gray-900">{healthAssessment.whtr.toFixed(2)}</div>
+                        <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded ${getWHtRColor(healthAssessment.whtr_category)}`}>
+                            {healthAssessment.whtr_category}
                         </div>
+                        <div className="text-xs text-gray-500 mt-1">Waist-to-Height Ratio</div>
                     </div>
 
                     {/* BMR */}

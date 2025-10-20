@@ -1195,7 +1195,7 @@ const Index = () => {
                     </p>
                     <ul className="text-xs text-green-700 space-y-1 ml-4">
                       <li>• Full nutritional breakdown (calories, protein, carbs, fats)</li>
-                      <li>• Health assessment (BMI, BMR, daily calorie needs)</li>
+                      <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
                       <li>• Condition-specific health benefits for each meal</li>
                       <li>• Personalized for: <strong>{getSicknessInfo()?.sicknessType}</strong></li>
                     </ul>
@@ -1374,6 +1374,10 @@ const Index = () => {
                               <span className="ml-2 font-medium">{getSicknessInfo()?.weight} kg</span>
                             </div>
                             <div>
+                              <span className="text-gray-600">Waist:</span>
+                              <span className="ml-2 font-medium">{getSicknessInfo()?.waist} cm</span>
+                            </div>
+                            <div>
                               <span className="text-gray-600">Activity:</span>
                               <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.activityLevel?.replace('_', ' ')}</span>
                             </div>
@@ -1400,7 +1404,7 @@ const Index = () => {
                           <ul className="text-sm text-blue-800 space-y-1">
                             <li>• Complete 7-day meal plan with exact portions</li>
                             <li>• Detailed nutritional breakdown (calories, protein, carbs, fats)</li>
-                            <li>• Health assessment (BMI, BMR, daily calorie needs)</li>
+                            <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
                             <li>• Condition-specific health benefits for each meal</li>
                             <li>• Doctor-approved recipes for your health condition</li>
                           </ul>
@@ -1448,7 +1452,7 @@ const Index = () => {
                           <ul className="text-sm text-blue-800 space-y-1">
                             <li>• Complete 7-day meal plan with exact portions</li>
                             <li>• Detailed nutritional breakdown (calories, protein, carbs, fats)</li>
-                            <li>• Health assessment (BMI, BMR, daily calorie needs)</li>
+                            <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
                             <li>• Condition-specific health benefits for each meal</li>
                             <li>• Doctor-approved recipes for your health condition</li>
                           </ul>
