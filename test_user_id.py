@@ -15,7 +15,7 @@ def test_with_real_user_id():
     
     try:
         response = requests.get(
-            f"http://127.0.0.1:5001/api/subscription/status?user_id={test_uuid}",
+            f"http://34.170.200.225:5001/api/subscription/status?user_id={test_uuid}",
             timeout=10
         )
         
@@ -50,7 +50,7 @@ def test_payment_with_uuid():
     
     try:
         response = requests.post(
-            f"http://127.0.0.1:5001/api/payment/success",
+            f"http://34.170.200.225:5001/api/payment/success",
             json=test_payment_data,
             headers={"Content-Type": "application/json"},
             timeout=10

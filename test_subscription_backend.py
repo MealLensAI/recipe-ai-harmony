@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 
 # Backend URL
-BACKEND_URL = "http://127.0.0.1:5001"
+BACKEND_URL = "http://34.170.200.225:5001"
 
 def test_backend_connection():
     """Test if backend is running"""
@@ -143,7 +143,7 @@ def main():
     print("\n" + "=" * 50)
     print("🏁 Test completed!")
     print("\n📋 Next steps:")
-    print("1. Check if backend is running on http://127.0.0.1:5001")
+    print("1. Check if backend is running on http://34.170.200.225:5001")
     print("2. Check if Supabase connection is working")
     print("3. Check if subscription data is being stored in database")
     print("4. Check if frontend is calling the correct endpoints")

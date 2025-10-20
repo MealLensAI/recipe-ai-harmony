@@ -16,7 +16,7 @@ Users can now provide a complete health profile in Settings:
 - **Health Goal** (Heal & Manage, Maintain, Lose Weight, Gain Weight, Improve Fitness)
 
 ### 2. **Medical-Grade AI Endpoint Integration**
-- **Endpoint**: `http://127.0.0.1:7017/ai_nutrition_plan`
+- **Endpoint**: `http://34.170.200.225:7017/ai_nutrition_plan`
 - **Method**: POST with JSON body containing complete health profile
 - **Automatically Used**: When user has completed their full health profile
 
@@ -147,7 +147,7 @@ Standard meal plan generated → Regular recipe cards displayed
 
 ## Backend Requirements
 
-The backend endpoint `http://127.0.0.1:7017/ai_nutrition_plan` must:
+The backend endpoint `http://34.170.200.225:7017/ai_nutrition_plan` must:
 - Accept POST requests with JSON body
 - Validate health profile data
 - Return structured response with:

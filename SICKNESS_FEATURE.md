@@ -15,7 +15,7 @@ The sickness-aware meal planning feature allows users to specify their health co
 ### 2. Health-Aware Meal Planning
 - When a user has specified a sickness, the system uses different API endpoints:
   - **Normal users**: `https://ai-utu2.onrender.com/smart_plan`
-  - **Sick users**: `http://127.0.0.1:5001/sick_smart_plan`
+  - **Sick users**: `http://34.170.200.225:5001/sick_smart_plan`
   - **Auto-generation for sick users**: `http://localhost:5001/auto_sick_smart_plan`
   - **Auto-generation for healthy users**: `http://localhost:5001/auto_generate_plan`
 - The sickness information is passed as a form parameter to the API
@@ -24,7 +24,7 @@ The sickness-aware meal planning feature allows users to specify their health co
 ### 3. Health-Aware Recipe Instructions
 - Recipe instructions are also customized based on sickness:
   - **Normal users**: `https://ai-utu2.onrender.com/meal_plan_instructions`
-  - **Sick users**: `http://127.0.0.1:5001/sick_meal_plan_instructions`
+  - **Sick users**: `http://34.170.200.225:5001/sick_meal_plan_instructions`
 - The sickness information is included in the request body
 
 ### 4. Visual Indicators
@@ -38,7 +38,7 @@ The sickness-aware meal planning feature allows users to specify their health co
 
 #### Meal Plan Generation
 ```
-POST http://127.0.0.1:5001/sick_smart_plan
+POST http://34.170.200.225:5001/sick_smart_plan
 Content-Type: multipart/form-data
 
 Parameters:
@@ -71,7 +71,7 @@ Parameters:
 
 #### Recipe Instructions
 ```
-POST http://127.0.0.1:5001/sick_meal_plan_instructions
+POST http://34.170.200.225:5001/sick_meal_plan_instructions
 Content-Type: application/json
 
 Body:

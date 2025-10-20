@@ -15,7 +15,7 @@ def test_your_subscription():
     
     try:
         response = requests.get(
-            f"http://127.0.0.1:5001/api/subscription/status?user_id={your_user_id}",
+            f"http://34.170.200.225:5001/api/subscription/status?user_id={your_user_id}",
             timeout=10
         )
         
