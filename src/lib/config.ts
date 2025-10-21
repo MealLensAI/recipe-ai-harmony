@@ -25,7 +25,7 @@ export const APP_CONFIG = {
         {
             id: 'free',
             name: 'free',
-            display_name: 'Free 2 days trial',
+            display_name: '1 Month Free Trial',
             price_weekly: 0,
             price_two_weeks: 0,
             price_monthly: 0,
