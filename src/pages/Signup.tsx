@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle, Building2, Users } from "lucide-react"
 import { useAuth, safeSetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
+import { APP_CONFIG } from "@/lib/config"
 
 const Signup = () => {
   const navigate = useNavigate()
@@ -194,7 +195,7 @@ const Signup = () => {
           // If organization signup, register the organization after user creation
           if (isOrganizationSignup) {
             try {
-              const orgResponse = await fetch('http://localhost:5001/api/enterprise/register', {
+              const orgResponse = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/register`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

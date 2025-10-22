@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Building2, AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { APP_CONFIG } from '@/lib/config'
 
 interface OrganizationAccessGuardProps {
     children: React.ReactNode
@@ -26,7 +27,7 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
                 return
             }
 
-            const response = await fetch('http://localhost:5001/api/enterprise/can-create', {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/can-create`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

@@ -310,7 +310,7 @@ class EmailService:
         to_email: str, 
         enterprise_name: str, 
         inviter_name: str,
-        login_url: str = "http://localhost:5001/api/enterprise/logout-and-login"
+        login_url: str = os.environ.get('FRONTEND_URL', 'http://localhost:3000') + "/accept-invitation"
     ) -> bool:
         """
         Send an email to a user who was created by an organization admin

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/utils"
 import { useState, useEffect } from "react"
+import { APP_CONFIG } from "@/lib/config"
 
 const Navbar = () => {
   const navigate = useNavigate()
@@ -38,7 +39,7 @@ const Navbar = () => {
 
       console.log('Checking user permissions with token:', token.substring(0, 20) + '...')
 
-      const response = await fetch('http://localhost:5001/api/enterprise/can-create', {
+      const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/can-create`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
