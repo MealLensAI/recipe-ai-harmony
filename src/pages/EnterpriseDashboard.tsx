@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Users, Mail, Plus, MailOpen, XCircle, Trash2 } from 'lucide-react';
+import { Building2, Users, Mail, Plus, MailOpen, XCircle, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EnterpriseRegistrationForm } from '@/components/enterprise/EnterpriseRegistrationForm';
 import { CreateUserForm } from '@/components/enterprise/CreateUserForm';
 import MainLayout from '@/components/MainLayout';
+import { APP_CONFIG } from '@/lib/config';
 
 interface Enterprise {
     id: string;
@@ -75,7 +76,7 @@ export default function EnterpriseDashboard() {
             const token = localStorage.getItem('access_token') || localStorage.getItem('token');
             if (!token) return;
 
-            const response = await fetch('http://localhost:5001/api/enterprise/can-create', {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/can-create`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -105,7 +106,7 @@ export default function EnterpriseDashboard() {
                 return;
             }
 
-            const response = await fetch('http://localhost:5001/api/enterprise/my-enterprises', {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/my-enterprises`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -138,7 +139,7 @@ export default function EnterpriseDashboard() {
             if (!token) return;
 
             // Load users
-            const usersResponse = await fetch(`http://localhost:5001/api/enterprise/${enterpriseId}/users`, {
+            const usersResponse = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/users`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -150,7 +151,7 @@ export default function EnterpriseDashboard() {
             }
 
             // Load invitations
-            const invitationsResponse = await fetch(`http://localhost:5001/api/enterprise/${enterpriseId}/invitations`, {
+            const invitationsResponse = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/invitations`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -170,7 +171,7 @@ export default function EnterpriseDashboard() {
             const token = localStorage.getItem('access_token') || localStorage.getItem('token');
             if (!token) return;
 
-            const response = await fetch(`http://localhost:5001/api/enterprise/invitation/${invitationId}/cancel`, {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/${invitationId}/cancel`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -209,7 +210,7 @@ export default function EnterpriseDashboard() {
                 return;
             }
 
-            const response = await fetch(`http://localhost:5001/api/enterprise/user/${userRelationId}`, {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/user/${userRelationId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${authToken}`
@@ -406,7 +407,7 @@ export default function EnterpriseDashboard() {
                                                 <div className="space-y-2">
                                                     <div>
                                                         <p className="font-medium text-lg">
-                                                            {user.first_name} {user.last_name}
+                                                            {user.email.split('@')[0]}
                                                         </p>
                                                         <p className="text-sm text-gray-600">{user.email}</p>
                                                     </div>

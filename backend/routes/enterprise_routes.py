@@ -750,10 +750,15 @@ def create_user():
                 if first_name or last_name:
                     inviter_name = f"{first_name} {last_name}".strip()
             
+            # Create login URL using the origin from request or fallback to production domain
+            origin = request.headers.get('Origin', 'https://www.meallensai.com')
+            login_url = f"{origin}/accept-invitation"
+            
             email_sent = email_service.send_user_creation_email(
                 to_email=data['email'],
                 enterprise_name=enterprise['name'],
-                inviter_name=inviter_name
+                inviter_name=inviter_name,
+                login_url=login_url
             )
             
             if email_sent:

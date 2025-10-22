@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Building2, Mail, CheckCircle, XCircle, Clock, User, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Logo from '@/components/Logo';
+import { APP_CONFIG } from '@/lib/config';
 
 interface InvitationDetails {
     id: string;
@@ -50,7 +51,7 @@ export default function AcceptInvitation() {
 
     const verifyInvitation = async () => {
         try {
-            const response = await fetch(`http://localhost:5001/api/enterprise/invitation/verify/${token}`);
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/verify/${token}`);
             const data = await response.json();
 
             if (!response.ok) {
@@ -70,7 +71,7 @@ export default function AcceptInvitation() {
 
         try {
             const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-            const response = await fetch('http://localhost:5001/api/enterprise/invitation/accept', {
+            const response = await fetch('${APP_CONFIG.api.base_url}/api/enterprise/invitation/accept', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -127,7 +128,7 @@ export default function AcceptInvitation() {
             }
 
             const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-            const response = await fetch('http://localhost:5001/api/enterprise/invitation/complete', {
+            const response = await fetch('${APP_CONFIG.api.base_url}/api/enterprise/invitation/complete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -381,7 +382,7 @@ function RegistrationForm({ invitation, onRegister }: { invitation: any, onRegis
 
         try {
             // Register the user
-            const response = await fetch('http://localhost:5001/api/register', {
+            const response = await fetch('${APP_CONFIG.api.base_url}/api/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -402,7 +403,7 @@ function RegistrationForm({ invitation, onRegister }: { invitation: any, onRegis
 
             // Registration successful, now we need to log the user in
             // Try to log in with the credentials
-            const loginResponse = await fetch('http://localhost:5001/api/login', {
+            const loginResponse = await fetch('${APP_CONFIG.api.base_url}/api/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

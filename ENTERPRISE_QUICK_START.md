@@ -115,7 +115,7 @@ No email configuration is needed - the manual link sharing works perfectly for m
 ## 📝 Important URLs
 
 - **Enterprise Dashboard:** `http://localhost:5173/enterprise`
-- **Accept Invitation:** `http://localhost:5173/accept-invitation?token=<invitation_token>`
+- **Accept Invitation:** `https://www.meallensai.com/accept-invitation?token=<invitation_token>`
 
 ## 🆘 Troubleshooting
 

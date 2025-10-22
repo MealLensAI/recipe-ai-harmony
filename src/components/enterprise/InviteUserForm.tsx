@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Copy, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { APP_CONFIG } from '@/lib/config';
 
 interface InviteUserFormProps {
     enterpriseId: string;
@@ -51,7 +52,7 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess }: InviteUserF
                 return;
             }
 
-            const response = await fetch(`http://localhost:5001/api/enterprise/${enterpriseId}/invite`, {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/invite`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

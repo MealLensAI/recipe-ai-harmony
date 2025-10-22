@@ -16,8 +16,8 @@ The sickness-aware meal planning feature allows users to specify their health co
 - When a user has specified a sickness, the system uses different API endpoints:
   - **Normal users**: `https://ai-utu2.onrender.com/smart_plan`
   - **Sick users**: `http://34.170.200.225:5001/sick_smart_plan`
-  - **Auto-generation for sick users**: `http://localhost:5001/auto_sick_smart_plan`
-  - **Auto-generation for healthy users**: `http://localhost:5001/auto_generate_plan`
+  - **Auto-generation for sick users**: `${API_BASE_URL}/auto_sick_smart_plan`
+  - **Auto-generation for healthy users**: `${API_BASE_URL}/auto_generate_plan`
 - The sickness information is passed as a form parameter to the API
 - Users can auto-generate meal plans based on their health status, location, and budget
 
@@ -50,7 +50,7 @@ Parameters:
 
 #### Auto-Generation for Sick Users
 ```
-POST http://localhost:5001/auto_sick_smart_plan
+POST ${API_BASE_URL}/auto_sick_smart_plan
 Content-Type: multipart/form-data
 
 Parameters:
@@ -61,7 +61,7 @@ Parameters:
 
 #### Auto-Generation for Healthy Users
 ```
-POST http://localhost:5001/auto_generate_plan
+POST ${API_BASE_URL}/auto_generate_plan
 Content-Type: multipart/form-data
 
 Parameters:

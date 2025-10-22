@@ -50,7 +50,7 @@ python test_lifecycle_system.py
 #### **Option B: Use the HTML Test Page**
 
 1. Open `test_lifecycle_frontend.html` in your browser
-2. Make sure your backend is running on `http://localhost:5001`
+2. Make sure your backend is running on `${API_BASE_URL}`
 3. Use the test buttons to simulate the user lifecycle
 
 ## 🧪 **Testing with 1-Minute Durations**
@@ -59,7 +59,7 @@ The system includes a test mode that uses 1-minute durations instead of days:
 
 ### **Enable Test Mode**
 ```bash
-curl -X POST http://localhost:5001/api/lifecycle/set-test-mode \
+curl -X POST ${API_BASE_URL}/api/lifecycle/set-test-mode \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"test_mode": true}'
@@ -67,7 +67,7 @@ curl -X POST http://localhost:5001/api/lifecycle/set-test-mode \
 
 ### **Test Trial (1 minute)**
 ```bash
-curl -X POST http://localhost:5001/api/lifecycle/initialize-trial \
+curl -X POST ${API_BASE_URL}/api/lifecycle/initialize-trial \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"duration_hours": 1/60, "test_mode": true}'
@@ -75,7 +75,7 @@ curl -X POST http://localhost:5001/api/lifecycle/initialize-trial \
 
 ### **Test Subscription (1 minute)**
 ```bash
-curl -X POST http://localhost:5001/api/lifecycle/activate-subscription \
+curl -X POST ${API_BASE_URL}/api/lifecycle/activate-subscription \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"duration_days": 1/60/24, "test_mode": true, "paystack_data": {}}'

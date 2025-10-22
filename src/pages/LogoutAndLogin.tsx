@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/utils';
 import MainLayout from '@/components/MainLayout';
+import { APP_CONFIG } from '@/lib/config';
 
 const LogoutAndLogin: React.FC = () => {
     const navigate = useNavigate();
@@ -15,7 +16,7 @@ const LogoutAndLogin: React.FC = () => {
 
                 // Call backend logout to clear any httpOnly cookies
                 try {
-                    await fetch('http://localhost:5001/api/logout', {
+                    await fetch('${APP_CONFIG.api.base_url}/api/logout', {
                         method: 'POST',
                         credentials: 'include'
                     });
