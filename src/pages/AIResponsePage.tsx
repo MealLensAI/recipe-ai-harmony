@@ -111,7 +111,7 @@ const AIResponsePage: FC = () => {
     }
 
     try {
-      const response = await fetch("http://34.170.200.225:7017/process", {
+      const response = await fetch("http://35.238.225.150:7017/process", {
         method: "POST",
         body: formData,
       })
@@ -180,7 +180,7 @@ const AIResponsePage: FC = () => {
     }
 
     try {
-      const response = await fetch("http://34.170.200.225:7017/generate_meals_from_ingredients", {
+      const response = await fetch("http://35.238.225.150:7017/generate_meals_from_ingredients", {
         method: "POST",
         body: formData,
       })
@@ -223,7 +223,7 @@ const AIResponsePage: FC = () => {
 
       console.log('Fetching instructions with analysisId:', analysisId)
 
-      const instrRes = await fetch("http://34.170.200.225:7017/instructions", {
+      const instrRes = await fetch("http://35.238.225.150:7017/instructions", {
         method: "POST",
         body: formData,
       })
@@ -248,7 +248,7 @@ const AIResponsePage: FC = () => {
       // 2. Get resources (YouTube and Google)
       const resForm = new FormData()
       resForm.append("food_choice_index", suggestion)
-      const resRes = await fetch("http://34.170.200.225:7017/resources", {
+      const resRes = await fetch("http://35.238.225.150:7017/resources", {
         method: "POST",
         body: resForm,
       })
@@ -297,7 +297,7 @@ const AIResponsePage: FC = () => {
     setResources(null)
 
     try {
-      const response = await fetch("http://34.170.200.225:7017/sick_meal_plan_instructions", {
+      const response = await fetch("http://35.238.225.150:7017/sick_meal_plan_instructions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -337,7 +337,7 @@ const AIResponsePage: FC = () => {
       // 2. Get resources (YouTube and Google) for the health meal
       const resForm = new FormData()
       resForm.append("food_choice_index", meal.food_suggestions[0] || "Health Meal")
-      const resRes = await fetch("http://34.170.200.225:7017/resources", {
+      const resRes = await fetch("http://35.238.225.150:7017/resources", {
         method: "POST",
         body: resForm,
       })

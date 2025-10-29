@@ -71,7 +71,7 @@ export default function AcceptInvitation() {
 
         try {
             const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-            const response = await fetch('${APP_CONFIG.api.base_url}/api/enterprise/invitation/accept', {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/accept`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
