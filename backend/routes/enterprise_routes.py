@@ -7,9 +7,22 @@ from flask import Blueprint, request, jsonify, current_app
 from functools import wraps
 import uuid
 import secrets
+import os
 from datetime import datetime, timedelta, timezone
 from services.email_service import email_service
 from supabase import Client
+
+def get_frontend_url():
+    """Get the frontend URL from environment or auto-detect from request origin"""
+    frontend_url = os.environ.get('FRONTEND_URL')
+    if not frontend_url:
+        # Auto-detect from request origin (works for both dev and production)
+        frontend_url = request.headers.get('Origin', 'https://www.meallensai.com')
+    
+    # Debug logging
+    print(f"🔍 Frontend URL detection: env={os.environ.get('FRONTEND_URL')}, origin={request.headers.get('Origin')}, final={frontend_url}")
+    
+    return frontend_url
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
@@ -354,10 +367,9 @@ def invite_user(enterprise_id):
         
         invitation = result.data[0]
         
-        # Create invitation link
-        # Use the origin from request or fallback to production domain
-        origin = request.headers.get('Origin', 'https://www.meallensai.com')
-        invitation_link = f"{origin}/accept-invitation?token={invitation_token}"
+        # Create invitation link using dynamic URL detection
+        frontend_url = get_frontend_url()
+        invitation_link = f"{frontend_url}/accept-invitation?token={invitation_token}"
         
         # Get inviter name from user
         inviter_user = supabase.auth.admin.get_user_by_id(request.user_id)
@@ -750,9 +762,9 @@ def create_user():
                 if first_name or last_name:
                     inviter_name = f"{first_name} {last_name}".strip()
             
-            # Create login URL using the origin from request or fallback to production domain
-            origin = request.headers.get('Origin', 'https://www.meallensai.com')
-            login_url = f"{origin}/accept-invitation"
+            # Create login URL using dynamic URL detection
+            frontend_url = get_frontend_url()
+            login_url = f"{frontend_url}/accept-invitation"
             
             email_sent = email_service.send_user_creation_email(
                 to_email=data['email'],
@@ -870,7 +882,9 @@ def logout_and_login():
     
     # This endpoint will be called from the email link
     # It will redirect to the frontend logout-and-login page
-    return redirect('http://localhost:5173/logout-and-login')
+    # Get the frontend URL using dynamic URL detection
+    frontend_url = get_frontend_url()
+    return redirect(f'{frontend_url}/logout-and-login')
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_relation_id>', methods=['PUT'])

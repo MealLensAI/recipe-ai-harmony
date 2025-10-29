@@ -285,7 +285,7 @@ const Index = () => {
         console.log('[Index] Using Medical AI Nutrition Plan endpoint');
         console.log('[Index] Health Profile Payload:', healthProfilePayload);
 
-        const response = await fetch('http://34.170.200.225:7017/ai_nutrition_plan', {
+        const response = await fetch('http://35.238.225.150:7017/ai_nutrition_plan', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -396,7 +396,7 @@ const Index = () => {
 
           console.log('[Index] Using Sick Smart Plan (Auto) with budget_state=true');
 
-          const response = await fetch('http://34.170.200.225:7017/sick_smart_plan', {
+          const response = await fetch('http://35.238.225.150:7017/sick_smart_plan', {
             method: 'POST',
             body: formData,
           });
@@ -474,7 +474,7 @@ const Index = () => {
           // Auto generate based on location and budget only
           formData.append('location', location);
           formData.append('budget', budget);
-          const response = await fetch('http://34.170.200.225:7017/auto_generate_plan', {
+          const response = await fetch('http://35.238.225.150:7017/auto_generate_plan', {
             method: 'POST',
             body: formData,
           });
@@ -548,7 +548,7 @@ const Index = () => {
 
         console.log('[Index] Using Sick Smart Plan endpoint with health profile');
 
-        const response = await fetch('http://34.170.200.225:7017/sick_smart_plan', {
+        const response = await fetch('http://35.238.225.150:7017/sick_smart_plan', {
           method: 'POST',
           body: formData,
         });
@@ -621,7 +621,7 @@ const Index = () => {
         }
       } else {
         // Regular smart plan for healthy users
-        const response = await fetch('http://34.170.200.225:7017/smart_plan', {
+        const response = await fetch('http://35.238.225.150:7017/smart_plan', {
           method: 'POST',
           body: formData,
         });
