@@ -682,3 +682,81 @@ class SupabaseService:
                 return False, error
         except Exception as e:
             return False, str(e)
+
+    def save_user_settings(self, user_id: str, settings_type: str, settings_data: dict) -> tuple[bool, str | None]:
+        """
+        Saves user settings using RPC.
+
+        Args:
+            user_id (str): The Supabase user ID.
+            settings_type (str): Type of settings (e.g., 'health_profile').
+            settings_data (dict): The settings data to save.
+
+        Returns:
+            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        """
+        try:
+            result = self.supabase.rpc('upsert_user_settings', {
+                'p_user_id': user_id,
+                'p_settings_type': settings_type,
+                'p_settings_data': settings_data
+            }).execute()
+            
+            if result.data and result.data[0].get('status') == 'success':
+                return True, None
+            else:
+                error = result.data[0].get('message') if result.data else 'Failed to save settings'
+                return False, error
+        except Exception as e:
+            return False, str(e)
+
+    def get_user_settings(self, user_id: str, settings_type: str = 'health_profile') -> tuple[dict | None, str | None]:
+        """
+        Retrieves user settings using RPC.
+
+        Args:
+            user_id (str): The Supabase user ID.
+            settings_type (str): Type of settings to retrieve.
+
+        Returns:
+            tuple[dict | None, str | None]: (settings_data, None) on success,
+                                          (None, error_message) on failure.
+        """
+        try:
+            result = self.supabase.rpc('get_user_settings', {
+                'p_user_id': user_id,
+                'p_settings_type': settings_type
+            }).execute()
+            
+            if result.data and result.data[0].get('status') == 'success':
+                return result.data[0].get('data'), None
+            else:
+                error = result.data[0].get('message') if result.data else 'Failed to get settings'
+                return None, error
+        except Exception as e:
+            return None, str(e)
+
+    def delete_user_settings(self, user_id: str, settings_type: str) -> tuple[bool, str | None]:
+        """
+        Deletes user settings using RPC.
+
+        Args:
+            user_id (str): The Supabase user ID.
+            settings_type (str): Type of settings to delete.
+
+        Returns:
+            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        """
+        try:
+            result = self.supabase.rpc('delete_user_settings', {
+                'p_user_id': user_id,
+                'p_settings_type': settings_type
+            }).execute()
+            
+            if result.data and result.data[0].get('status') == 'success':
+                return True, None
+            else:
+                error = result.data[0].get('message') if result.data else 'Failed to delete settings'
+                return False, error
+        except Exception as e:
+            return False, str(e)

@@ -346,6 +346,22 @@ class APIService {
   async getUserProfile(): Promise<APIResponse> {
     return this.get('/profile')
   }
+
+  // User Settings methods
+  async saveUserSettings(settingsType: string, settingsData: any): Promise<APIResponse> {
+    return this.post('/settings', {
+      settings_type: settingsType,
+      settings_data: settingsData
+    })
+  }
+
+  async getUserSettings(settingsType: string = 'health_profile'): Promise<APIResponse> {
+    return this.get(`/settings?settings_type=${settingsType}`)
+  }
+
+  async deleteUserSettings(settingsType: string): Promise<APIResponse> {
+    return this.delete(`/settings?settings_type=${settingsType}`)
+  }
 }
 
 // Create singleton instance

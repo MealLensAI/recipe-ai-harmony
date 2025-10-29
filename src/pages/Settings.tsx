@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock } from 'lucide-react';
@@ -19,20 +19,38 @@ const Settings = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isLoading } = useTrial();
 
   // Profile info & password change state
-  const [email, setEmail] = useState<string>(() => {
-    try {
-      const userData = localStorage.getItem('user_data');
-      if (userData) {
-        const u = JSON.parse(userData);
-        return u?.email || '';
-      }
-    } catch { }
-    return '';
-  });
+  const [email, setEmail] = useState<string>('');
+  const [profileLoading, setProfileLoading] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changing, setChanging] = useState(false);
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const result = await api.getUserProfile();
+        if (result.status === 'success' && result.profile) {
+          setEmail(result.profile.email || '');
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Fallback to localStorage for migration
+        try {
+          const userData = localStorage.getItem('user_data');
+          if (userData) {
+            const u = JSON.parse(userData);
+            setEmail(u?.email || '');
+          }
+        } catch { }
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const handleSicknessChange = (value: string) => {
     const hasSickness = value === 'yes';

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 
 export interface SicknessSettings {
   hasSickness: boolean;
@@ -28,16 +29,27 @@ export const useSicknessSettings = () => {
   });
   const [loading, setLoading] = useState(false);
 
-  // Load settings from localStorage on mount
+  // Load settings from API on mount
   useEffect(() => {
-    const loadSettings = () => {
-      const savedSettings = localStorage.getItem('sicknessSettings');
-      if (savedSettings) {
-        try {
-          const parsed = JSON.parse(savedSettings);
-          setSettings(parsed);
-        } catch (error) {
-          console.error('Error parsing saved sickness settings:', error);
+    const loadSettings = async () => {
+      try {
+        const result = await api.getUserSettings('health_profile');
+        if (result.status === 'success' && result.settings) {
+          setSettings(result.settings);
+        }
+      } catch (error) {
+        console.error('Error loading sickness settings from API:', error);
+        // Fallback to localStorage for migration
+        const savedSettings = localStorage.getItem('sicknessSettings');
+        if (savedSettings) {
+          try {
+            const parsed = JSON.parse(savedSettings);
+            setSettings(parsed);
+            // Migrate to API
+            await saveSettings(parsed);
+          } catch (parseError) {
+            console.error('Error parsing saved sickness settings:', parseError);
+          }
         }
       }
     };
@@ -48,27 +60,24 @@ export const useSicknessSettings = () => {
   const updateSettings = (newSettings: Partial<SicknessSettings>) => {
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings);
+    // Also update localStorage for immediate UI updates
     localStorage.setItem('sicknessSettings', JSON.stringify(updatedSettings));
   };
 
   const saveSettings = async (newSettings: SicknessSettings) => {
     setLoading(true);
     try {
-      // Save to localStorage
-      localStorage.setItem('sicknessSettings', JSON.stringify(newSettings));
-      setSettings(newSettings);
-
-      // TODO: Save to backend API when endpoint is available
-      // const response = await fetch('http://127.0.0.1:5000/api/settings/sickness', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      //   },
-      //   body: JSON.stringify(newSettings)
-      // });
-
-      return { success: true };
+      // Save to API
+      const result = await api.saveUserSettings('health_profile', newSettings);
+      
+      if (result.status === 'success') {
+        setSettings(newSettings);
+        // Also save to localStorage for immediate UI updates
+        localStorage.setItem('sicknessSettings', JSON.stringify(newSettings));
+        return { success: true };
+      } else {
+        throw new Error(result.message || 'Failed to save settings');
+      }
     } catch (error) {
       console.error('Error saving sickness settings:', error);
       return { success: false, error };

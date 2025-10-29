@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,17 +12,9 @@ import { api } from '@/lib/api'
 const Profile: React.FC = () => {
     const { toast } = useToast()
 
-    // Email from stored user_data
-    const email = useMemo(() => {
-        try {
-            const raw = localStorage.getItem('user_data')
-            if (!raw) return ''
-            const user = JSON.parse(raw)
-            return user?.email || ''
-        } catch {
-            return ''
-        }
-    }, [])
+    // Email from API
+    const [email, setEmail] = useState('')
+    const [profileLoading, setProfileLoading] = useState(true)
 
     // Form state
     const [currentPassword, setCurrentPassword] = useState('')
@@ -34,6 +26,32 @@ const Profile: React.FC = () => {
     const [showCurrent, setShowCurrent] = useState(false)
     const [showNew, setShowNew] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
+
+    // Fetch user profile on mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const result = await api.getUserProfile()
+                if (result.status === 'success' && result.profile) {
+                    setEmail(result.profile.email || '')
+                }
+            } catch (error) {
+                console.error('Error fetching user profile:', error)
+                // Fallback to localStorage for migration
+                try {
+                    const raw = localStorage.getItem('user_data')
+                    if (raw) {
+                        const user = JSON.parse(raw)
+                        setEmail(user?.email || '')
+                    }
+                } catch { }
+            } finally {
+                setProfileLoading(false)
+            }
+        }
+
+        fetchProfile()
+    }, [])
 
     const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
