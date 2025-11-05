@@ -67,20 +67,25 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
       isSubscriptionExpired,
       canAccess,
       currentPath,
+      allowedPaths,
+      isAllowedPath: allowedPaths.includes(currentPath),
       shouldShowModal,
       isLoading,
       reason: isLoading ? 'Still loading - no modal' :
         hasActiveSubscription ? 'User has active subscription - no modal' :
-          isTrialExpired ? 'Trial expired and no subscription - show modal' :
-            'Trial still active - no modal'
+          allowedPaths.includes(currentPath) ? `On allowed path ${currentPath} - no modal (can still access)` :
+            isTrialExpired ? 'Trial expired and on restricted page - SHOW MODAL' :
+              'Trial still active - no modal'
     });
 
     if (shouldShowModal) {
+      console.log('✅ SHOWING TRIAL MODAL');
       setShowTrialModal(true);
     } else {
+      console.log('❌ NOT showing trial modal');
       setShowTrialModal(false);
     }
-  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess, isLoading]);
+  }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess, isLoading, allowedPaths]);
 
   // Show loading spinner while determining subscription status
   if (isLoading) {

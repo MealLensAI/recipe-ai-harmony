@@ -18,16 +18,22 @@ export const useTrial = () => {
         TrialService.canAccessApp()
       ]);
 
+      console.log('🔍 Backend trial data:', backendResult.trialInfo);
+
       // Extract data from single backend call
-      const info = backendResult.trialInfo ? {
-        isActive: !backendResult.trialInfo.isExpired,
-        startDate: new Date(backendResult.trialInfo.start_date),
-        endDate: new Date(backendResult.trialInfo.end_date),
-        isExpired: backendResult.trialInfo.isExpired || false,
-        remainingTime: backendResult.trialInfo.remaining_time || 0,
-        remainingHours: Math.floor((backendResult.trialInfo.remaining_time || 0) / (1000 * 60 * 60)),
-        remainingMinutes: Math.floor(((backendResult.trialInfo.remaining_time || 0) % (1000 * 60 * 60)) / (1000 * 60))
+      // Note: Backend can return either snake_case or camelCase depending on the endpoint
+      const trialData = backendResult.trialInfo;
+      const info = trialData ? {
+        isActive: trialData.isActive ?? !trialData.isExpired,
+        startDate: new Date(trialData.startDate || trialData.start_date),
+        endDate: new Date(trialData.endDate || trialData.end_date),
+        isExpired: trialData.isExpired ?? (trialData.end_date ? new Date(trialData.end_date) < new Date() : false),
+        remainingTime: trialData.remainingTime ?? trialData.remaining_time ?? 0,
+        remainingHours: trialData.remainingHours ?? Math.floor((trialData.remaining_time || 0) / (1000 * 60 * 60)),
+        remainingMinutes: trialData.remainingMinutes ?? Math.floor(((trialData.remaining_time || 0) % (1000 * 60 * 60)) / (1000 * 60))
       } : null;
+      
+      console.log('🔍 Parsed trial info:', info);
       
       const subInfo = backendResult.subscriptionInfo;
       const hasEverPaid = backendResult.hasEverHadSubscription || false;
