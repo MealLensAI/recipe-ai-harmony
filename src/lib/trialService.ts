@@ -122,48 +122,55 @@ export class TrialService {
   }
 
   /**
-   * Initialize trial for a new user
+   * Initialize trial for a new user (now handled by backend during registration)
+   * This is kept for backward compatibility but does nothing
    */
   static initializeTrial(): void {
-    const existingTrial = this.getTrialInfo();
-    if (!existingTrial) {
-      const startDate = new Date();
-      localStorage.setItem(this.k(this.TRIAL_KEY_BASE), startDate.toISOString());
-      console.log('Trial initialized for user');
-    }
+    // Trial is now created by backend during user registration
+    // This method is kept for backward compatibility only
+    console.log('Trial initialization is now handled by backend during registration');
   }
 
   /**
-   * Get current trial information
+   * Get current trial information from backend
    */
-  static getTrialInfo(): TrialInfo | null {
-    const trialStartStr = localStorage.getItem(this.k(this.TRIAL_KEY_BASE));
-    if (!trialStartStr) {
+  static async getTrialInfo(): Promise<TrialInfo | null> {
+    try {
+      const backendResult = await this.fetchSubscriptionFromBackend();
+      
+      if (backendResult.trialInfo) {
+        const trial = backendResult.trialInfo;
+        
+        // Parse dates
+        const startDate = new Date(trial.start_date);
+        const endDate = new Date(trial.end_date);
+        const now = new Date();
+        const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
+        const isExpired = remainingTime <= 0;
+
+        return {
+          isActive: !isExpired,
+          startDate,
+          endDate,
+          isExpired,
+          remainingTime,
+          remainingHours: Math.floor(remainingTime / (1000 * 60 * 60)),
+          remainingMinutes: Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60))
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching trial info from backend:', error);
       return null;
     }
-
-    const startDate = new Date(trialStartStr);
-    const endDate = new Date(startDate.getTime() + this.TRIAL_DURATION);
-    const now = new Date();
-    const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
-    const isExpired = remainingTime <= 0;
-
-    return {
-      isActive: !isExpired,
-      startDate,
-      endDate,
-      isExpired,
-      remainingTime,
-      remainingHours: Math.floor(remainingTime / (1000 * 60 * 60)),
-      remainingMinutes: Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60))
-    };
   }
 
   /**
    * Check if trial has expired
    */
-  static isTrialExpired(): boolean {
-    const trialInfo = this.getTrialInfo();
+  static async isTrialExpired(): Promise<boolean> {
+    const trialInfo = await this.getTrialInfo();
     return trialInfo ? trialInfo.isExpired : false;
   }
 
@@ -319,9 +326,9 @@ export class TrialService {
     } catch (e) {
       console.error('Error checking access from backend:', e);
     }
-    // Fallback: previous local logic
+    // Fallback: check backend subscription and trial
     const hasSubscription = await this.hasActiveSubscription();
-    const trialInfo = this.getTrialInfo();
+    const trialInfo = await this.getTrialInfo();
     const trialActive = trialInfo ? !trialInfo.isExpired : false;
     return hasSubscription || trialActive;
   }
@@ -329,8 +336,8 @@ export class TrialService {
   /**
    * Get formatted remaining time string
    */
-  static getFormattedRemainingTime(): string {
-    const trialInfo = this.getTrialInfo();
+  static async getFormattedRemainingTime(): Promise<string> {
+    const trialInfo = await this.getTrialInfo();
     if (!trialInfo || trialInfo.isExpired) {
       return 'Trial expired';
     }
@@ -433,13 +440,13 @@ export class TrialService {
   /**
    * Get trial progress percentage
    */
-  static getTrialProgress(): number {
-    const trialInfo = this.getTrialInfo();
+  static async getTrialProgress(): Promise<number> {
+    const trialInfo = await this.getTrialInfo();
     if (!trialInfo || trialInfo.isExpired) {
       return 100;
     }
 
-    const totalTime = this.TRIAL_DURATION;
+    const totalTime = trialInfo.endDate.getTime() - trialInfo.startDate.getTime();
     const elapsedTime = totalTime - trialInfo.remainingTime;
     return Math.min(100, Math.max(0, (elapsedTime / totalTime) * 100));
   }

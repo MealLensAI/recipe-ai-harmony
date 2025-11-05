@@ -685,7 +685,7 @@ class SupabaseService:
 
     def save_user_settings(self, user_id: str, settings_type: str, settings_data: dict) -> tuple[bool, str | None]:
         """
-        Saves user settings using RPC.
+        Saves user settings using direct table insert (fallback if RPC doesn't work).
 
         Args:
             user_id (str): The Supabase user ID.
@@ -696,23 +696,61 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
-            result = self.supabase.rpc('upsert_user_settings', {
-                'p_user_id': user_id,
-                'p_settings_type': settings_type,
-                'p_settings_data': settings_data
-            }).execute()
+            # First try RPC function
+            try:
+                result = self.supabase.rpc('upsert_user_settings', {
+                    'p_user_id': user_id,
+                    'p_settings_type': settings_type,
+                    'p_settings_data': json.dumps(settings_data) if isinstance(settings_data, dict) else settings_data
+                }).execute()
+                
+                if result.data and len(result.data) > 0:
+                    data = result.data[0] if isinstance(result.data, list) else result.data
+                    if data.get('status') == 'success':
+                        return True, None
+                    else:
+                        error = data.get('message', 'Failed to save settings')
+                        print(f"RPC error: {error}")
+                        # Fall through to direct insert
+            except Exception as rpc_error:
+                print(f"RPC failed, falling back to direct insert: {rpc_error}")
+                # Fall through to direct insert
             
-            if result.data and result.data[0].get('status') == 'success':
+            # Fallback: Direct table insert/update
+            print(f"Using direct table insert for user_id={user_id}, type={settings_type}")
+            # Check if record exists
+            existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            
+            if existing.data and len(existing.data) > 0:
+                # Update existing
+                result = self.supabase.table('user_settings').update({
+                    'settings_data': settings_data,
+                    'updated_at': datetime.utcnow().isoformat() + 'Z'
+                }).eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            else:
+                # Insert new
+                result = self.supabase.table('user_settings').insert({
+                    'user_id': user_id,
+                    'settings_type': settings_type,
+                    'settings_data': settings_data,
+                    'created_at': datetime.utcnow().isoformat() + 'Z',
+                    'updated_at': datetime.utcnow().isoformat() + 'Z'
+                }).execute()
+            
+            if result.data:
+                print(f"Successfully saved settings via direct insert")
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to save settings'
-                return False, error
+                return False, 'Failed to save settings via direct insert'
+                
         except Exception as e:
-            return False, str(e)
+            error_msg = str(e)
+            print(f"Error in save_user_settings: {error_msg}")
+            return False, error_msg
 
     def get_user_settings(self, user_id: str, settings_type: str = 'health_profile') -> tuple[dict | None, str | None]:
         """
-        Retrieves user settings using RPC.
+        Retrieves user settings using direct table query (fallback if RPC doesn't work).
 
         Args:
             user_id (str): The Supabase user ID.
@@ -723,18 +761,33 @@ class SupabaseService:
                                           (None, error_message) on failure.
         """
         try:
-            result = self.supabase.rpc('get_user_settings', {
-                'p_user_id': user_id,
-                'p_settings_type': settings_type
-            }).execute()
+            # First try RPC function
+            try:
+                result = self.supabase.rpc('get_user_settings', {
+                    'p_user_id': user_id,
+                    'p_settings_type': settings_type
+                }).execute()
+                
+                if result.data and len(result.data) > 0:
+                    data = result.data[0] if isinstance(result.data, list) else result.data
+                    if data.get('status') == 'success':
+                        return data.get('data'), None
+            except Exception as rpc_error:
+                print(f"RPC failed, falling back to direct query: {rpc_error}")
+                # Fall through to direct query
             
-            if result.data and result.data[0].get('status') == 'success':
-                return result.data[0].get('data'), None
+            # Fallback: Direct table query
+            result = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            
+            if result.data and len(result.data) > 0:
+                return result.data[0], None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to get settings'
-                return None, error
+                return None, None  # No settings found is not an error
+                
         except Exception as e:
-            return None, str(e)
+            error_msg = str(e)
+            print(f"Error in get_user_settings: {error_msg}")
+            return None, error_msg
 
     def delete_user_settings(self, user_id: str, settings_type: str) -> tuple[bool, str | None]:
         """

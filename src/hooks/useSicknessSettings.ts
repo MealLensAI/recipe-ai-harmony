@@ -36,21 +36,14 @@ export const useSicknessSettings = () => {
         const result = await api.getUserSettings('health_profile');
         if (result.status === 'success' && result.settings) {
           setSettings(result.settings);
+        } else {
+          // No settings found in backend - start with defaults
+          console.log('No health settings found in backend, using defaults');
         }
       } catch (error) {
         console.error('Error loading sickness settings from API:', error);
-        // Fallback to localStorage for migration
-        const savedSettings = localStorage.getItem('sicknessSettings');
-        if (savedSettings) {
-          try {
-            const parsed = JSON.parse(savedSettings);
-            setSettings(parsed);
-            // Migrate to API
-            await saveSettings(parsed);
-          } catch (parseError) {
-            console.error('Error parsing saved sickness settings:', parseError);
-          }
-        }
+        // Do NOT fall back to localStorage - always use backend as source of truth
+        console.log('Failed to load from backend, using default settings');
       }
     };
 
@@ -60,8 +53,7 @@ export const useSicknessSettings = () => {
   const updateSettings = (newSettings: Partial<SicknessSettings>) => {
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings);
-    // Also update localStorage for immediate UI updates
-    localStorage.setItem('sicknessSettings', JSON.stringify(updatedSettings));
+    // Do NOT update localStorage - backend is the source of truth
   };
 
   const saveSettings = async (newSettings: SicknessSettings) => {
@@ -72,8 +64,8 @@ export const useSicknessSettings = () => {
       
       if (result.status === 'success') {
         setSettings(newSettings);
-        // Also save to localStorage for immediate UI updates
-        localStorage.setItem('sicknessSettings', JSON.stringify(newSettings));
+        // Do NOT save to localStorage - backend is the source of truth
+        console.log('Health settings saved to backend successfully');
         return { success: true };
       } else {
         throw new Error(result.message || 'Failed to save settings');

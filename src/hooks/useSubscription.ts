@@ -29,9 +29,9 @@ export const useSubscription = () => {
     });
     const [isLoading, setIsLoading] = useState(true);
 
-    const updateSubscriptionInfo = useCallback(() => {
-        const trialInfo = TrialService.getTrialInfo();
-        const hasSubscription = TrialService.hasActiveSubscription();
+    const updateSubscriptionInfo = useCallback(async () => {
+        const trialInfo = await TrialService.getTrialInfo();
+        const hasSubscription = await TrialService.hasActiveSubscription();
 
         if (hasSubscription) {
             // Get subscription info from localStorage
@@ -74,7 +74,7 @@ export const useSubscription = () => {
             }
         } else if (trialInfo) {
             // Trial info
-            const totalDuration = TrialService.getTrialDuration();
+            const totalDuration = trialInfo.endDate.getTime() - trialInfo.startDate.getTime();
             const progress = trialInfo.isExpired ? 100 : Math.min(100, Math.max(0, ((totalDuration - trialInfo.remainingTime) / totalDuration) * 100));
 
             setSubscriptionInfo({

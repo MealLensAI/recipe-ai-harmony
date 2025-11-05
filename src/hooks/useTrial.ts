@@ -15,8 +15,8 @@ export const useTrial = () => {
 
       console.log('🔄 Starting trial status update...');
 
-      // Get trial info (localStorage is OK for trial)
-      const info = TrialService.getTrialInfo();
+      // Get trial info from backend (NOT localStorage)
+      const info = await TrialService.getTrialInfo();
 
       // Get subscription info ONLY from backend
       const subInfo = await TrialService.getSubscriptionInfo();
@@ -43,8 +43,8 @@ export const useTrial = () => {
       setIsLoading(false);
     } catch (error) {
       console.error('Error updating trial info:', error);
-      // Fallback to basic trial info
-      const info = TrialService.getTrialInfo();
+      // Fallback to basic trial info from backend
+      const info = await TrialService.getTrialInfo();
       const subInfo = await TrialService.getSubscriptionInfo();
       const hasAccess = await TrialService.canAccessApp();
 
@@ -96,20 +96,34 @@ export const useTrial = () => {
   const isSubscriptionExpired = subscriptionInfo?.isExpired ?? false;
 
   // Get progress percentage (for subscription or trial)
-  const getProgressPercentage = () => {
-    if (subscriptionInfo && hasActiveSubscription) {
-      return subscriptionInfo.progressPercentage;
-    }
-    return TrialService.getTrialProgress();
-  };
+  const [progressPercentage, setProgressPercentage] = useState(0);
+  
+  useEffect(() => {
+    const updateProgress = async () => {
+      if (subscriptionInfo && hasActiveSubscription) {
+        setProgressPercentage(subscriptionInfo.progressPercentage);
+      } else {
+        const progress = await TrialService.getTrialProgress();
+        setProgressPercentage(progress);
+      }
+    };
+    updateProgress();
+  }, [subscriptionInfo, hasActiveSubscription]);
 
   // Get formatted remaining time (for subscription or trial)
-  const getFormattedRemainingTime = () => {
-    if (subscriptionInfo && hasActiveSubscription) {
-      return subscriptionInfo.formattedRemainingTime;
-    }
-    return TrialService.getFormattedRemainingTime();
-  };
+  const [formattedRemainingTime, setFormattedRemainingTime] = useState('Loading...');
+  
+  useEffect(() => {
+    const updateFormattedTime = async () => {
+      if (subscriptionInfo && hasActiveSubscription) {
+        setFormattedRemainingTime(subscriptionInfo.formattedRemainingTime);
+      } else {
+        const formatted = await TrialService.getFormattedRemainingTime();
+        setFormattedRemainingTime(formatted);
+      }
+    };
+    updateFormattedTime();
+  }, [subscriptionInfo, hasActiveSubscription, trialInfo]);
 
   return {
     trialInfo,
@@ -123,9 +137,9 @@ export const useTrial = () => {
     remainingTime: trialInfo?.remainingTime ?? 0,
     remainingHours: trialInfo?.remainingHours ?? 0,
     remainingMinutes: trialInfo?.remainingMinutes ?? 0,
-    formattedRemainingTime: getFormattedRemainingTime(),
-    progressPercentage: getProgressPercentage(),
-    trialProgress: TrialService.getTrialProgress(),
+    formattedRemainingTime,
+    progressPercentage,
+    trialProgress: progressPercentage,
     activateSubscription,
     activateSubscriptionForDays,
     resetTrial,
