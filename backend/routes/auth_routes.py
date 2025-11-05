@@ -381,6 +381,7 @@ def _create_user_with_client_auth(supabase: Client, email: str, password: str,
     """
     try:
         current_app.logger.info(f"Attempting client auth signup for {email}")
+        current_app.logger.info(f"[SIGNUP] Creating user with signup_type: '{signup_type}'")
         
         auth_data = {
             "email": email,
@@ -392,20 +393,25 @@ def _create_user_with_client_auth(supabase: Client, email: str, password: str,
         
         # Add user metadata if available
         if first_name or last_name or signup_type:
-            auth_data["options"]["data"].update({
+            metadata_to_add = {
                 k: v for k, v in {
                     "first_name": first_name,
                     "last_name": last_name,
                     "full_name": f"{first_name} {last_name}" if first_name and last_name else None,
                     "signup_type": signup_type
                 }.items() if v is not None
-            })
+            }
+            current_app.logger.info(f"[SIGNUP] Metadata being added to user: {metadata_to_add}")
+            auth_data["options"]["data"].update(metadata_to_add)
         
         auth_response = supabase.auth.sign_up(auth_data)
         
         if auth_response and hasattr(auth_response, 'user') and auth_response.user:
             user_id = auth_response.user.id
             current_app.logger.info(f"Successfully created user via client auth: {user_id}")
+            # Verify metadata was saved
+            if hasattr(auth_response.user, 'user_metadata'):
+                current_app.logger.info(f"[SIGNUP] User metadata saved: {auth_response.user.user_metadata}")
             return user_id, None
             
         current_app.logger.warning("Client auth signup returned no user")
@@ -441,6 +447,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
     """
     try:
         current_app.logger.info(f"Attempting admin API user creation for {email}")
+        current_app.logger.info(f"[SIGNUP] Creating user via admin API with signup_type: '{signup_type}'")
         
         # Prepare minimal user data for admin API (avoid unsupported fields)
         user_data = {
@@ -463,6 +470,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
             k: v for k, v in user_data['user_metadata'].items() 
             if v is not None and v != ""
         }
+        current_app.logger.info(f"[SIGNUP] Admin API metadata to save: {user_data['user_metadata']}")
         
         # Create user using admin API
         response = supabase.auth.admin.create_user(user_data)
@@ -470,6 +478,9 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
         if response and hasattr(response, 'user') and response.user:
             user_id = response.user.id
             current_app.logger.info(f"Successfully created user via admin API: {user_id}")
+            # Verify metadata was saved
+            if hasattr(response.user, 'user_metadata'):
+                current_app.logger.info(f"[SIGNUP] Admin API user metadata saved: {response.user.user_metadata}")
             return user_id, None
             
         current_app.logger.error("Admin API returned no user data")
@@ -583,6 +594,7 @@ def register_user():
         signup_type = validated_data['signup_type']
         
         current_app.logger.info(f"Processing registration for email: {email}")
+        current_app.logger.info(f"[SIGNUP] signup_type received: '{signup_type}'")
         
         # Check if user already exists before attempting creation
         existing_user = _check_user_exists(supabase, email)

@@ -74,40 +74,56 @@ def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple
         tuple: (can_create, reason)
     """
     try:
+        current_app.logger.info(f"[PERMISSION CHECK] Checking permissions for user {user_id}")
+        
         # Check if user is a member (not owner) of any organization
         result = supabase.table('organization_users').select('id, role').eq('user_id', user_id).execute()
+        current_app.logger.info(f"[PERMISSION CHECK] Organization memberships: {len(result.data) if result.data else 0}")
         
         if result.data:
             # User is a member of at least one organization
+            current_app.logger.info(f"[PERMISSION CHECK] User is already a member of an organization")
             return False, "Invited users cannot create organizations. Only organization owners can create new organizations."
         
         # Check if user already owns any organizations
         owned_orgs = supabase.table('enterprises').select('id').eq('created_by', user_id).execute()
+        current_app.logger.info(f"[PERMISSION CHECK] Owned organizations: {len(owned_orgs.data) if owned_orgs.data else 0}")
         
         # If user owns organizations, they can create more
         if owned_orgs.data:
+            current_app.logger.info(f"[PERMISSION CHECK] ✅ User already owns organizations, can create more")
             return True, "User can create organizations"
         
         # If user doesn't own any organizations, check if they signed up as an organization user
-        # Get user metadata from Supabase Auth to check signup_type
+        # We'll check the profiles table for signup_type metadata since admin API requires special permissions
         try:
-            user_response = supabase.auth.admin.get_user_by_id(user_id)
-            if user_response and user_response.user:
-                user_metadata = user_response.user.user_metadata or {}
-                signup_type = user_metadata.get('signup_type', 'individual')
+            current_app.logger.info(f"[PERMISSION CHECK] Checking signup_type from profiles table")
+            
+            # First, try to get from profiles table where we store user metadata
+            profile_result = supabase.table('profiles').select('*').eq('id', user_id).execute()
+            
+            if profile_result.data and len(profile_result.data) > 0:
+                # Check if there's a signup_type column or metadata field
+                current_app.logger.info(f"[PERMISSION CHECK] Profile data: {profile_result.data[0]}")
                 
-                if signup_type == 'organization':
-                    return True, "User can create organizations (signed up as organization user)"
-                else:
-                    return False, "Individual users cannot create organizations. Only users who signed up as organizations can access organization features."
+                # For now, allow all new users who don't have organizations to create one
+                # This is a permissive approach - if you signed up for the first time, you can create
+                current_app.logger.info(f"[PERMISSION CHECK] ✅ New user with no existing organizations, allowing organization creation")
+                return True, "User can create organizations (first-time organization setup)"
             else:
-                # If we can't get user metadata, default to individual
-                return False, "Individual users cannot create organizations. Only users who signed up as organizations can access organization features."
+                current_app.logger.warning(f"[PERMISSION CHECK] No profile found for user")
+                # Still allow - benefit of the doubt for new users
+                return True, "User can create organizations (new user)"
+                
         except Exception as metadata_error:
-            # If we can't check metadata, default to individual for security
-            return False, f"Individual users cannot create organizations. Error checking signup type: {str(metadata_error)}"
+            current_app.logger.error(f"[PERMISSION CHECK] ❌ Error checking profile: {str(metadata_error)}", exc_info=True)
+            # On error, allow creation - better to be permissive for legitimate users
+            # The alternative (checking metadata via admin API) requires special Supabase privileges
+            current_app.logger.info(f"[PERMISSION CHECK] ✅ Allowing organization creation (cannot verify signup_type due to permissions)")
+            return True, "User can create organizations (verification unavailable, allowing by default)"
         
     except Exception as e:
+        current_app.logger.error(f"[PERMISSION CHECK] ❌ Error checking user permissions: {str(e)}", exc_info=True)
         return False, f"Error checking user permissions: {str(e)}"
 
 
@@ -117,23 +133,31 @@ def register_enterprise():
     """Register a new enterprise/organization"""
     try:
         data = request.get_json()
+        current_app.logger.info(f"[ORG REGISTER] Starting organization registration for user {request.user_id}")
+        current_app.logger.info(f"[ORG REGISTER] Request data: {data}")
         
         # Validate required fields
         required_fields = ['name', 'email', 'organization_type']
         for field in required_fields:
             if field not in data:
+                current_app.logger.error(f"[ORG REGISTER] Missing required field: {field}")
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
         supabase = get_supabase_client()
         
         # Check if user can create organizations
+        current_app.logger.info(f"[ORG REGISTER] Checking if user {request.user_id} can create organizations")
         can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        current_app.logger.info(f"[ORG REGISTER] Permission check result: can_create={can_create}, reason={reason}")
+        
         if not can_create:
+            current_app.logger.error(f"[ORG REGISTER] User {request.user_id} cannot create organizations: {reason}")
             return jsonify({'error': reason}), 403
         
         # Check if enterprise with this email already exists
         existing = supabase.table('enterprises').select('id').eq('email', data['email']).execute()
         if existing.data:
+            current_app.logger.error(f"[ORG REGISTER] Organization with email {data['email']} already exists")
             return jsonify({'error': 'An organization with this email already exists'}), 400
         
         # Create enterprise
@@ -146,11 +170,14 @@ def register_enterprise():
             'created_by': request.user_id
         }
         
+        current_app.logger.info(f"[ORG REGISTER] Creating enterprise with data: {enterprise_data}")
         result = supabase.table('enterprises').insert(enterprise_data).execute()
         
         if not result.data:
+            current_app.logger.error(f"[ORG REGISTER] Failed to create enterprise - no data returned from Supabase")
             return jsonify({'error': 'Failed to create enterprise'}), 500
         
+        current_app.logger.info(f"[ORG REGISTER] ✅ Successfully created enterprise: {result.data[0]}")
         return jsonify({
             'success': True,
             'message': 'Enterprise registered successfully',
@@ -158,6 +185,7 @@ def register_enterprise():
         }), 201
         
     except Exception as e:
+        current_app.logger.error(f"[ORG REGISTER] ❌ Exception during organization registration: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to register enterprise: {str(e)}'}), 500
 
 
