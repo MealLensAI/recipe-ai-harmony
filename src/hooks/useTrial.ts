@@ -10,23 +10,27 @@ export const useTrial = () => {
 
   const updateTrialInfo = useCallback(async () => {
     try {
-      // Add a longer delay to ensure smooth loading experience and prevent flash
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       console.log('🔄 Starting trial status update...');
 
-      // Get trial info from backend (NOT localStorage)
-      const info = await TrialService.getTrialInfo();
+      // Fetch all backend data in parallel for speed
+      const [backendResult, hasAccess] = await Promise.all([
+        TrialService.fetchSubscriptionFromBackend(),
+        TrialService.canAccessApp()
+      ]);
 
-      // Get subscription info ONLY from backend
-      const subInfo = await TrialService.getSubscriptionInfo();
-
-      // Get hasEverHadSubscription from backend
-      const backendResult = await TrialService.fetchSubscriptionFromBackend();
+      // Extract data from single backend call
+      const info = backendResult.trialInfo ? {
+        isActive: !backendResult.trialInfo.isExpired,
+        startDate: new Date(backendResult.trialInfo.start_date),
+        endDate: new Date(backendResult.trialInfo.end_date),
+        isExpired: backendResult.trialInfo.isExpired || false,
+        remainingTime: backendResult.trialInfo.remaining_time || 0,
+        remainingHours: Math.floor((backendResult.trialInfo.remaining_time || 0) / (1000 * 60 * 60)),
+        remainingMinutes: Math.floor(((backendResult.trialInfo.remaining_time || 0) % (1000 * 60 * 60)) / (1000 * 60))
+      } : null;
+      
+      const subInfo = backendResult.subscriptionInfo;
       const hasEverPaid = backendResult.hasEverHadSubscription || false;
-
-      // Check access (this will also fetch from backend)
-      const hasAccess = await TrialService.canAccessApp();
 
       console.log('🔄 Trial status loaded:', {
         hasAccess,
@@ -43,14 +47,10 @@ export const useTrial = () => {
       setIsLoading(false);
     } catch (error) {
       console.error('Error updating trial info:', error);
-      // Fallback to basic trial info from backend
-      const info = await TrialService.getTrialInfo();
-      const subInfo = await TrialService.getSubscriptionInfo();
-      const hasAccess = await TrialService.canAccessApp();
-
-      setTrialInfo(info);
-      setSubscriptionInfo(subInfo);
-      setCanAccess(hasAccess);
+      // On error, set loading to false immediately
+      setTrialInfo(null);
+      setSubscriptionInfo(null);
+      setCanAccess(false);
       setIsLoading(false);
     }
   }, []);

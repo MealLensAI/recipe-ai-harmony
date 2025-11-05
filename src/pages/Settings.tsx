@@ -194,42 +194,17 @@ const Settings = () => {
     }
   };
 
-  // Full-page skeleton while either trial/subscription or sickness settings are loading
+  // Simple loading indicator - much faster than skeleton
   if (isLoading || loading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="space-y-6">
-          <div>
-            <div className="h-8 w-40 bg-gray-200 rounded animate-pulse" />
-            <div className="h-4 w-64 bg-gray-200 rounded mt-2 animate-pulse" />
-            <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-gray-100 border-gray-200 animate-pulse w-40"></div>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+              <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+            </div>
+            <p className="mt-4 text-sm text-muted-foreground">Loading settings...</p>
           </div>
-
-          <Card>
-            <CardHeader>
-              <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-72 bg-gray-200 rounded mt-2 animate-pulse" />
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3 animate-pulse">
-                <div className="h-4 w-2/3 bg-gray-200 rounded" />
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 rounded-full bg-gray-300" />
-                  <div className="h-4 w-48 bg-gray-200 rounded" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 rounded-full bg-gray-300" />
-                  <div className="h-4 w-56 bg-gray-200 rounded" />
-                </div>
-              </div>
-              <div className="space-y-3 animate-pulse">
-                <div className="h-4 w-1/2 bg-gray-200 rounded" />
-                <div className="h-10 w-full bg-gray-200 rounded" />
-                <div className="h-3 w-3/4 bg-gray-200 rounded" />
-              </div>
-              <div className="h-10 w-full bg-gray-300 rounded animate-pulse" />
-            </CardContent>
-          </Card>
         </div>
       </div>
     );
