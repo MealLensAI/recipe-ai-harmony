@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSicknessSettings } from './useSicknessSettings';
+import { APP_CONFIG } from '@/lib/config';
 
 interface VideoResource {
   title: string;
@@ -54,7 +55,7 @@ export const useTutorialContent = () => {
       }
 
       // Use different endpoint based on sickness status
-      const endpoint = sicknessInfo ? 'http://35.238.225.150:7017/sick_meal_plan_instructions' : 'http://35.238.225.150:7017/meal_plan_instructions';
+      const endpoint = sicknessInfo ? `${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions` : `${APP_CONFIG.api.ai_api_url}/meal_plan_instructions`;
 
       const instrRes = await fetch(endpoint, {
         method: 'POST',
@@ -84,7 +85,7 @@ export const useTutorialContent = () => {
       // 2. Get resources (YouTube and Google) using the correct form data
       const formData = new FormData();
       formData.append('food_choice_index', recipeName);
-      const resRes = await fetch('http://35.238.225.150:7017/resources', {
+      const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
         method: 'POST',
         body: formData,
       });

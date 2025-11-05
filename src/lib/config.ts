@@ -196,6 +196,8 @@ export const APP_CONFIG = {
     api: {
         // In dev, default to same-origin so Vite proxy handles /api → backend. In prod, set VITE_API_URL.
         base_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_URL) || '',
+        // AI API URL - defaults to production URL if not set
+        ai_api_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_AI_API_URL) || 'http://35.238.225.150:7017',
         timeout: 30000
     },
 
