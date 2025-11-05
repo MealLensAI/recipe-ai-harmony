@@ -184,27 +184,64 @@ class SupabaseService:
                               analysis_id: str = None, youtube: str = None, google: str = None, resources: str = None
                             ) -> tuple[bool, str | None]:
         try:
-            insert_data = {
-                'p_user_id': user_id,
-                'p_recipe_type': recipe_type,
-                'p_suggestion': suggestion,
-                'p_instructions': instructions,
-                'p_ingredients': ingredients,
-                'p_detected_foods': detected_foods,
-                'p_analysis_id': analysis_id,
-                'p_youtube': youtube,
-                'p_google': google,
-                'p_resources': resources
+            # First try RPC function
+            try:
+                insert_data = {
+                    'p_user_id': user_id,
+                    'p_recipe_type': recipe_type,
+                    'p_suggestion': suggestion,
+                    'p_instructions': instructions,
+                    'p_ingredients': ingredients,
+                    'p_detected_foods': detected_foods,
+                    'p_analysis_id': analysis_id,
+                    'p_youtube': youtube,
+                    'p_google': google,
+                    'p_resources': resources
+                }
+                insert_data = {k: v for k, v in insert_data.items() if v is not None}
+                result = self.supabase.rpc('add_detection_history', insert_data).execute()
+                if result.data and len(result.data) > 0:
+                    data = result.data[0] if isinstance(result.data, list) else result.data
+                    if data.get('status') == 'success':
+                        print(f"✅ Detection history saved via RPC for user {user_id}")
+                        return True, None
+                    else:
+                        error = data.get('message', 'RPC returned non-success status')
+                        print(f"⚠️ RPC error: {error}, falling back to direct insert")
+                        # Fall through to direct insert
+            except Exception as rpc_error:
+                print(f"⚠️ RPC failed: {rpc_error}, falling back to direct insert")
+                # Fall through to direct insert
+            
+            # Fallback: Direct table insert
+            print(f"📝 Using direct table insert for detection history")
+            direct_insert = {
+                'user_id': user_id,
+                'detection_type': recipe_type,
+                'recipe_suggestion': suggestion or "",
+                'recipe_instructions': instructions or "",
+                'recipe_ingredients': ingredients or "",
+                'detected_foods': detected_foods or "",
+                'analysis_id': analysis_id or "",
+                'youtube_link': youtube or "",
+                'google_link': google or "",
+                'resources_link': resources or "",
+                'created_at': datetime.utcnow().isoformat() + 'Z'
             }
-            insert_data = {k: v for k, v in insert_data.items() if v is not None}
-            result = self.supabase.rpc('add_detection_history', insert_data).execute()
-            if result.data and result.data[0].get('status') == 'success':
+            
+            result = self.supabase.table('detection_history').insert(direct_insert).execute()
+            
+            if result.data:
+                print(f"✅ Detection history saved via direct insert for user {user_id}")
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'Unknown error'
-                return False, error
+                print(f"❌ Direct insert failed")
+                return False, 'Failed to save detection history via direct insert'
+                
         except Exception as e:
-            return False, str(e)
+            error_msg = str(e)
+            print(f"❌ Error in save_detection_history: {error_msg}")
+            return False, error_msg
 
     def update_detection_history(self, analysis_id: str, user_id: str, updates: dict) -> tuple[bool, str | None]:
         """

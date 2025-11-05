@@ -13,14 +13,14 @@ food_detection_bp = Blueprint('food_detection', __name__)
 
 class DetectionHistorySchema(Schema):
     recipe_type = fields.Str(required=True)
-    suggestion = fields.Str(required=True)
-    instructions = fields.Str(required=True)
-    ingredients = fields.Str(required=True)
-    detected_foods = fields.Str(required=True)
-    analysis_id = fields.Str(required=True)
-    youtube = fields.Str(required=True)
-    google = fields.Str(required=True)
-    resources = fields.Str(required=True)
+    suggestion = fields.Str(required=False, allow_none=True, missing="")
+    instructions = fields.Str(required=False, allow_none=True, missing="")
+    ingredients = fields.Str(required=False, allow_none=True, missing="")
+    detected_foods = fields.Str(required=False, allow_none=True, missing="")
+    analysis_id = fields.Str(required=False, allow_none=True, missing="")
+    youtube = fields.Str(required=False, allow_none=True, missing="")
+    google = fields.Str(required=False, allow_none=True, missing="")
+    resources = fields.Str(required=False, allow_none=True, missing="")
 
 @food_detection_bp.route('/process', methods=['POST'])
 def process_food_input():
@@ -35,17 +35,11 @@ def process_food_input():
       return jsonify({'status': 'error', 'message': f'Authentication required: {error}'}), 401
 
   input_type = request.form.get('image_or_ingredient_list')
-  detected_ingredients_str = request.form.get('detected_ingredients')
-  food_suggestions_str = request.form.get('food_suggestions')
-
-  if not detected_ingredients_str or not food_suggestions_str:
-      return jsonify({'status': 'error', 'message': 'Detected ingredients and food suggestions are required.'}), 400
-
-  try:
-      detected_ingredients = json.loads(detected_ingredients_str)
-      food_suggestions = json.loads(food_suggestions_str)
-  except json.JSONDecodeError:
-      return jsonify({'status': 'error', 'message': 'Invalid JSON for detected_ingredients or food_suggestions.'}), 400
+  
+  # NOTE: The frontend doesn't send detected_ingredients and food_suggestions
+  # The /process endpoint just receives the raw input (image or text)
+  # The AI processing happens in the AI API, not here
+  # So we skip saving to history here - let the frontend save after AI processing
 
   analysis_id = str(uuid.uuid4()) # Generate a unique analysis ID for tracking
   input_data_value = None
@@ -77,23 +71,13 @@ def process_food_input():
   else:
       return jsonify({'status': 'error', 'message': 'Invalid input type.'}), 400
 
-  # Store the initial detection event in detection_history
-  success, error = supabase_service.save_detection_history(
-      user_id=user_id,
-      detection_type='ingredient_detection_flow',
-      input_data=input_data_value,
-      detected_foods=json.dumps(detected_ingredients), # Store as JSON string
-      recipe_suggestion=food_suggestions[0] if food_suggestions else None, # Store first suggestion
-      analysis_id=analysis_id
-  )
-  if not success:
-      print(f"Error saving initial detection history: {error}")
-      return jsonify({'status': 'error', 'message': 'Failed to save detection history.'}), 500
-
+  # Don't save to history here - the frontend will save after AI processing
+  # This endpoint just receives the input and generates an analysis_id
+  
   return jsonify({
       'status': 'success',
       'analysis_id': analysis_id,
-      'message': 'Initial detection data received and saved.'
+      'message': 'Input received. Frontend will process with AI and save to history.'
   }), 200
 
 @food_detection_bp.route('/instructions', methods=['POST'])
@@ -217,10 +201,9 @@ def food_detect():
   # Store this complete detection event in detection_history
   success, error = supabase_service.save_detection_history(
       user_id=user_id,
-      detection_type='food_detection_flow',
-      input_data=input_data_value, # Store image URL
+      recipe_type='food_detection_flow',  # FIXED: was detection_type
+      instructions=instructions_text,  # FIXED: was recipe_instructions
       detected_foods=json.dumps(detected_foods), # Store as JSON string
-      recipe_instructions=instructions_text,
       analysis_id=analysis_id
   )
   if not success:
