@@ -16,7 +16,7 @@ const LogoutAndLogin: React.FC = () => {
 
                 // Call backend logout to clear any httpOnly cookies
                 try {
-                    await fetch('${APP_CONFIG.api.base_url}/api/logout', {
+                    await fetch(`${APP_CONFIG.api.base_url}/api/logout`, {
                         method: 'POST',
                         credentials: 'include'
                     });

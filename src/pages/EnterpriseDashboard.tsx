@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Users, Mail, Plus, MailOpen, XCircle, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EnterpriseRegistrationForm } from '@/components/enterprise/EnterpriseRegistrationForm';
-import { CreateUserForm } from '@/components/enterprise/CreateUserForm';
+import { InviteUserForm } from '@/components/enterprise/InviteUserForm';
 import MainLayout from '@/components/MainLayout';
 import { APP_CONFIG } from '@/lib/config';
 
@@ -54,7 +54,7 @@ export default function EnterpriseDashboard() {
     const [users, setUsers] = useState<OrganizationUser[]>([]);
     const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-    const [showCreateUserForm, setShowCreateUserForm] = useState(false);
+    const [showInviteUserForm, setShowInviteUserForm] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean, user: any }>({ isOpen: false, user: null });
     const [isLoading, setIsLoading] = useState(true);
     const [canCreateOrganizations, setCanCreateOrganizations] = useState(true);
@@ -385,9 +385,9 @@ export default function EnterpriseDashboard() {
                                 <h3 className="text-lg font-medium">Enrolled Users</h3>
                                 <p className="text-sm text-gray-600">{users.length} user{users.length !== 1 ? 's' : ''} registered</p>
                             </div>
-                            <Button onClick={() => setShowCreateUserForm(true)}>
+                            <Button onClick={() => setShowInviteUserForm(true)}>
                                 <Plus className="h-4 w-4 mr-2" />
-                                Create User
+                                Invite User
                             </Button>
                         </div>
 
@@ -451,7 +451,7 @@ export default function EnterpriseDashboard() {
                     <TabsContent value="invitations" className="space-y-4">
                         <div className="flex justify-between items-center">
                             <h3 className="text-lg font-medium">Sent Invitations</h3>
-                            <Button onClick={() => setShowCreateUserForm(true)}>
+                            <Button onClick={() => setShowInviteUserForm(true)}>
                                 <Mail className="h-4 w-4 mr-2" />
                                 Send New Invitation
                             </Button>
@@ -526,10 +526,10 @@ export default function EnterpriseDashboard() {
                     />
                 )}
 
-                {showCreateUserForm && selectedEnterprise && (
-                    <CreateUserForm
+                {showInviteUserForm && selectedEnterprise && (
+                    <InviteUserForm
                         enterpriseId={selectedEnterprise.id}
-                        onClose={() => setShowCreateUserForm(false)}
+                        onClose={() => setShowInviteUserForm(false)}
                         onSuccess={() => selectedEnterprise && loadEnterpriseDetails(selectedEnterprise.id)}
                     />
                 )}

@@ -14,15 +14,30 @@ from supabase import Client
 
 def get_frontend_url():
     """Get the frontend URL from environment or auto-detect from request origin"""
+    # Priority 1: Environment variable (for local development)
     frontend_url = os.environ.get('FRONTEND_URL')
-    if not frontend_url:
-        # Auto-detect from request origin (works for both dev and production)
-        frontend_url = request.headers.get('Origin', 'https://www.meallensai.com')
+    if frontend_url:
+        print(f"🔍 Using FRONTEND_URL from env: {frontend_url}")
+        return frontend_url
     
-    # Debug logging
-    print(f"🔍 Frontend URL detection: env={os.environ.get('FRONTEND_URL')}, origin={request.headers.get('Origin')}, final={frontend_url}")
+    # Priority 2: Request Origin header (works for both dev and production)
+    origin = request.headers.get('Origin')
+    if origin:
+        print(f"🔍 Using Origin header: {origin}")
+        return origin
     
-    return frontend_url
+    # Priority 3: Referer header as fallback
+    referer = request.headers.get('Referer')
+    if referer:
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        frontend_url = f"{parsed.scheme}://{parsed.netloc}"
+        print(f"🔍 Using Referer header: {frontend_url}")
+        return frontend_url
+    
+    # Last resort: Production URL
+    print(f"🔍 No env/origin/referer found, using production URL")
+    return 'https://www.meallensai.com'
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
@@ -62,6 +77,44 @@ def require_auth(f):
         
         return f(*args, **kwargs)
     return decorated_function
+
+def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) -> tuple[bool, str]:
+    """
+    Check if a user is an admin or owner of an organization.
+    
+    Returns:
+        tuple: (is_admin, reason)
+    """
+    try:
+        # Check if user created this organization (owner)
+        enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
+        
+        if not enterprise_result.data:
+            return False, "Organization not found"
+        
+        enterprise = enterprise_result.data[0]
+        
+        # If user is the creator, they're automatically an admin
+        if enterprise['created_by'] == user_id:
+            return True, "User is organization owner"
+        
+        # Check if user is an admin member of this organization
+        membership_result = supabase.table('organization_users').select('role').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        
+        if not membership_result.data:
+            return False, "User is not a member of this organization"
+        
+        role = membership_result.data[0]['role']
+        
+        # Allow admins and owners to invite/manage users
+        if role in ['admin', 'owner']:
+            return True, f"User has {role} role"
+        
+        return False, f"User role '{role}' does not have permission to manage users"
+        
+    except Exception as e:
+        return False, f"Error checking user permissions: {str(e)}"
+
 
 def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple[bool, str]:
     """
@@ -296,10 +349,10 @@ def get_enterprise_users(enterprise_id):
     try:
         supabase = get_supabase_client()
         
-        # Verify ownership
-        enterprise = supabase.table('enterprises').select('id').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
-        if not enterprise.data:
-            return jsonify({'error': 'Enterprise not found or access denied'}), 404
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
         
         # Get organization users
         result = supabase.table('organization_users').select('*').eq('enterprise_id', enterprise_id).execute()
@@ -357,10 +410,15 @@ def invite_user(enterprise_id):
         email = data['email'].lower().strip()
         supabase = get_supabase_client()
         
-        # Verify ownership
-        enterprise = supabase.table('enterprises').select('*').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
+        # Verify user has permission to invite users (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Get enterprise details
+        enterprise = supabase.table('enterprises').select('*').eq('id', enterprise_id).execute()
         if not enterprise.data:
-            return jsonify({'error': 'Enterprise not found or access denied'}), 404
+            return jsonify({'error': 'Enterprise not found'}), 404
         
         enterprise_data = enterprise.data[0]
         
@@ -404,13 +462,18 @@ def invite_user(enterprise_id):
         inviter_name = inviter_user.user.email if inviter_user else 'A team member'
         
         # Send invitation email
-        email_sent = email_service.send_invitation_email(
-            to_email=email,
-            enterprise_name=enterprise_data['name'],
-            inviter_name=inviter_name,
-            invitation_link=invitation_link,
-            custom_message=data.get('message')
-        )
+        try:
+            email_sent = email_service.send_invitation_email(
+                to_email=email,
+                enterprise_name=enterprise_data['name'],
+                inviter_name=inviter_name,
+                invitation_link=invitation_link,
+                custom_message=data.get('message')
+            )
+            print(f"✉️ Email sent status: {email_sent}")
+        except Exception as email_error:
+            print(f"⚠️ Email service error (non-blocking): {email_error}")
+            email_sent = False
         
         return jsonify({
             'success': True,
@@ -421,6 +484,9 @@ def invite_user(enterprise_id):
         }), 201
         
     except Exception as e:
+        print(f"❌ Error in invite_user: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Failed to invite user: {str(e)}'}), 500
 
 
@@ -431,10 +497,10 @@ def get_invitations(enterprise_id):
     try:
         supabase = get_supabase_client()
         
-        # Verify ownership
-        enterprise = supabase.table('enterprises').select('id').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
-        if not enterprise.data:
-            return jsonify({'error': 'Enterprise not found or access denied'}), 404
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
         
         # Get invitations
         result = supabase.table('invitations').select('*').eq('enterprise_id', enterprise_id).order('sent_at', desc=True).execute()
@@ -711,11 +777,16 @@ def create_user():
         
         supabase = get_supabase_client()
         
-        # Verify user has permission to create users in this organization
-        enterprise_result = supabase.table('enterprises').select('id, name').eq('id', data['enterprise_id']).eq('created_by', request.user_id).execute()
+        # Verify user has permission to create users (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, data['enterprise_id'], supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Get enterprise details
+        enterprise_result = supabase.table('enterprises').select('id, name').eq('id', data['enterprise_id']).execute()
         
         if not enterprise_result.data:
-            return jsonify({'error': 'Organization not found or access denied'}), 404
+            return jsonify({'error': 'Organization not found'}), 404
         
         enterprise = enterprise_result.data[0]
         
@@ -923,10 +994,10 @@ def update_user_relation(enterprise_id, user_relation_id):
         data = request.get_json()
         supabase = get_supabase_client()
         
-        # Verify ownership
-        enterprise = supabase.table('enterprises').select('id').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
-        if not enterprise.data:
-            return jsonify({'error': 'Enterprise not found or access denied'}), 404
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
         
         # Update user relation
         update_data = {}
@@ -953,10 +1024,10 @@ def remove_user(enterprise_id, user_relation_id):
     try:
         supabase = get_supabase_client()
         
-        # Verify ownership
-        enterprise = supabase.table('enterprises').select('id').eq('id', enterprise_id).eq('created_by', request.user_id).execute()
-        if not enterprise.data:
-            return jsonify({'error': 'Enterprise not found or access denied'}), 404
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
         
         # Delete user relation
         supabase.table('organization_users').delete().eq('id', user_relation_id).eq('enterprise_id', enterprise_id).execute()

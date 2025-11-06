@@ -128,7 +128,7 @@ export default function AcceptInvitation() {
             }
 
             const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-            const response = await fetch('${APP_CONFIG.api.base_url}/api/enterprise/invitation/complete', {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/complete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -382,7 +382,7 @@ function RegistrationForm({ invitation, onRegister }: { invitation: any, onRegis
 
         try {
             // Register the user
-            const response = await fetch('${APP_CONFIG.api.base_url}/api/register', {
+            const response = await fetch(`${APP_CONFIG.api.base_url}/api/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -403,7 +403,7 @@ function RegistrationForm({ invitation, onRegister }: { invitation: any, onRegis
 
             // Registration successful, now we need to log the user in
             // Try to log in with the credentials
-            const loginResponse = await fetch('${APP_CONFIG.api.base_url}/api/login', {
+            const loginResponse = await fetch(`${APP_CONFIG.api.base_url}/api/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
