@@ -43,6 +43,7 @@ interface Invitation {
     status: string;
     sent_at: string;
     expires_at: string;
+    accepted_at?: string;
     role: string;
     message?: string;
 }
@@ -376,7 +377,9 @@ export default function EnterpriseDashboard() {
                 <Tabs defaultValue="users" className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
-                        <TabsTrigger value="invitations">Invitations ({invitations.length})</TabsTrigger>
+                        <TabsTrigger value="invitations">
+                            Invitations ({invitations.filter(i => i.status === 'pending').length} pending, {invitations.filter(i => i.status === 'accepted').length} accepted)
+                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="users" className="space-y-4">
@@ -467,7 +470,10 @@ export default function EnterpriseDashboard() {
                                 </Card>
                             ) : (
                                 invitations.map((invitation) => (
-                                    <Card key={invitation.id}>
+                                    <Card 
+                                        key={invitation.id}
+                                        className={invitation.status === 'accepted' ? 'border-green-500 bg-green-50/50' : ''}
+                                    >
                                         <CardContent className="p-4">
                                             <div className="flex justify-between items-start">
                                                 <div className="space-y-1">
@@ -492,9 +498,15 @@ export default function EnterpriseDashboard() {
                                                     <p className="text-sm text-gray-600">
                                                         Sent: {new Date(invitation.sent_at).toLocaleDateString()}
                                                     </p>
+                                                    {invitation.status === 'accepted' && invitation.accepted_at ? (
+                                                        <p className="text-sm text-green-600 font-medium">
+                                                            ✓ Accepted: {new Date(invitation.accepted_at).toLocaleDateString()}
+                                                        </p>
+                                                    ) : (
                                                     <p className="text-sm text-gray-600">
                                                         Expires: {new Date(invitation.expires_at).toLocaleDateString()}
                                                     </p>
+                                                    )}
                                                     {invitation.message && (
                                                         <p className="text-sm text-gray-600 mt-2 italic">
                                                             "{invitation.message}"

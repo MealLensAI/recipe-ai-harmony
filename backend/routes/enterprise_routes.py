@@ -643,7 +643,7 @@ def accept_invitation():
             membership_data = {
                 'enterprise_id': invitation['enterprise_id'],
                 'user_id': user_id,
-                'role': data.get('role', 'member')
+                'role': invitation.get('role', 'patient')  # Use role from invitation
             }
             
             # Use admin client to bypass RLS for this operation
@@ -653,8 +653,12 @@ def accept_invitation():
             if not membership_result.data:
                 return jsonify({'error': 'Failed to add user to organization'}), 500
             
-            # Update invitation status
-            supabase.table('invitations').update({'status': 'accepted'}).eq('id', invitation['id']).execute()
+            # Update invitation status with acceptance details
+            supabase.table('invitations').update({
+                'status': 'accepted',
+                'accepted_at': datetime.now(timezone.utc).isoformat(),
+                'accepted_by': user_id
+            }).eq('id', invitation['id']).execute()
             
             # Get enterprise name safely
             enterprise_name = 'Unknown Organization'
@@ -730,7 +734,7 @@ def complete_invitation():
         membership_data = {
             'enterprise_id': invitation['enterprise_id'],
             'user_id': request.user_id,
-            'role': data.get('role', 'member')
+            'role': invitation.get('role', 'patient')  # Use role from invitation
         }
         
         # Use admin client to bypass RLS for this operation
