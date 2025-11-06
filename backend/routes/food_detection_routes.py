@@ -13,14 +13,14 @@ food_detection_bp = Blueprint('food_detection', __name__)
 
 class DetectionHistorySchema(Schema):
     recipe_type = fields.Str(required=True)
-    suggestion = fields.Str(required=False, allow_none=True, missing="")
-    instructions = fields.Str(required=False, allow_none=True, missing="")
-    ingredients = fields.Str(required=False, allow_none=True, missing="")
-    detected_foods = fields.Str(required=False, allow_none=True, missing="")
-    analysis_id = fields.Str(required=False, allow_none=True, missing="")
-    youtube = fields.Str(required=False, allow_none=True, missing="")
-    google = fields.Str(required=False, allow_none=True, missing="")
-    resources = fields.Str(required=False, allow_none=True, missing="")
+    suggestion = fields.Str(required=False, allow_none=True, load_default="")
+    instructions = fields.Str(required=False, allow_none=True, load_default="")
+    ingredients = fields.Str(required=False, allow_none=True, load_default="")
+    detected_foods = fields.Str(required=False, allow_none=True, load_default="")
+    analysis_id = fields.Str(required=False, allow_none=True, load_default="")
+    youtube = fields.Str(required=False, allow_none=True, load_default="")
+    google = fields.Str(required=False, allow_none=True, load_default="")
+    resources = fields.Str(required=False, allow_none=True, load_default="")
 
 @food_detection_bp.route('/process', methods=['POST'])
 def process_food_input():
