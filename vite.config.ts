@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
 
     proxy: {
-      '/api': 'http://127.0.0.1:5001' ,
+      '/api': 'https://api.meallensai.com/5001' ,
     },
   },
 })
