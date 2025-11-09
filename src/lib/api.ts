@@ -305,7 +305,7 @@ class APIService {
 
   // Meal plan methods
   async getMealPlans(): Promise<APIResponse> {
-    return this.get('/meal_plan')
+    return this.get('/meal_plan', { timeout: 30000 })
   }
 
   async saveMealPlan(planData: any): Promise<APIResponse> {
@@ -326,7 +326,7 @@ class APIService {
 
   // Detection history methods
   async getDetectionHistory(): Promise<APIResponse> {
-    return this.get('/food_detection/detection_history')
+    return this.get('/food_detection/detection_history', { timeout: 30000 })
   }
 
   async saveDetectionHistory(detectionData: any): Promise<APIResponse> {
@@ -356,11 +356,81 @@ class APIService {
   }
 
   async getUserSettings(settingsType: string = 'health_profile'): Promise<APIResponse> {
-    return this.get(`/settings?settings_type=${settingsType}`)
+    return this.get(`/settings?settings_type=${settingsType}`, { timeout: 30000 })
   }
 
   async deleteUserSettings(settingsType: string): Promise<APIResponse> {
     return this.delete(`/settings?settings_type=${settingsType}`)
+  }
+
+  // Enterprise/Organization methods
+  async canCreateOrganization(): Promise<APIResponse> {
+    return this.get('/enterprise/can-create')
+  }
+
+  async getMyEnterprises(): Promise<APIResponse> {
+    return this.get('/enterprise/my-enterprises')
+  }
+
+  async registerEnterprise(data: {
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    organization_type: string;
+  }): Promise<APIResponse> {
+    return this.post('/enterprise/register', data)
+  }
+
+  async getEnterpriseDetails(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}`)
+  }
+
+  async getEnterpriseUsers(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/users`)
+  }
+
+  async getEnterpriseInvitations(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/invitations`)
+  }
+
+  async inviteUserToEnterprise(enterpriseId: string, data: {
+    email: string;
+    role: string;
+    message?: string;
+  }): Promise<APIResponse> {
+    return this.post(`/enterprise/${enterpriseId}/invite`, data)
+  }
+
+  async createEnterpriseUser(data: {
+    enterprise_id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    role: string;
+  }): Promise<APIResponse> {
+    return this.post('/enterprise/create-user', data)
+  }
+
+  async deleteEnterpriseUser(userRelationId: string): Promise<APIResponse> {
+    return this.delete(`/enterprise/user/${userRelationId}`)
+  }
+
+  async cancelInvitation(invitationId: string): Promise<APIResponse> {
+    return this.post(`/enterprise/invitation/${invitationId}/cancel`, {})
+  }
+
+  async verifyInvitation(token: string): Promise<APIResponse> {
+    return this.get(`/enterprise/invitation/verify/${token}`, { skipAuth: true })
+  }
+
+  async acceptInvitation(token: string): Promise<APIResponse> {
+    return this.post('/enterprise/invitation/accept', { token }, { suppressAuthRedirect: true })
+  }
+
+  async completeInvitation(invitationId: string): Promise<APIResponse> {
+    return this.post('/enterprise/invitation/complete', { invitation_id: invitationId })
   }
 }
 

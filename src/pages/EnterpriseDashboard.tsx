@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EnterpriseRegistrationForm } from '@/components/enterprise/EnterpriseRegistrationForm';
 import { InviteUserForm } from '@/components/enterprise/InviteUserForm';
 import MainLayout from '@/components/MainLayout';
-import { APP_CONFIG } from '@/lib/config';
+import { api } from '@/lib/api';
 
 interface Enterprise {
     id: string;
@@ -74,19 +74,10 @@ export default function EnterpriseDashboard() {
 
     const checkUserPermissions = async () => {
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) return;
-
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/can-create`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setCanCreateOrganizations(data.can_create);
-                setPermissionReason(data.reason);
+            const result = await api.canCreateOrganization();
+            if (result.success) {
+                setCanCreateOrganizations(result.can_create);
+                setPermissionReason(result.reason);
             }
         } catch (error: any) {
             console.error('Failed to check user permissions:', error);
@@ -97,33 +88,24 @@ export default function EnterpriseDashboard() {
 
     const loadEnterprises = async () => {
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) {
-                toast({
-                    title: 'Authentication Required',
-                    description: 'Please log in to access this page',
-                    variant: 'destructive'
-                });
-                return;
-            }
+            const result = await api.getMyEnterprises();
+            
+            if (result.success) {
+                const loadedEnterprises = result.enterprises || [];
+                setEnterprises(loadedEnterprises);
 
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/my-enterprises`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
+                // Auto-select first enterprise if available
+                if (loadedEnterprises.length > 0) {
+                    setSelectedEnterprise(loadedEnterprises[0]);
+                } else {
+                    // No enterprises - clear selection
+                    setSelectedEnterprise(null);
                 }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to load enterprises');
-            }
-
-            const data = await response.json();
-            setEnterprises(data.enterprises || []);
-
-            if (data.enterprises && data.enterprises.length > 0) {
-                setSelectedEnterprise(data.enterprises[0]);
+            } else {
+                throw new Error(result.message || 'Failed to load enterprises');
             }
         } catch (error: any) {
+            console.error('Load enterprises error:', error);
             toast({
                 title: 'Error',
                 description: error.message || 'Failed to load enterprises',
@@ -136,31 +118,16 @@ export default function EnterpriseDashboard() {
 
     const loadEnterpriseDetails = async (enterpriseId: string) => {
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) return;
-
             // Load users
-            const usersResponse = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/users`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (usersResponse.ok) {
-                const usersData = await usersResponse.json();
-                setUsers(usersData.users || []);
+            const usersResult = await api.getEnterpriseUsers(enterpriseId);
+            if (usersResult.success) {
+                setUsers(usersResult.users || []);
             }
 
             // Load invitations
-            const invitationsResponse = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/invitations`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (invitationsResponse.ok) {
-                const invitationsData = await invitationsResponse.json();
-                setInvitations(invitationsData.invitations || []);
+            const invitationsResult = await api.getEnterpriseInvitations(enterpriseId);
+            if (invitationsResult.success) {
+                setInvitations(invitationsResult.invitations || []);
             }
         } catch (error: any) {
             console.error('Failed to load enterprise details:', error);
@@ -169,26 +136,18 @@ export default function EnterpriseDashboard() {
 
     const handleCancelInvitation = async (invitationId: string) => {
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) return;
+            const result = await api.cancelInvitation(invitationId);
 
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/invitation/${invitationId}/cancel`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
+            if (result.success) {
+                toast({
+                    title: 'Success',
+                    description: 'Invitation cancelled'
+                });
+                if (selectedEnterprise) {
+                    loadEnterpriseDetails(selectedEnterprise.id);
                 }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to cancel invitation');
-            }
-
-            toast({
-                title: 'Success',
-                description: 'Invitation cancelled'
-            });
-            if (selectedEnterprise) {
-                loadEnterpriseDetails(selectedEnterprise.id);
+            } else {
+                throw new Error(result.message || result.error || 'Failed to cancel invitation');
             }
         } catch (error: any) {
             toast({
@@ -201,29 +160,12 @@ export default function EnterpriseDashboard() {
 
     const deleteUser = async (userRelationId: string) => {
         try {
-            const authToken = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!authToken) {
-                toast({
-                    title: 'Error',
-                    description: 'Authentication token not found. Please log in.',
-                    variant: 'destructive'
-                });
-                return;
-            }
+            const result = await api.deleteEnterpriseUser(userRelationId);
 
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/user/${userRelationId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
+            if (result.success) {
                 toast({
                     title: 'Success',
-                    description: data.message || 'User account deleted successfully. They can now be re-invited or register again.'
+                    description: result.message || 'User account deleted successfully. They can now be re-invited or register again.'
                 });
 
                 // Reload users to update the list

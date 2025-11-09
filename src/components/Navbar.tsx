@@ -13,55 +13,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/utils"
-import { useState, useEffect } from "react"
-import { APP_CONFIG } from "@/lib/config"
+import { useEnterpriseRole } from "@/hooks/useEnterpriseRole"
 
 const Navbar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
   const { user, signOut, isAuthenticated } = useAuth()
-  const [canCreateOrganizations, setCanCreateOrganizations] = useState(false)
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      checkUserPermissions()
-    }
-  }, [isAuthenticated])
-
-  const checkUserPermissions = async () => {
-    try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-      if (!token) {
-        console.log('No token found, cannot check permissions')
-        return
-      }
-
-      console.log('Checking user permissions with token:', token.substring(0, 20) + '...')
-
-      const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/can-create`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      console.log('Permission check response status:', response.status)
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Permission check response data:', data)
-        setCanCreateOrganizations(data.can_create)
-      } else {
-        const errorData = await response.text()
-        console.error('Permission check failed:', response.status, errorData)
-        setCanCreateOrganizations(false)
-      }
-    } catch (error: any) {
-      console.error('Failed to check user permissions:', error)
-      // Default to false if check fails - better to be restrictive
-      setCanCreateOrganizations(false)
-    }
-  }
+  const { hasEnterprises, isOrganizationOwner, canCreateOrganizations } = useEnterpriseRole()
 
   const isActive = (path: string) => location.pathname === path
 
@@ -94,15 +53,15 @@ const Navbar = () => {
 
   return (
     <nav className="bg-white shadow-md border-b border-gray-100 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo and App Name */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-md">
-              <Utensils className="h-6 w-6 text-white" />
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-md">
+              <Utensils className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
+              <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
                 MealLensAI
               </h1>
               <p className="text-xs text-gray-500 hidden sm:block">Smart Kitchen Assistant</p>
@@ -155,18 +114,18 @@ const Navbar = () => {
           </div>
 
           {/* User Actions with Dropdown */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="relative h-12 w-auto rounded-full flex items-center space-x-3 px-3 hover:bg-gray-100 border border-gray-200"
+                  className="relative h-10 sm:h-12 w-auto rounded-full flex items-center space-x-1 sm:space-x-3 px-2 sm:px-3 hover:bg-gray-100 border border-gray-200"
                 >
-                  <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-full text-white font-bold text-lg shadow-md">
+                  <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-full text-white font-bold text-sm sm:text-lg shadow-md">
                     {userInitials}
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-gray-700">{userDisplayName}</span>
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                  <span className="hidden md:block text-xs sm:text-sm font-medium text-gray-700 max-w-[100px] truncate">{userDisplayName}</span>
+                  <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -189,10 +148,13 @@ const Navbar = () => {
                   <span className="mr-2">💳</span>
                   <span>Payment</span>
                 </DropdownMenuItem>
-                {canCreateOrganizations && (
+                {(canCreateOrganizations || hasEnterprises) && (
                   <DropdownMenuItem onClick={() => navigate("/enterprise")}>
                     <Building2 className="mr-2 h-4 w-4" />
-                    <span>My Organizations</span>
+                    <span>
+                      {hasEnterprises ? 'My Organizations' : 'Enterprise Dashboard'}
+                      {hasEnterprises && <span className="ml-1 text-xs text-orange-600">●</span>}
+                    </span>
                   </DropdownMenuItem>
                 )}
 
@@ -207,53 +169,53 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden border-t border-gray-100 py-3">
+        <div className="md:hidden border-t border-gray-100 py-2">
           <div className="grid grid-cols-4 gap-1">
 
             <Button
               variant="ghost"
               onClick={() => navigate("/planner")}
-              className={`flex flex-col items-center justify-center h-16 text-xs space-y-1 transition-colors ${isActive("/planner")
+              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/planner")
                 ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
-              <Settings className="h-5 w-5" />
-              <span>Meal Planner</span>
+              <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="leading-tight">Planner</span>
             </Button>
 
             <Button
               variant="ghost"
               onClick={() => navigate("/ai-kitchen")}
-              className={`flex flex-col items-center justify-center h-16 text-xs space-y-1 transition-colors ${isActive("/ai-kitchen")
+              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/ai-kitchen")
                 ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
-              <Utensils className="h-5 w-5" />
-              <span>Ingred Detector</span>
+              <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="leading-tight">Kitchen</span>
             </Button>
             <Button
               variant="ghost"
               onClick={() => navigate("/detected")}
-              className={`flex flex-col items-center justify-center h-16 text-xs space-y-1 transition-colors ${isActive("/detected")
+              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/detected")
                 ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
-              <Camera className="h-5 w-5" />
-              <span>Detect Food</span>
+              <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="leading-tight">Detect</span>
             </Button>
             <Button
               variant="ghost"
               onClick={() => navigate("/history")}
-              className={`flex flex-col items-center justify-center h-16 text-xs space-y-1 transition-colors ${isActive("/history")
+              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/history")
                 ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
-              <User className="h-5 w-5" />
-              <span>History</span>
+              <User className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="leading-tight">History</span>
             </Button>
 
           </div>

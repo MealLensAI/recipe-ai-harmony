@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Copy, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { APP_CONFIG } from '@/lib/config';
+import { api } from '@/lib/api';
 
 interface InviteUserFormProps {
     enterpriseId: string;
@@ -42,52 +42,45 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess }: InviteUserF
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) {
-                toast({
-                    title: 'Authentication Required',
-                    description: 'You must be logged in to invite users',
-                    variant: 'destructive'
-                });
-                return;
-            }
+            const result = await api.inviteUserToEnterprise(enterpriseId, formData);
 
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/invite`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to send invitation');
-            }
-
-            // If email service is not configured, show the invitation link
-            if (!data.email_sent && data.invitation_link) {
-                setInvitationLink(data.invitation_link);
-                setShowLinkModal(true);
-                toast({
-                    title: 'Invitation Created',
-                    description: 'Email service not configured. Copy the invitation link to share manually.'
-                });
+            if (result.success) {
+                // If email service is not configured, show the invitation link
+                if (!result.email_sent && result.invitation_link) {
+                    setInvitationLink(result.invitation_link);
+                    setShowLinkModal(true);
+                    toast({
+                        title: 'Invitation Created',
+                        description: 'Email service not configured. Copy the invitation link to share manually.'
+                    });
+                } else {
+                    toast({
+                        title: 'Success',
+                        description: 'Invitation email sent successfully!'
+                    });
+                    onSuccess();
+                    onClose();
+                }
             } else {
-                toast({
-                    title: 'Success',
-                    description: 'Invitation email sent successfully!'
-                });
-                onSuccess();
-                onClose();
+                // Better error message for common issues
+                let errorMessage = result.message || result.error || 'Failed to send invitation';
+                
+                if (errorMessage.includes('not a member')) {
+                    errorMessage = 'You do not have permission to invite users to this organization. Only organization owners and admins can send invitations.';
+                } else if (errorMessage.includes('already invited')) {
+                    errorMessage = 'This user already has a pending invitation.';
+                } else if (errorMessage.includes('Maximum user limit')) {
+                    errorMessage = 'Organization has reached its maximum user limit. Please contact support to increase capacity.';
+                }
+                
+                throw new Error(errorMessage);
             }
         } catch (error: any) {
             toast({
-                title: 'Error',
+                title: 'Invitation Failed',
                 description: error.message || 'Failed to send invitation',
-                variant: 'destructive'
+                variant: 'destructive',
+                duration: 5000
             });
         } finally {
             setIsLoading(false);

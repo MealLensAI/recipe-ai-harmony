@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { APP_CONFIG } from '@/lib/config';
+import { api } from '@/lib/api';
 
 interface CreateUserFormProps {
     enterpriseId: string;
@@ -49,36 +49,26 @@ export const CreateUserForm = ({ enterpriseId, onClose, onSuccess }: CreateUserF
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/create-user`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    enterprise_id: enterpriseId,
-                    first_name: formData.firstName,
-                    last_name: formData.lastName,
-                    email: formData.email,
-                    password: formData.password,
-                    role: formData.role
-                })
+            const result = await api.createEnterpriseUser({
+                enterprise_id: enterpriseId,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                email: formData.email,
+                password: formData.password,
+                role: formData.role
             });
 
-            const data = await response.json();
+            if (result.success) {
+                toast({
+                    title: 'Success',
+                    description: `User created successfully! An account creation email with login instructions has been sent to ${formData.email}`
+                });
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to create user');
+                onSuccess();
+                onClose();
+            } else {
+                throw new Error(result.message || result.error || 'Failed to create user');
             }
-
-            toast({
-                title: 'Success',
-                description: `User created successfully! An account creation email with login instructions has been sent to ${formData.email}`
-            });
-
-            onSuccess();
-            onClose();
         } catch (error: any) {
             toast({
                 title: 'Error',
