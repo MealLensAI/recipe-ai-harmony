@@ -138,7 +138,10 @@ export default function EnterpriseDashboard() {
                     description: 'Invitation cancelled'
                 });
                 if (selectedEnterprise) {
-                loadEnterpriseDetails(selectedEnterprise.id);
+                    loadEnterpriseDetails(selectedEnterprise.id);
+                }
+            } else {
+                throw new Error(result.message || result.error || 'Failed to cancel invitation');
             }
         } catch (error: any) {
             toast({
