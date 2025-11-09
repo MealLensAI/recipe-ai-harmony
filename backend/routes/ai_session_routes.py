@@ -29,7 +29,12 @@ def store_session():
             return jsonify({'error': 'Missing or invalid Authorization header'}), 401
 
         # Get user ID from auth token
-        user_id, auth_type = AuthService.get_supabase_user_id_from_token(auth_header)
+        from flask import current_app
+        auth_service = current_app.auth_service
+        if not auth_service:
+            return jsonify({'error': 'Authentication service not available'}), 500
+        
+        user_id, auth_type = auth_service.get_supabase_user_id_from_token(auth_header)
         if not user_id:
             return jsonify({'error': 'Invalid authentication token'}), 401
 
@@ -41,7 +46,10 @@ def store_session():
         session_data = data['session_data']
         
         # Store in Supabase
-        supabase_service = SupabaseService()
+        supabase_service = current_app.supabase_service
+        if not supabase_service:
+            return jsonify({'error': 'Supabase service not available'}), 500
+        
         result = supabase_service.insert_ai_session(user_id, session_data)
         
         return jsonify({'status': 'success', 'session_id': result['id']}), 201

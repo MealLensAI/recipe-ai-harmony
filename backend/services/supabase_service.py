@@ -138,16 +138,29 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
-            result = self.supabase.rpc('submit_feedback', {
-                'p_user_id': user_id,
-                'p_feedback_text': feedback_text
+            # Try RPC first, fallback to direct insert
+            try:
+                result = self.supabase.rpc('submit_feedback', {
+                    'p_user_id': user_id,
+                    'p_feedback_text': feedback_text
+                }).execute()
+                
+                if result.data and len(result.data) > 0 and result.data[0].get('status') == 'success':
+                    return True, None
+            except Exception as rpc_error:
+                print(f"RPC failed, using direct insert: {rpc_error}")
+            
+            # Fallback: Direct table insert
+            result = self.supabase.table('feedback').insert({
+                'user_id': user_id,
+                'feedback_text': feedback_text,
+                'created_at': datetime.utcnow().isoformat() + 'Z'
             }).execute()
             
-            if result.data and result.data[0].get('status') == 'success':
+            if result.data:
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'Unknown error'
-                return False, error
+                return False, 'Failed to save feedback'
         except Exception as e:
             return False, str(e)
 
@@ -217,17 +230,26 @@ class SupabaseService:
             print(f"📝 Using direct table insert for detection history")
             direct_insert = {
                 'user_id': user_id,
-                'detection_type': recipe_type,
-                'recipe_suggestion': suggestion or "",
-                'recipe_instructions': instructions or "",
-                'recipe_ingredients': ingredients or "",
-                'detected_foods': detected_foods or "",
-                'analysis_id': analysis_id or "",
-                'youtube_link': youtube or "",
-                'google_link': google or "",
-                'resources_link': resources or "",
-                'created_at': datetime.utcnow().isoformat() + 'Z'
+                'recipe_type': recipe_type,  # FIXED: detection_type → recipe_type (matches table schema)
             }
+            
+            # Only add non-empty optional fields (prevents empty string to JSONB issues)
+            if suggestion:
+                direct_insert['suggestion'] = suggestion
+            if instructions:
+                direct_insert['instructions'] = instructions
+            if ingredients:
+                direct_insert['ingredients'] = ingredients
+            if detected_foods:
+                direct_insert['detected_foods'] = detected_foods
+            if analysis_id:
+                direct_insert['analysis_id'] = analysis_id
+            if youtube:
+                direct_insert['youtube'] = youtube
+            if google:
+                direct_insert['google'] = google
+            if resources:
+                direct_insert['resources'] = resources
             
             result = self.supabase.table('detection_history').insert(direct_insert).execute()
             
@@ -268,10 +290,10 @@ class SupabaseService:
             
             result = self.supabase.rpc('update_detection_history', rpc_params).execute()
             
-            if result.data and result.data[0].get('status') == 'success':
+            if result.data and len(result.data) > 0 and result.data[0].get('status') == 'success':
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'No record found or user not authorized to update this record.'
+                error = result.data[0].get('message') if (result.data and len(result.data) > 0) else 'No record found or user not authorized to update this record.'
                 return False, error
         except Exception as e:
             return False, str(e)

@@ -235,7 +235,7 @@ class SubscriptionService:
             if user_id and user_id != 'anon':
                 result = self.supabase.rpc(
                     'record_feature_usage',
-                    {'p_user_id': user_id, 'p_feature_name': feature_name, 'p_count': count}
+                    {'p_feature_name': feature_name, 'p_firebase_uid': None, 'p_user_id': user_id}
                 ).execute()
                 
                 if result.data:
@@ -308,7 +308,8 @@ class SubscriptionService:
             duration_days = plan.get('duration_days', 30)
             
             # Calculate subscription end date (supports SUB_TIME_UNIT override)
-            start_date = datetime.now()
+            from datetime import timezone
+            start_date = datetime.now(timezone.utc)
             end_date = self._compute_end_date(start_date, duration_days)
             
             # Try to get user from Supabase auth first
@@ -402,7 +403,8 @@ class SubscriptionService:
                 self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'expired').execute()
                 self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'cancelled').execute()
                 # Expire any stale "active" subscriptions whose end date has passed
-                now_iso = datetime.now().isoformat()
+                from datetime import timezone
+                now_iso = datetime.now(timezone.utc).isoformat()
                 self.supabase.table('user_subscriptions').update({
                     'status': 'expired',
                     'updated_at': now_iso
@@ -418,7 +420,8 @@ class SubscriptionService:
                     # then force-end any active row immediately
                     self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'expired').execute()
                     self.supabase.table('user_subscriptions').delete().eq('user_id', supabase_user_id).eq('status', 'cancelled').execute()
-                    now_iso_force = datetime.now().isoformat()
+                    from datetime import timezone
+                    now_iso_force = datetime.now(timezone.utc).isoformat()
                     active_subs = self.supabase.table('user_subscriptions').select('id').eq('user_id', supabase_user_id).eq('status', 'active').execute()
                     if active_subs.data:
                         self.supabase.table('user_subscriptions').update({
@@ -434,11 +437,12 @@ class SubscriptionService:
             if not profile_result.data:
                 print(f"🔍 User {supabase_user_id} doesn't have a profile, creating one...")
                 # Create a basic profile for the user
+                from datetime import timezone
                 profile_data = {
                     'id': supabase_user_id,
                     'email': paystack_data.get('email', 'unknown@example.com'),
-                    'created_at': datetime.now().isoformat(),
-                    'updated_at': datetime.now().isoformat()
+                    'created_at': datetime.now(timezone.utc).isoformat(),
+                    'updated_at': datetime.now(timezone.utc).isoformat()
                 }
                 try:
                     profile_create_result = self.supabase.table('profiles').insert(profile_data).execute()

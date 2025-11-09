@@ -143,7 +143,8 @@ class PaymentService:
             plan = plan_result.data
             
             # Calculate subscription period
-            now = datetime.now()
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
             period_start = now
             period_end = now + timedelta(days=30)  # Default to monthly
             
@@ -238,7 +239,7 @@ class PaymentService:
             if reference:
                 self.supabase.table('payment_transactions').update({
                     'status': 'success',
-                    'updated_at': datetime.now().isoformat()
+                    'updated_at': datetime.now(timezone.utc).isoformat()
                 }).eq('paystack_reference', reference).execute()
             
             return {'success': True, 'message': 'Charge processed successfully'}
@@ -253,7 +254,7 @@ class PaymentService:
             if subscription_id:
                 self.supabase.table('user_subscriptions').update({
                     'status': 'active',
-                    'updated_at': datetime.now().isoformat()
+                    'updated_at': datetime.now(timezone.utc).isoformat()
                 }).eq('paystack_subscription_id', subscription_id).execute()
             
             return {'success': True, 'message': 'Subscription activated'}
@@ -268,7 +269,7 @@ class PaymentService:
             if subscription_id:
                 self.supabase.table('user_subscriptions').update({
                     'status': 'cancelled',
-                    'updated_at': datetime.now().isoformat()
+                    'updated_at': datetime.now(timezone.utc).isoformat()
                 }).eq('paystack_subscription_id', subscription_id).execute()
             
             return {'success': True, 'message': 'Subscription cancelled'}
