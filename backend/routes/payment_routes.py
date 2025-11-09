@@ -378,9 +378,10 @@ def cancel_subscription():
     
     try:
         # Update subscription to cancel at period end
+        from datetime import timezone
         result = current_app.supabase_service.supabase.table('user_subscriptions').update({
             'cancel_at_period_end': True,
-            'updated_at': datetime.now().isoformat()
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('user_id', user_id).eq('status', 'active').execute()
         
         if result.data:

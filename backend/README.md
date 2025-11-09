@@ -1,66 +1,107 @@
 # Recipe AI Harmony - Backend API
 
-## Overview
+## Executive Summary
 
-Recipe AI Harmony is an AI-powered nutrition and meal planning platform that helps users make healthier food choices and create personalized meal plans. The backend is built with Flask and uses Supabase for data storage and authentication, with Paystack integration for payment processing.
+Recipe AI Harmony is an enterprise-grade, AI-powered nutrition and meal planning platform designed to help users make informed dietary choices and create personalized meal plans. The backend infrastructure is built on Flask, leveraging Supabase for comprehensive data management and authentication, with integrated Paystack payment processing capabilities.
 
-## Architecture
+### Key Capabilities
+- **User Authentication & Authorization**: Secure JWT-based authentication with Supabase
+- **AI-Powered Food Analysis**: Image and text-based food detection and nutritional analysis
+- **Intelligent Meal Planning**: Personalized meal plan generation with dietary restrictions support
+- **Subscription Management**: Multi-tier subscription system with trial periods and usage tracking
+- **Payment Processing**: Integrated Paystack payment gateway with webhook support
+- **Enterprise Features**: Multi-tenant organization management with role-based access control
+- **Cloud Storage**: Supabase storage for user-generated content and media files
+
+## System Architecture
+
+### High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                 │
-│                    (React/Next.js Client)                        │
-└────────────┬────────────────────────────────────────────────────┘
-             │
-             │ HTTPS Requests
-             │ JWT Authentication
-             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      FLASK BACKEND API                           │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                    Route Handlers                         │  │
-│  │  • auth_routes         • ai_session_routes               │  │
-│  │  • food_detection      • feedback_routes                 │  │
-│  │  • meal_plan_routes    • user_settings                   │  │
-│  │  • subscription_routes • payment_routes                  │  │
-│  │  • lifecycle_routes    • enterprise_routes               │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                          │                                       │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                   Service Layer                           │  │
-│  │  • AuthService            • SubscriptionService          │  │
-│  │  • SupabaseService        • PaymentService               │  │
-│  │  • EmailService           • LifecycleService             │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                          │                                       │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                   Utility Layer                           │  │
-│  │  • auth_utils (Token validation)                         │  │
-│  │  • file_utils (File validation)                          │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────┬──────────────────────────┬───────────────┬─────────┘
-             │                          │               │
-             ▼                          ▼               ▼
-┌────────────────────┐  ┌──────────────────────┐  ┌────────────────┐
-│    SUPABASE        │  │    PAYSTACK API      │  │  SMTP SERVER   │
-│                    │  │                      │  │                │
-│ • PostgreSQL DB    │  │ • Payment Gateway    │  │ • Email        │
-│ • Authentication   │  │ • Subscriptions      │  │   Notifications│
-│ • Storage          │  │ • Webhooks           │  │                │
-│ • RPC Functions    │  └──────────────────────┘  └────────────────┘
-└────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CLIENT APPLICATION LAYER                          │
+│                  (React/Next.js Web Application)                     │
+│                                                                       │
+│  • User Interface Components                                        │
+│  • State Management                                                 │
+│  • API Client Integration                                           │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+                             │ HTTPS/TLS 1.3
+                             │ JWT Bearer Authentication
+                             │ RESTful JSON API
+                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    APPLICATION SERVER LAYER                          │
+│                         (Flask REST API)                             │
+│                                                                       │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                  PRESENTATION LAYER                            │  │
+│  │                    (Route Handlers)                            │  │
+│  │                                                                 │  │
+│  │  Authentication Routes  │  Food Detection Routes              │  │
+│  │  Meal Planning Routes   │  Subscription Management            │  │
+│  │  Payment Routes         │  Enterprise Management              │  │
+│  │  User Settings Routes   │  Feedback & AI Session Routes       │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                             │                                        │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                    BUSINESS LOGIC LAYER                        │  │
+│  │                      (Service Classes)                         │  │
+│  │                                                                 │  │
+│  │  AuthService              SubscriptionService                 │  │
+│  │  SupabaseService          PaymentService                      │  │
+│  │  EmailService             LifecycleService                    │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                             │                                        │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                    UTILITY LAYER                               │  │
+│  │                                                                 │  │
+│  │  Authentication Utils  │  File Validation Utils               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└────────────┬────────────────────────┬─────────────────┬────────────┘
+             │                        │                 │
+             ▼                        ▼                 ▼
+┌─────────────────────┐  ┌──────────────────────┐  ┌────────────────┐
+│  SUPABASE PLATFORM  │  │   PAYSTACK API       │  │  SMTP GATEWAY  │
+│                     │  │                      │  │                │
+│ • PostgreSQL DB     │  │ • Payment Gateway    │  │ • Transactional│
+│ • Authentication    │  │ • Subscription Mgmt  │  │   Email        │
+│ • Object Storage    │  │ • Webhook Events     │  │ • Notifications│
+│ • Edge Functions    │  │ • Transaction Verify │  │                │
+└─────────────────────┘  └──────────────────────┘  └────────────────┘
 ```
+
+### Architecture Patterns
+
+**Layered Architecture**: The application follows a strict three-tier architecture pattern:
+- **Presentation Layer**: Route handlers manage HTTP request/response cycles
+- **Business Logic Layer**: Service classes encapsulate domain logic and business rules
+- **Data Access Layer**: Supabase service provides abstraction over database operations
+
+**Separation of Concerns**: Each layer has distinct responsibilities with minimal coupling, facilitating maintainability and testability.
 
 ## Technology Stack
 
-- **Framework**: Flask 2.x
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth (JWT)
-- **Payment**: Paystack
-- **Email**: SMTP (Gmail/Custom)
-- **Storage**: Supabase Storage
-- **Deployment**: Docker
+### Core Technologies
+
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| **Web Framework** | Flask | 2.x | RESTful API server |
+| **Database** | Supabase (PostgreSQL) | 15+ | Primary data store |
+| **Authentication** | Supabase Auth | Latest | JWT-based authentication |
+| **Payment Gateway** | Paystack | API v1 | Payment processing |
+| **Email Service** | SMTP | Standard | Transactional emails |
+| **Object Storage** | Supabase Storage | Latest | Media file storage |
+| **Containerization** | Docker | 20+ | Application deployment |
+
+### Supporting Libraries
+
+- **flask-cors**: Cross-Origin Resource Sharing support
+- **marshmallow**: Request validation and serialization
+- **requests**: HTTP client for external API integration
+- **python-dotenv**: Environment variable management
+- **werkzeug**: WSGI utilities and security helpers
 
 ## Project Structure
 
@@ -229,55 +270,70 @@ docker run -d \
   recipe-ai-backend
 ```
 
-## Features
+## Core Features
 
-### 1. **Authentication & User Management**
-- User registration with Supabase Auth
-- Email/password login
-- JWT token authentication
-- Password reset functionality
-- Profile management
+### Authentication & Identity Management
+The platform provides enterprise-grade authentication services including:
+- Secure user registration and onboarding workflow
+- Email/password authentication with JWT token issuance
+- Password recovery and reset mechanisms
+- Session management and token refresh capabilities
+- User profile management and data retrieval
+- Multi-factor authentication readiness
 
-### 2. **Food Detection & Analysis**
-- Image-based food detection
-- Ingredient list analysis
-- Recipe suggestions
-- Nutrition information
-- Detection history tracking
+### Food Detection & Nutritional Analysis
+Advanced AI-powered food recognition and analysis capabilities:
+- Computer vision-based food detection from images
+- Text-based ingredient list processing
+- Automated recipe generation and suggestions
+- Nutritional information extraction and calculation
+- Historical analysis tracking and retrieval
+- Recipe sharing and community features
 
-### 3. **Meal Planning**
-- Personalized meal plan creation
-- Daily meal scheduling
-- Dietary restrictions support
-- Meal plan history
-- Export and sharing capabilities
+### Meal Planning System
+Comprehensive meal planning functionality tailored to user preferences:
+- AI-driven personalized meal plan generation
+- Multi-day meal scheduling and calendar integration
+- Dietary restriction and allergy accommodation
+- Health condition-based meal recommendations
+- Meal plan versioning and history management
+- Individual meal and ingredient-level access
 
-### 4. **Subscription Management**
-- Multiple subscription tiers (Free, Basic, Premium, Enterprise)
-- Trial period support
-- Usage tracking and limits
-- Automatic expiration handling
-- Lifecycle management (new → trial → paid → expired)
+### Subscription & Monetization
+Flexible subscription management supporting multiple business models:
+- Multi-tier subscription plans (Free, Basic, Premium, Enterprise)
+- Automated trial period provisioning and management
+- Feature-based usage tracking and enforcement
+- Subscription lifecycle management (trial, active, expired, renewal)
+- Automated expiration monitoring and notifications
+- Proration and upgrade/downgrade handling
 
-### 5. **Payment Processing**
-- Paystack integration
-- Secure payment handling
-- Webhook support
-- Transaction history
-- Multiple payment methods
+### Payment Processing
+Secure payment infrastructure with comprehensive transaction management:
+- Paystack payment gateway integration
+- Multi-currency transaction support
+- PCI-compliant payment handling
+- Automated payment verification and reconciliation
+- Webhook event processing for real-time updates
+- Transaction history and audit trails
+- Refund and chargeback management capabilities
 
-### 6. **Enterprise Features**
-- Organization management
-- User invitations
-- Role-based access control
-- Team member management
-- Bulk user creation
+### Enterprise & Multi-Tenancy
+B2B features supporting organizational deployments:
+- Organization registration and management
+- User invitation system with secure token generation
+- Role-based access control (Owner, Admin, Nutritionist, Patient)
+- Team member management and provisioning
+- Organization-level settings and customization
+- Bulk user operations and CSV import readiness
 
-### 7. **User Settings**
-- Health profiles
-- Dietary preferences
-- Notification settings
-- Customizable preferences
+### User Preferences & Settings
+Flexible user configuration system:
+- Health profile management (age, weight, medical conditions)
+- Dietary preference storage (restrictions, allergies, goals)
+- Activity level and lifestyle tracking
+- Notification and communication preferences
+- Data export and privacy controls
 
 ## API Response Format
 
@@ -303,6 +359,14 @@ All API responses follow a consistent format:
   "error_type": "validation_error|auth_error|server_error"
 }
 ```
+
+### ⚠️ Important: Content-Type Variations
+
+**Most endpoints use JSON** (`Content-Type: application/json`), but some use form-data:
+- `/api/food_detection/process` - multipart/form-data (for image uploads)
+- `/api/feedback` - multipart/form-data
+
+**See API_DOCUMENTATION.md for specific endpoint requirements.**
 
 ## Authentication
 
@@ -350,42 +414,214 @@ SUB_TIME_UNIT=seconds  # Makes 1 day = 1 second
 
 This allows you to test trial expirations and subscription renewals without waiting for real days.
 
-## Security Considerations
+## Security Architecture
 
-1. **Environment Variables**: Never commit `.env` files to version control
-2. **API Keys**: Keep Supabase and Paystack keys secure
-3. **CORS**: Configure allowed origins appropriately for production
-4. **Rate Limiting**: Implement rate limiting in production
-5. **Input Validation**: All user inputs are validated before processing
-6. **SQL Injection**: Protected via Supabase parameterized queries
-7. **XSS Protection**: Sanitize user-generated content
+### Authentication & Authorization
+- **JWT Token-Based Authentication**: Stateless authentication using Supabase-issued JWT tokens
+- **Token Lifecycle Management**: Access tokens with configurable expiration (7-day default)
+- **HttpOnly Cookie Support**: Secure cookie storage for browser-based authentication
+- **Row-Level Security**: Supabase RLS policies enforce data access controls
 
-## Monitoring and Logging
+### Data Protection
+- **Environment Variable Security**: All sensitive credentials managed via environment variables
+- **API Key Management**: Secure storage of third-party service credentials
+- **CORS Configuration**: Whitelist-based origin validation for cross-origin requests
+- **SQL Injection Prevention**: Parameterized queries via Supabase client library
+- **XSS Mitigation**: Input sanitization and output encoding
 
-The application logs to console by default. Key events logged include:
-- Authentication attempts
-- Payment transactions
-- Subscription changes
-- Error occurrences
-- API request/response cycles
+### Compliance & Best Practices
+- **PCI DSS Compliance**: Payment data handled exclusively by Paystack (no card data storage)
+- **Data Encryption**: TLS 1.3 for data in transit; Supabase encryption at rest
+- **Audit Logging**: Comprehensive logging of authentication and transaction events
+- **Rate Limiting**: Planned implementation for production deployment
 
-## Support
+### Recommended Security Enhancements
+1. Implement rate limiting middleware for authentication endpoints
+2. Add request validation layer for all incoming payloads
+3. Enable API key authentication for webhook endpoints
+4. Implement IP whitelisting for administrative functions
+5. Add security headers (HSTS, CSP, X-Frame-Options)
 
-For issues or questions:
-- Check the API documentation below
-- Review error messages and logs
-- Ensure environment variables are correctly set
-- Verify Supabase and Paystack configurations
+## Monitoring & Observability
 
-## License
+### Logging Strategy
+The application implements structured logging with the following event categories:
+- **Authentication Events**: Registration, login attempts, token validation
+- **Transaction Events**: Payment initiation, verification, webhook processing
+- **Subscription Events**: Trial creation, subscription activation, expiration
+- **Error Events**: Exception traces, validation failures, external service errors
+- **Performance Metrics**: Request duration, database query timing
 
-[Your License Here]
+### Operational Monitoring
+Recommended monitoring setup for production:
+- **Application Performance Monitoring (APM)**: New Relic, DataDog, or Sentry
+- **Database Monitoring**: Supabase built-in metrics and query performance insights
+- **Error Tracking**: Sentry for exception tracking and alerting
+- **Log Aggregation**: CloudWatch, Elasticsearch, or Papertrail
+- **Uptime Monitoring**: Pingdom, UptimeRobot for endpoint availability
 
-## Contributors
+## Deployment Architecture
 
-[Your Team/Contributors Here]
+### Container-Based Deployment
+The application is containerized using Docker for consistent deployment across environments:
+- Multi-stage Docker builds for optimized image size
+- Environment-specific configuration via environment variables
+- Health check endpoints for container orchestration
+- Graceful shutdown handling
+
+### Recommended Production Setup
+```
+Load Balancer (AWS ALB / Nginx)
+    ↓
+Multiple Application Instances (Docker containers)
+    ↓
+External Services (Supabase, Paystack, SMTP)
+```
+
+## Support & Documentation
+
+### Documentation Resources
+- **API Documentation**: [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Complete endpoint reference
+- **Getting Started Guide**: [GETTING_STARTED.md](./GETTING_STARTED.md) - Quick start instructions
+- **Architecture Summary**: [DOCUMENTATION_SUMMARY.md](./DOCUMENTATION_SUMMARY.md) - System overview
+
+### Technical Support
+For technical assistance and inquiries:
+- **Email**: support@meallensai.com
+- **Documentation**: https://docs.meallensai.com
+- **Issue Tracking**: GitHub Issues (internal)
+
+## Maintenance & Updates
+
+### Version Control
+- **Repository**: Git-based version control
+- **Branching Strategy**: GitFlow (main, develop, feature branches)
+- **Release Management**: Semantic versioning (MAJOR.MINOR.PATCH)
+
+### Continuous Integration
+Recommended CI/CD pipeline:
+- Automated testing on pull requests
+- Code quality checks (linting, type checking)
+- Security vulnerability scanning
+- Automated deployment to staging/production
 
 ---
 
-**Next Steps**: See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for complete API endpoint details and payload specifications.
+## Quick Start Guide
+
+### Initial Setup
+
+1. **Install Dependencies**
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+2. **Configure Environment**
+```bash
+# Create .env file with required credentials
+cp .env.example .env  # If example exists, or create manually
+```
+
+**Minimum Required Variables:**
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_ANON_KEY=your-anon-key
+FRONTEND_BASE_URL=http://localhost:5173
+```
+
+3. **Start Development Server**
+```bash
+python app.py
+```
+
+Server runs at: `http://localhost:5001`
+
+### Testing API Endpoints
+
+**Register a User:**
+```bash
+curl -X POST http://localhost:5001/api/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123",
+    "first_name": "Test",
+    "last_name": "User",
+    "signup_type": "individual"
+  }'
+```
+
+**Login:**
+```bash
+curl -X POST http://localhost:5001/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "password123"}'
+```
+
+**Get Profile (authenticated):**
+```bash
+curl -X GET http://localhost:5001/api/profile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Common Setup Issues
+
+| Issue | Solution |
+|-------|----------|
+| "Supabase client not initialized" | Verify SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env |
+| "Payment service not available" | Optional - add PAYSTACK_SECRET_KEY or ignore |
+| "Email not sent" | Optional - configure SMTP settings or ignore |
+| CORS errors | Add frontend URL to ALLOWED_ORIGINS in .env |
+
+### Production Deployment Checklist
+
+- [ ] Use production WSGI server (Gunicorn/uWSGI)
+- [ ] Set `FLASK_ENV=production`
+- [ ] Configure proper ALLOWED_ORIGINS
+- [ ] Enable HTTPS/TLS certificates
+- [ ] Set secure cookie flags
+- [ ] Configure error monitoring (Sentry)
+- [ ] Set up automated backups
+- [ ] Implement rate limiting
+- [ ] Configure health check endpoints
+- [ ] Set up log aggregation
+
+---
+
+## Known Issues & Technical Debt
+
+### Critical Items
+1. **Dual Subscription Services**: SubscriptionService and LifecycleSubscriptionService contain duplicate logic
+2. **No Automatic Expiration**: Subscriptions/trials only expire when checked, not automatically
+3. **Timezone Inconsistencies**: Mix of naive and timezone-aware datetime objects
+4. **Array Index Bugs**: Missing bounds checks on `result.data[0]` accesses
+
+### Improvement Roadmap
+- **Q1 2025**: Implement caching layer, merge subscription services
+- **Q2 2025**: Add background job queue, implement rate limiting
+- **Q3 2025**: Migrate to async framework, add comprehensive testing
+- **Q4 2025**: Microservices evaluation for high-scale deployments
+
+---
+
+## License
+
+Proprietary - All Rights Reserved  
+© 2025 MeallensAI. All rights reserved.
+
+---
+
+## Related Documentation
+
+- **API Reference**: [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) - Complete endpoint specifications with request/response examples
+- **Supabase Dashboard**: Access your database schema, RLS policies, and monitoring
+- **Internal Wiki**: [Additional internal documentation links]
+
+---
+
+**For complete API endpoint documentation with payloads, refer to [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)**
 

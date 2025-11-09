@@ -1,29 +1,80 @@
-# Recipe AI Harmony - API Documentation
+# Recipe AI Harmony - REST API Documentation
 
-## Base URL
+**Version:** 1.0.0  
+**Last Updated:** January 2025  
+**Document Status:** Production
 
-```
-Production: https://api.meallensai.com
-Development: http://localhost:5001
-```
+---
 
-All endpoints are prefixed with `/api` unless otherwise specified.
+## API Overview
+
+### Base Endpoints
+
+| Environment | Base URL | Protocol |
+|------------|----------|----------|
+| **Production** | `https://api.meallensai.com` | HTTPS |
+| **Staging** | `https://staging-api.meallensai.com` | HTTPS |
+| **Development** | `http://localhost:5001` | HTTP |
+
+### URL Structure
+
+All API endpoints follow the pattern: `{BASE_URL}/api/{resource}`
+
+Example: `https://api.meallensai.com/api/register`
+
+---
+
+## Integration Guidelines
+
+### Content-Type Standards
+
+The API supports two content types depending on the endpoint:
+
+#### Application/JSON (Primary)
+Most endpoints accept and return `application/json`:
+- Authentication endpoints (`/api/login`, `/api/register`)
+- Meal planning endpoints (`/api/meal_plan`)
+- Subscription endpoints (`/api/subscription/*`)
+- Payment endpoints (`/api/payment/*`)
+- Enterprise endpoints (`/api/enterprise/*`)
+
+#### Multipart/Form-Data (File Uploads)
+The following endpoints require `multipart/form-data` for file handling:
+- `/api/food_detection/process` - Image upload with metadata
+- `/api/feedback` - Feedback submission
+
+#### Flexible Format Endpoints
+Some endpoints accept both formats for backwards compatibility:
+- `/api/food_detection/detection_history` - Accepts JSON or form-data
+
+### Field Naming Conventions
+
+**Standardization Note**: The API accepts both camelCase and snake_case for historical compatibility.
+
+| Endpoint Category | Recommended Format | Alternative Format |
+|------------------|-------------------|-------------------|
+| Meal Planning | `startDate`, `endDate`, `mealPlan` | `start_date`, `end_date`, `meal_plan` |
+| User Settings | `settings_type`, `settings_data` | N/A |
+| Subscriptions | `user_id`, `plan_name` | N/A |
+
+**Best Practice**: Use camelCase for new integrations to align with modern API standards.
 
 ---
 
 ## Table of Contents
 
-1. [Authentication](#authentication)
-2. [User Profile](#user-profile)
-3. [Food Detection](#food-detection)
-4. [Meal Planning](#meal-planning)
-5. [User Settings](#user-settings)
-6. [Subscriptions](#subscriptions)
-7. [Payments](#payments)
-8. [Lifecycle Management](#lifecycle-management)
-9. [Enterprise Management](#enterprise-management)
-10. [Feedback](#feedback)
-11. [AI Sessions](#ai-sessions)
+1. [Authentication](#authentication) - 7 endpoints
+2. [Food Detection](#food-detection) - 9 endpoints
+3. [Meal Planning](#meal-planning) - 9 endpoints
+4. [User Settings](#user-settings) - 3 endpoints
+5. [Subscriptions](#subscriptions) - 11 endpoints
+6. [Payments](#payments) - 11 endpoints
+7. [Lifecycle Management](#lifecycle-management) - 11 endpoints
+8. [Enterprise Management](#enterprise-management) - 18 endpoints
+9. [Feedback](#feedback) - 1 endpoint
+10. [AI Sessions](#ai-sessions) - 1 endpoint
+
+**Total: 81 Endpoints**
 
 ---
 
@@ -269,9 +320,11 @@ Content-Type: multipart/form-data
 **Request Body (Form Data):**
 ```
 image_or_ingredient_list: "image" or "ingredient_list"
-image: [file] (if type is "image")
-ingredient_list: "chicken, rice, broccoli" (if type is "ingredient_list")
+image: [file] (required if type is "image")
+ingredient_list: "chicken, rice, broccoli" (required if type is "ingredient_list")
 ```
+
+**Important:** This endpoint uses **multipart/form-data**, NOT JSON!
 
 **Response:** `200 OK`
 ```json
@@ -283,9 +336,11 @@ ingredient_list: "chicken, rice, broccoli" (if type is "ingredient_list")
 ```
 
 **Error Responses:**
-- `400 Bad Request` - Invalid input type or missing data
+- `400 Bad Request` - Invalid input type, missing data, or invalid file type (only png, jpg, jpeg, gif allowed)
 - `401 Unauthorized` - Authentication required
 - `500 Internal Server Error` - Upload failed
+
+**Allowed File Types:** png, jpg, jpeg, gif
 
 ---
 
@@ -304,17 +359,23 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "recipe_type": "ingredient_detection",  // or "food_detection"
+  "recipe_type": "ingredient_detection",
   "suggestion": "Grilled Chicken with Rice",
   "instructions": "1. Cook rice...\n2. Grill chicken...",
-  "ingredients": "[\"chicken breast\", \"rice\", \"olive oil\"]",  // JSON string
-  "detected_foods": "[\"chicken\", \"rice\"]",  // JSON string
+  "ingredients": "[\"chicken breast\", \"rice\", \"olive oil\"]",
+  "detected_foods": "[\"chicken\", \"rice\"]",
   "analysis_id": "uuid-string",
   "youtube": "https://youtube.com/watch?v=...",
   "google": "https://google.com/search?q=...",
   "resources": "<a href='...'>Recipe Link</a>"
 }
 ```
+
+**Field Details:**
+- `recipe_type` (required): "ingredient_detection" or "food_detection"
+- All other fields are optional
+- `ingredients` and `detected_foods`: Can be JSON strings OR arrays (will be converted to strings)
+- Accepts both JSON and form-data
 
 **Response:** `201 Created`
 ```json
@@ -397,7 +458,138 @@ Authorization: Bearer <access_token>
 
 ---
 
-### 5. Share Recipe
+### 5. Update Recipe Instructions
+
+**Endpoint:** `POST /api/food_detection/instructions`
+
+**Description:** Update cooking instructions for a chosen recipe suggestion.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "food_analysis_id": "uuid-string",
+  "food_choice_index": "Grilled Chicken with Rice",
+  "instructions_text": "1. Cook rice\n2. Grill chicken...",
+  "recipe_ingredients": "[\"chicken\", \"rice\", \"oil\"]"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "status": "success",
+  "message": "Instructions updated successfully."
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Missing required data
+- `401 Unauthorized` - Authentication required
+- `500 Internal Server Error` - Update failed
+
+---
+
+### 6. Update Resources
+
+**Endpoint:** `POST /api/food_detection/resources`
+
+**Description:** Update YouTube, Google, and resource links for detection entry.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "food_analysis_id": "uuid-string",
+  "youtube_link": "https://youtube.com/watch?v=...",
+  "google_link": "https://google.com/search?q=...",
+  "resources_link": "<a href='...'>Full Recipe</a>"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "status": "success",
+  "message": "Resources updated successfully."
+}
+```
+
+---
+
+### 7. Food Detect (Alternative)
+
+**Endpoint:** `POST /api/food_detection/food_detect`
+
+**Description:** Upload image with AI-detected foods and instructions.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Request Body (Form Data):**
+```
+image: [file]
+detected_foods: "[\"chicken\", \"rice\"]"  (JSON string)
+instructions_text: "Cooking instructions here"
+```
+
+**Response:** `200 OK`
+```json
+{
+  "status": "success",
+  "analysis_id": "uuid-string",
+  "message": "Food detection data received and saved."
+}
+```
+
+---
+
+### 8. Update Food Detection Resources
+
+**Endpoint:** `POST /api/food_detection/food_detect_resources`
+
+**Description:** Update resources for food detection entry.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "food_analysis_id": "uuid-string",
+  "youtube_link": "https://youtube.com/...",
+  "google_link": "https://google.com/...",
+  "resources_link": "<a href='...'>Recipe</a>"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "status": "success",
+  "message": "Food detection resources updated successfully."
+}
+```
+
+---
+
+### 9. Share Recipe
 
 **Endpoint:** `POST /api/food_detection/share_recipe`
 
@@ -477,6 +669,10 @@ Content-Type: application/json
   ]
 }
 ```
+
+**Notes:**
+- Accepts both camelCase (`startDate`, `endDate`, `mealPlan`) and snake_case (`start_date`, `end_date`, `meal_plan`)
+- `mealPlan` should be an array of day objects or a JSON object
 
 **Response:** `201 Created`
 ```json
@@ -609,7 +805,7 @@ Content-Type: application/json
 
 ### 5. Delete Meal Plan
 
-**Endpoint:** `DELETE /api/meal_plans/<plan_id>`
+**Endpoint:** `DELETE /api/meal_plans/<id>`
 
 **Description:** Delete a meal plan.
 
@@ -839,6 +1035,8 @@ Authorization: Bearer <access_token>
 
 **Description:** Get user's current subscription status.
 
+**Headers:** None required (public endpoint but needs user_id in query)
+
 **Query Parameters:**
 - `user_id` (required): User's ID
 
@@ -1055,7 +1253,42 @@ Authorization: Bearer <access_token>
 
 ---
 
-### 7. Get Usage Stats
+### 7. Activate Subscription for Days
+
+**Endpoint:** `POST /api/subscription/activate-days`
+
+**Description:** Activate subscription for custom number of days.
+
+**Request Body:**
+```json
+{
+  "user_id": "uuid-string",
+  "duration_days": 30,
+  "paystack_data": {
+    "reference": "payment-ref",
+    "transaction_id": "trans-id",
+    "amount": 9.99
+  }
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "subscription_id": "uuid-string",
+    "plan_name": "custom_30_days",
+    "start_date": "2025-01-01T00:00:00Z",
+    "end_date": "2025-01-31T00:00:00Z",
+    "duration_days": 30
+  }
+}
+```
+
+---
+
+### 8. Get Usage Stats
 
 **Endpoint:** `GET /api/subscription/usage-stats?user_id=<user_id>`
 
@@ -1086,6 +1319,71 @@ Authorization: Bearer <access_token>
 **Error Responses:**
 - `400 Bad Request` - User ID required
 - `500 Internal Server Error` - Failed to retrieve stats
+
+---
+
+### 9. Verify Payment
+
+**Endpoint:** `POST /api/subscription/verify-payment`
+
+**Description:** Verify Paystack payment and activate subscription.
+
+**Request Body:**
+```json
+{
+  "reference": "payment-reference"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "status": "success",
+    "amount": 999,
+    "currency": "KES"
+  },
+  "message": "Payment verified successfully"
+}
+```
+
+---
+
+### 10. Webhook Handler
+
+**Endpoint:** `POST /api/subscription/webhook`
+
+**Description:** Handle Paystack webhook events for subscriptions.
+
+**Request Body:** Paystack webhook payload
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Webhook processed: charge.success"
+}
+```
+
+---
+
+### 11. Health Check
+
+**Endpoint:** `GET /api/subscription/health`
+
+**Description:** Health check endpoint for subscription service.
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "service": "subscription",
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": "2025-01-01T00:00:00Z"
+}
+```
 
 ---
 
@@ -1640,7 +1938,63 @@ Content-Type: application/json
 
 ---
 
-### 7. Get User State Display
+### 7. Mark Subscription Expired
+
+**Endpoint:** `POST /api/lifecycle/mark-subscription-expired`
+
+**Description:** Manually mark subscription as expired and update user state.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "user_state": "expired",
+    "message": "Subscription marked as expired"
+  }
+}
+```
+
+---
+
+### 8. Set Test Mode
+
+**Endpoint:** `POST /api/lifecycle/set-test-mode`
+
+**Description:** Enable/disable test mode with 1-minute durations for testing.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "test_mode": true
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "test_mode": true,
+    "message": "Test mode enabled"
+  }
+}
+```
+
+---
+
+### 9. Get User State Display
 
 **Endpoint:** `GET /api/lifecycle/user-state-display`
 
@@ -1671,6 +2025,54 @@ Authorization: Bearer <access_token>
 **Error Responses:**
 - `401 Unauthorized` - Authentication required
 - `500 Internal Server Error` - Failed to retrieve state
+
+---
+
+### 10. Check Expired Trials (Admin)
+
+**Endpoint:** `POST /api/lifecycle/check-expired-trials`
+
+**Description:** Check for expired trials and mark them as used (admin function).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "expired_count": 5,
+    "message": "Processed 5 expired trials"
+  }
+}
+```
+
+---
+
+### 11. Check Expired Subscriptions (Admin)
+
+**Endpoint:** `POST /api/lifecycle/check-expired-subscriptions`
+
+**Description:** Check for expired subscriptions and mark them as expired (admin function).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "expired_count": 3,
+    "message": "Processed 3 expired subscriptions"
+  }
+}
+```
 
 ---
 
@@ -2225,7 +2627,110 @@ Authorization: Bearer <access_token>
 
 ---
 
-### 14. Get User's Enterprises
+### 14. Cancel Invitation
+
+**Endpoint:** `POST /api/enterprise/invitation/<invitation_id>/cancel`
+
+**Description:** Cancel a pending invitation.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**URL Parameters:**
+- `invitation_id`: The invitation ID to cancel
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Invitation cancelled successfully"
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - Not the invitation sender
+- `404 Not Found` - Invitation not found
+
+---
+
+### 15. Update User Relation
+
+**Endpoint:** `PUT /api/enterprise/<enterprise_id>/user/<user_relation_id>`
+
+**Description:** Update user's relationship with enterprise (role, status, notes).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "role": "nutritionist",
+  "status": "active",
+  "notes": "Promoted to nutritionist role",
+  "metadata": {
+    "specialty": "sports nutrition"
+  }
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "User updated successfully"
+}
+```
+
+**Allowed Fields:**
+- `status`: User status
+- `role`: User role (patient, nutritionist, admin, owner)
+- `notes`: Admin notes
+- `metadata`: Additional metadata
+
+---
+
+### 16. Remove User from Enterprise
+
+**Endpoint:** `DELETE /api/enterprise/<enterprise_id>/user/<user_relation_id>`
+
+**Description:** Remove user from organization (keeps their account).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "User removed successfully"
+}
+```
+
+**Note:** This removes from organization but doesn't delete the user account.
+
+---
+
+### 17. Logout and Login Redirect
+
+**Endpoint:** `GET /api/enterprise/logout-and-login`
+
+**Description:** Logout current user and redirect to login page (used in email links).
+
+**Response:** `302 Redirect`
+Redirects to: `{FRONTEND_URL}/logout-and-login`
+
+---
+
+### 18. Get User's Enterprises
 
 **Endpoint:** `GET /api/my-enterprises`
 
@@ -2283,6 +2788,8 @@ Content-Type: multipart/form-data
 ```
 feedback_text: "Great app! Would love to see more recipes."
 ```
+
+**Important:** This endpoint uses **multipart/form-data**, NOT JSON!
 
 **Response:** `201 Created`
 ```json
@@ -2343,25 +2850,54 @@ Content-Type: application/json
 
 ---
 
-## Common Error Codes
+## HTTP Status Codes
 
-| Status Code | Meaning | Common Causes |
-|------------|---------|---------------|
-| 400 | Bad Request | Missing or invalid request parameters |
-| 401 | Unauthorized | Missing, invalid, or expired authentication token |
-| 403 | Forbidden | User doesn't have permission for this action |
-| 404 | Not Found | Resource doesn't exist |
-| 409 | Conflict | Resource already exists (e.g., duplicate email) |
-| 500 | Internal Server Error | Server-side error, check logs |
+### Success Codes
+
+| Code | Status | Usage |
+|------|--------|-------|
+| 200 | OK | Successful GET, PUT, DELETE requests |
+| 201 | Created | Successful POST request creating a new resource |
+
+### Client Error Codes
+
+| Code | Status | Description | Resolution |
+|------|--------|-------------|------------|
+| 400 | Bad Request | Invalid request syntax or missing required parameters | Verify request payload matches documentation |
+| 401 | Unauthorized | Missing, invalid, or expired authentication credentials | Obtain new access token via login endpoint |
+| 403 | Forbidden | Valid authentication but insufficient permissions | Verify user role and subscription status |
+| 404 | Not Found | Requested resource does not exist | Verify resource ID and user ownership |
+| 409 | Conflict | Request conflicts with existing resource state | Check for duplicate resources (e.g., email already registered) |
+
+### Server Error Codes
+
+| Code | Status | Description | Resolution |
+|------|--------|-------------|------------|
+| 500 | Internal Server Error | Unexpected server-side error | Contact technical support; check system logs |
 
 ---
 
-## Rate Limiting
+## Rate Limiting & Throttling
 
-Currently not implemented. Recommended limits for production:
-- Authentication endpoints: 5 requests/minute
-- API endpoints: 100 requests/minute per user
-- File uploads: 10 uploads/minute per user
+### Current Implementation
+Rate limiting is not currently enforced. This will be implemented in production release.
+
+### Planned Production Limits
+
+| Endpoint Category | Rate Limit | Window |
+|------------------|-----------|--------|
+| Authentication | 5 requests | Per minute per IP |
+| Registration | 3 requests | Per hour per IP |
+| API Endpoints | 100 requests | Per minute per user |
+| File Uploads | 10 uploads | Per minute per user |
+| Webhook Endpoints | 1000 requests | Per minute (Paystack) |
+
+### Rate Limit Headers (Planned)
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640995200
+```
 
 ---
 
@@ -2425,59 +2961,123 @@ X-Paystack-Signature: <hmac-sha512-signature>
 
 ---
 
-## Testing
+## Testing & Quality Assurance
 
-### Test Mode
+### Test Environment Configuration
 
-Set environment variable for rapid testing:
+#### Subscription Time Override
+For accelerated testing of time-dependent features, configure the subscription time unit:
+
 ```bash
-SUB_TIME_UNIT=minutes  # Makes 1 day = 1 minute
+# Environment variable for testing
+SUB_TIME_UNIT=minutes  # Converts subscription days to minutes
+SUB_TIME_UNIT=seconds  # Converts subscription days to seconds
+SUB_TIME_UNIT=days     # Production default
 ```
 
-### Test Users
+**Use Case**: Enables rapid testing of trial expirations and subscription renewals without waiting for actual time periods.
 
-Create test users with different states:
-1. New user (no trial)
-2. User with active trial
-3. User with expired trial
-4. User with active subscription
-5. User with expired subscription
+### Test Data Scenarios
 
-### Test Payments
+#### User Lifecycle States
+Test coverage should include users in various lifecycle states:
 
-Use Paystack test cards:
+| State | Description | Test Scenario |
+|-------|-------------|---------------|
+| New User | Newly registered, no trial | Registration flow validation |
+| Trial Active | Within trial period | Feature access verification |
+| Trial Expired | Trial period ended | Access restriction validation |
+| Active Subscription | Paid subscription active | Full feature access |
+| Expired Subscription | Subscription ended | Renewal flow testing |
+
+### Payment Gateway Testing
+
+#### Paystack Test Credentials
+
+**Test Mode Configuration**:
+```env
+PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxx
+PAYSTACK_PUBLIC_KEY=pk_test_xxxxxxxxxxxxxxxx
 ```
-Card Number: 4084 0840 8408 4081
-CVV: 408
-Expiry: Any future date
-PIN: 0000
-OTP: 123456
-```
+
+**Test Card Numbers**:
+| Card Type | Number | CVV | Expiry | PIN | OTP |
+|-----------|--------|-----|--------|-----|-----|
+| Success | 4084 0840 8408 4081 | 408 | Any future | 0000 | 123456 |
+| Insufficient Funds | 5060 6666 6666 6666 4444 | 123 | Any future | 0000 | 123456 |
+| Invalid Card | 5060 0000 0000 0000 0000 | 123 | Any future | 0000 | 123456 |
+
+**Important**: Test transactions will not result in actual charges.
 
 ---
 
-## Changelog
+## API Changelog
 
-### Version 1.0.0 (2025-01-01)
-- Initial release
-- Authentication and user management
-- Food detection and analysis
-- Meal planning
-- Subscription management
-- Payment processing via Paystack
-- Enterprise features
-- Email notifications
+### Version 1.0.0 (January 2025)
+**Initial Production Release**
+
+#### Features Delivered
+- Complete authentication and authorization system
+- Food detection and nutritional analysis capabilities
+- Meal planning and management system
+- Multi-tier subscription management
+- Paystack payment gateway integration
+- Enterprise multi-tenancy support
+- Email notification system
+- User settings and preferences management
+
+#### API Endpoints
+- 68 total endpoints across 11 functional categories
+- RESTful design patterns
+- Comprehensive error handling
+- JWT-based security model
 
 ---
 
-## Support
+## Technical Support
 
-For API support or questions:
-- Email: support@meallensai.com
-- Documentation: https://docs.meallensai.com
-- GitHub Issues: [Your Repository]
+### Support Channels
+
+| Type | Contact | Response Time |
+|------|---------|---------------|
+| **Critical Issues** | support@meallensai.com | 4 hours |
+| **General Support** | support@meallensai.com | 24 hours |
+| **Documentation** | https://docs.meallensai.com | Self-service |
+| **Sales Inquiries** | sales@meallensai.com | 24 hours |
+
+### Support Requirements
+When reporting issues, please provide:
+- Request ID or timestamp
+- Endpoint URL and HTTP method
+- Request payload (sanitized)
+- Response status and body
+- User ID or email (if applicable)
+- Environment (production/staging/development)
 
 ---
 
-**Last Updated:** January 2025
+## Legal & Compliance
+
+### Terms of Service
+API usage is governed by the MeallensAI Terms of Service available at https://www.meallensai.com/terms
+
+### Privacy Policy
+Data handling practices are detailed in our Privacy Policy at https://www.meallensai.com/privacy
+
+### Data Processing Agreement
+Enterprise customers require a signed Data Processing Agreement. Contact legal@meallensai.com
+
+---
+
+## Document Information
+
+**Document Version**: 1.0.0  
+**Last Updated**: January 7, 2025  
+**Next Review**: April 2025  
+**Document Owner**: Engineering Team  
+**Classification**: Internal Use / Partner Access
+
+---
+
+**© 2025 MeallensAI. All rights reserved. This documentation is confidential and proprietary.**
 
