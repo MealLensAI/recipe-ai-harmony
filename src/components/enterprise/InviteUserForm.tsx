@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Copy, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { APP_CONFIG } from '@/lib/config';
+import { api } from '@/lib/api';
 
 interface InviteUserFormProps {
     enterpriseId: string;
@@ -42,46 +42,27 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess }: InviteUserF
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) {
-                toast({
-                    title: 'Authentication Required',
-                    description: 'You must be logged in to invite users',
-                    variant: 'destructive'
-                });
-                return;
-            }
+            const result = await api.inviteUserToEnterprise(enterpriseId, formData);
 
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/${enterpriseId}/invite`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to send invitation');
-            }
-
-            // If email service is not configured, show the invitation link
-            if (!data.email_sent && data.invitation_link) {
-                setInvitationLink(data.invitation_link);
-                setShowLinkModal(true);
-                toast({
-                    title: 'Invitation Created',
-                    description: 'Email service not configured. Copy the invitation link to share manually.'
-                });
+            if (result.success) {
+                // If email service is not configured, show the invitation link
+                if (!result.email_sent && result.invitation_link) {
+                    setInvitationLink(result.invitation_link);
+                    setShowLinkModal(true);
+                    toast({
+                        title: 'Invitation Created',
+                        description: 'Email service not configured. Copy the invitation link to share manually.'
+                    });
+                } else {
+                    toast({
+                        title: 'Success',
+                        description: 'Invitation email sent successfully!'
+                    });
+                    onSuccess();
+                    onClose();
+                }
             } else {
-                toast({
-                    title: 'Success',
-                    description: 'Invitation email sent successfully!'
-                });
-                onSuccess();
-                onClose();
+                throw new Error(result.message || result.error || 'Failed to send invitation');
             }
         } catch (error: any) {
             toast({

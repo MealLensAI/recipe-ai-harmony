@@ -457,9 +457,15 @@ def invite_user(enterprise_id):
         frontend_url = get_frontend_url()
         invitation_link = f"{frontend_url}/accept-invitation?token={invitation_token}"
         
-        # Get inviter name from user
-        inviter_user = supabase.auth.admin.get_user_by_id(request.user_id)
-        inviter_name = inviter_user.user.email if inviter_user else 'A team member'
+        # Get inviter name from user (with error handling for rate limits)
+        inviter_name = 'A team member'
+        try:
+            inviter_user = supabase.auth.admin.get_user_by_id(request.user_id)
+            if inviter_user and hasattr(inviter_user, 'user'):
+                inviter_name = inviter_user.user.email
+        except Exception as e:
+            print(f"⚠️ Could not fetch inviter details (non-critical): {str(e)}")
+            # Continue with default name
         
         # Send invitation email
         try:

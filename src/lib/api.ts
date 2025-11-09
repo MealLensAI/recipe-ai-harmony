@@ -362,6 +362,76 @@ class APIService {
   async deleteUserSettings(settingsType: string): Promise<APIResponse> {
     return this.delete(`/settings?settings_type=${settingsType}`)
   }
+
+  // Enterprise/Organization methods
+  async canCreateOrganization(): Promise<APIResponse> {
+    return this.get('/enterprise/can-create')
+  }
+
+  async getMyEnterprises(): Promise<APIResponse> {
+    return this.get('/enterprise/my-enterprises')
+  }
+
+  async registerEnterprise(data: {
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    organization_type: string;
+  }): Promise<APIResponse> {
+    return this.post('/enterprise/register', data)
+  }
+
+  async getEnterpriseDetails(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}`)
+  }
+
+  async getEnterpriseUsers(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/users`)
+  }
+
+  async getEnterpriseInvitations(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/invitations`)
+  }
+
+  async inviteUserToEnterprise(enterpriseId: string, data: {
+    email: string;
+    role: string;
+    message?: string;
+  }): Promise<APIResponse> {
+    return this.post(`/enterprise/${enterpriseId}/invite`, data)
+  }
+
+  async createEnterpriseUser(data: {
+    enterprise_id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    role: string;
+  }): Promise<APIResponse> {
+    return this.post('/enterprise/create-user', data)
+  }
+
+  async deleteEnterpriseUser(userRelationId: string): Promise<APIResponse> {
+    return this.delete(`/enterprise/user/${userRelationId}`)
+  }
+
+  async cancelInvitation(invitationId: string): Promise<APIResponse> {
+    return this.post(`/enterprise/invitation/${invitationId}/cancel`, {})
+  }
+
+  async verifyInvitation(token: string): Promise<APIResponse> {
+    return this.get(`/enterprise/invitation/verify/${token}`, { skipAuth: true })
+  }
+
+  async acceptInvitation(token: string): Promise<APIResponse> {
+    return this.post('/enterprise/invitation/accept', { token }, { suppressAuthRedirect: true })
+  }
+
+  async completeInvitation(invitationId: string): Promise<APIResponse> {
+    return this.post('/enterprise/invitation/complete', { invitation_id: invitationId })
+  }
 }
 
 // Create singleton instance

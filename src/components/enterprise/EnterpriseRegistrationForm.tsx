@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { APP_CONFIG } from '@/lib/config';
+import { api } from '@/lib/api';
 
 interface EnterpriseRegistrationFormProps {
     onClose: () => void;
@@ -39,37 +39,18 @@ export const EnterpriseRegistrationForm = ({ onClose, onSuccess }: EnterpriseReg
         setIsLoading(true);
 
         try {
-            const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-            if (!token) {
+            const result = await api.registerEnterprise(formData);
+
+            if (result.success) {
                 toast({
-                    title: 'Authentication Required',
-                    description: 'You must be logged in to register an organization',
-                    variant: 'destructive'
+                    title: 'Success',
+                    description: 'Organization registered successfully!'
                 });
-                return;
+                onSuccess();
+                onClose();
+            } else {
+                throw new Error(result.error || 'Failed to register organization');
             }
-
-            const response = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to register organization');
-            }
-
-            toast({
-                title: 'Success',
-                description: 'Organization registered successfully!'
-            });
-            onSuccess();
-            onClose();
         } catch (error: any) {
             toast({
                 title: 'Error',
