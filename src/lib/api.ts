@@ -305,7 +305,7 @@ class APIService {
 
   // Meal plan methods
   async getMealPlans(): Promise<APIResponse> {
-    return this.get('/meal_plan')
+    return this.get('/meal_plan', { timeout: 30000 })
   }
 
   async saveMealPlan(planData: any): Promise<APIResponse> {
@@ -326,7 +326,7 @@ class APIService {
 
   // Detection history methods
   async getDetectionHistory(): Promise<APIResponse> {
-    return this.get('/food_detection/detection_history')
+    return this.get('/food_detection/detection_history', { timeout: 30000 })
   }
 
   async saveDetectionHistory(detectionData: any): Promise<APIResponse> {
@@ -356,7 +356,7 @@ class APIService {
   }
 
   async getUserSettings(settingsType: string = 'health_profile'): Promise<APIResponse> {
-    return this.get(`/settings?settings_type=${settingsType}`)
+    return this.get(`/settings?settings_type=${settingsType}`, { timeout: 30000 })
   }
 
   async deleteUserSettings(settingsType: string): Promise<APIResponse> {
