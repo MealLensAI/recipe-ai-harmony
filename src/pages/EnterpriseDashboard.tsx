@@ -91,15 +91,21 @@ export default function EnterpriseDashboard() {
             const result = await api.getMyEnterprises();
             
             if (result.success) {
-                setEnterprises(result.enterprises || []);
+                const loadedEnterprises = result.enterprises || [];
+                setEnterprises(loadedEnterprises);
 
-                if (result.enterprises && result.enterprises.length > 0) {
-                    setSelectedEnterprise(result.enterprises[0]);
+                // Auto-select first enterprise if available
+                if (loadedEnterprises.length > 0) {
+                    setSelectedEnterprise(loadedEnterprises[0]);
+                } else {
+                    // No enterprises - clear selection
+                    setSelectedEnterprise(null);
                 }
             } else {
                 throw new Error(result.message || 'Failed to load enterprises');
             }
         } catch (error: any) {
+            console.error('Load enterprises error:', error);
             toast({
                 title: 'Error',
                 description: error.message || 'Failed to load enterprises',

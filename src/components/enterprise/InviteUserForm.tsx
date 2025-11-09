@@ -62,13 +62,25 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess }: InviteUserF
                     onClose();
                 }
             } else {
-                throw new Error(result.message || result.error || 'Failed to send invitation');
+                // Better error message for common issues
+                let errorMessage = result.message || result.error || 'Failed to send invitation';
+                
+                if (errorMessage.includes('not a member')) {
+                    errorMessage = 'You do not have permission to invite users to this organization. Only organization owners and admins can send invitations.';
+                } else if (errorMessage.includes('already invited')) {
+                    errorMessage = 'This user already has a pending invitation.';
+                } else if (errorMessage.includes('Maximum user limit')) {
+                    errorMessage = 'Organization has reached its maximum user limit. Please contact support to increase capacity.';
+                }
+                
+                throw new Error(errorMessage);
             }
         } catch (error: any) {
             toast({
-                title: 'Error',
+                title: 'Invitation Failed',
                 description: error.message || 'Failed to send invitation',
-                variant: 'destructive'
+                variant: 'destructive',
+                duration: 5000
             });
         } finally {
             setIsLoading(false);
