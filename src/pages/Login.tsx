@@ -127,27 +127,27 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 flex items-center justify-center p-2 sm:p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('/placeholder.svg?height=100&width=100')] opacity-5"></div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo Section */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-lg">
-              <Utensils className="h-8 w-8 text-white" />
+        <div className="text-center mb-4 sm:mb-8">
+          <div className="flex items-center justify-center mb-3 sm:mb-4">
+            <div className="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl sm:rounded-2xl shadow-lg">
+              <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-1 sm:mb-2">
             MealLensAI
           </h1>
-          <p className="text-gray-600 text-lg">Smart Food Detection & Recipe Generation</p>
+          <p className="text-gray-600 text-sm sm:text-lg">Smart Food Detection & Recipe Generation</p>
         </div>
 
         {/* Login Card */}
         <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="space-y-1 pb-6">
+          <CardHeader className="space-y-1 pb-4 sm:pb-6">
             <CardTitle className="text-2xl font-bold text-center text-gray-900">Welcome Back</CardTitle>
             <p className="text-center text-gray-600">Sign in to your account to continue</p>
           </CardHeader>

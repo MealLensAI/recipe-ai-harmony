@@ -158,7 +158,7 @@ class EmailService:
                         <p>Or copy and paste this link into your browser:</p>
                         <p class="link">{invitation_link}</p>
                         
-                        <p><small>This invitation will expire in 7 days.</small></p>
+                        <p><small>This invitation will expire in 30 days.</small></p>
                     </div>
                     
                     <div class="footer">
@@ -183,7 +183,7 @@ class EmailService:
             Accept your invitation by visiting this link:
             {invitation_link}
             
-            This invitation will expire in 7 days.
+            This invitation will expire in 30 days.
             
             ---
             This email was sent to {to_email} because {inviter_name} invited you to join their organization on MeallensAI.
