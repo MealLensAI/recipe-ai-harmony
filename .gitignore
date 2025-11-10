@@ -1,3 +1,17 @@
+# ===========================
+# Frontend (Node.js/React)
+# ===========================
+
+# Dependencies
+frontend/node_modules/
+node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/dist-ssr/
+dist/
+dist-ssr/
+
 # Logs
 logs
 *.log
@@ -7,10 +21,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Environment variables
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+.env.local
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +37,94 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ===========================
+# Backend (Python/Flask)
+# ===========================
+
+# Virtual environment
+backend/venv/
+backend/env/
+venv/
+env/
+ENV/
+
+# Python cache
+backend/__pycache__/
+backend/**/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment variables
+backend/.env
+backend/.env.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Flask
+instance/
+.webassets-cache
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ===========================
+# OS and IDE
+# ===========================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ===========================
+# Misc
+# ===========================
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg
+!public/**/*.png
+!public/**/*.jpg
+!public/**/*.jpeg
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo

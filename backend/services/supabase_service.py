@@ -755,39 +755,52 @@ class SupabaseService:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
         try:
+            print(f"[DEBUG] save_user_settings called: user_id={user_id}, type={settings_type}")
+            print(f"[DEBUG] settings_data: {settings_data}")
+            
             # First try RPC function
             try:
+                print(f"[DEBUG] Attempting RPC upsert_user_settings...")
                 result = self.supabase.rpc('upsert_user_settings', {
                     'p_user_id': user_id,
                     'p_settings_type': settings_type,
                     'p_settings_data': json.dumps(settings_data) if isinstance(settings_data, dict) else settings_data
                 }).execute()
                 
+                print(f"[DEBUG] RPC result: {result.data}")
+                
                 if result.data and len(result.data) > 0:
                     data = result.data[0] if isinstance(result.data, list) else result.data
                     if data.get('status') == 'success':
+                        print(f"[SUCCESS] Settings saved via RPC")
                         return True, None
                     else:
                         error = data.get('message', 'Failed to save settings')
-                        print(f"RPC error: {error}")
+                        print(f"[WARNING] RPC error: {error}, falling back to direct insert")
                         # Fall through to direct insert
             except Exception as rpc_error:
-                print(f"RPC failed, falling back to direct insert: {rpc_error}")
+                print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct insert")
                 # Fall through to direct insert
             
             # Fallback: Direct table insert/update
-            print(f"Using direct table insert for user_id={user_id}, type={settings_type}")
+            print(f"[DEBUG] Using direct table insert for user_id={user_id}, type={settings_type}")
+            
             # Check if record exists
+            print(f"[DEBUG] Checking if settings record exists...")
             existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            print(f"[DEBUG] Existing records: {existing.data}")
             
             if existing.data and len(existing.data) > 0:
                 # Update existing
+                print(f"[DEBUG] Updating existing record...")
                 result = self.supabase.table('user_settings').update({
                     'settings_data': settings_data,
                     'updated_at': datetime.utcnow().isoformat() + 'Z'
                 }).eq('user_id', user_id).eq('settings_type', settings_type).execute()
+                print(f"[DEBUG] Update result: {result.data}")
             else:
                 # Insert new
+                print(f"[DEBUG] Inserting new record...")
                 result = self.supabase.table('user_settings').insert({
                     'user_id': user_id,
                     'settings_type': settings_type,
@@ -795,16 +808,20 @@ class SupabaseService:
                     'created_at': datetime.utcnow().isoformat() + 'Z',
                     'updated_at': datetime.utcnow().isoformat() + 'Z'
                 }).execute()
+                print(f"[DEBUG] Insert result: {result.data}")
             
             if result.data:
-                print(f"Successfully saved settings via direct insert")
+                print(f"[SUCCESS] Settings saved via direct table operation")
                 return True, None
             else:
+                print(f"[ERROR] No data returned from table operation")
                 return False, 'Failed to save settings via direct insert'
                 
         except Exception as e:
             error_msg = str(e)
-            print(f"Error in save_user_settings: {error_msg}")
+            print(f"[ERROR] Exception in save_user_settings: {error_msg}")
+            import traceback
+            traceback.print_exc()
             return False, error_msg
 
     def get_user_settings(self, user_id: str, settings_type: str = 'health_profile') -> tuple[dict | None, str | None]:
@@ -820,32 +837,44 @@ class SupabaseService:
                                           (None, error_message) on failure.
         """
         try:
+            print(f"[DEBUG] get_user_settings called: user_id={user_id}, type={settings_type}")
+            
             # First try RPC function
             try:
+                print(f"[DEBUG] Attempting RPC get_user_settings...")
                 result = self.supabase.rpc('get_user_settings', {
                     'p_user_id': user_id,
                     'p_settings_type': settings_type
                 }).execute()
                 
+                print(f"[DEBUG] RPC result: {result.data}")
+                
                 if result.data and len(result.data) > 0:
                     data = result.data[0] if isinstance(result.data, list) else result.data
                     if data.get('status') == 'success':
+                        print(f"[SUCCESS] Settings retrieved via RPC")
                         return data.get('data'), None
             except Exception as rpc_error:
-                print(f"RPC failed, falling back to direct query: {rpc_error}")
+                print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct query")
                 # Fall through to direct query
             
             # Fallback: Direct table query
+            print(f"[DEBUG] Using direct table query...")
             result = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            print(f"[DEBUG] Query result: {result.data}")
             
             if result.data and len(result.data) > 0:
+                print(f"[SUCCESS] Settings retrieved via direct query")
                 return result.data[0], None
             else:
+                print(f"[INFO] No settings found for user")
                 return None, None  # No settings found is not an error
                 
         except Exception as e:
             error_msg = str(e)
-            print(f"Error in get_user_settings: {error_msg}")
+            print(f"[ERROR] Exception in get_user_settings: {error_msg}")
+            import traceback
+            traceback.print_exc()
             return None, error_msg
 
     def delete_user_settings(self, user_id: str, settings_type: str) -> tuple[bool, str | None]:
