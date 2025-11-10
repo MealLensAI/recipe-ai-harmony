@@ -9,9 +9,15 @@
   min-height: 100vh;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Mobile First */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+}
+
+@media (min-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
 }
 
 ::-webkit-scrollbar-track {

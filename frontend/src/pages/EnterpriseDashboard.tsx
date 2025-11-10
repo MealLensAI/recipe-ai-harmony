@@ -9,6 +9,7 @@ import { EnterpriseRegistrationForm } from '@/components/enterprise/EnterpriseRe
 import { InviteUserForm } from '@/components/enterprise/InviteUserForm';
 import MainLayout from '@/components/MainLayout';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/utils';
 
 interface Enterprise {
     id: string;
@@ -50,6 +51,7 @@ interface Invitation {
 
 export default function EnterpriseDashboard() {
     const { toast } = useToast();
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
     const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
     const [users, setUsers] = useState<OrganizationUser[]>([]);
@@ -61,10 +63,16 @@ export default function EnterpriseDashboard() {
     const [canCreateOrganizations, setCanCreateOrganizations] = useState(true);
     const [permissionReason, setPermissionReason] = useState('');
 
+    // Wait for auth to be ready before loading data
     useEffect(() => {
-        loadEnterprises();
-        checkUserPermissions();
-    }, []);
+        if (!authLoading && isAuthenticated) {
+            console.log('🔍 EnterpriseDashboard: Auth ready, loading data');
+            loadEnterprises();
+            checkUserPermissions();
+        } else {
+            console.log('⏸️ EnterpriseDashboard: Waiting for auth', { authLoading, isAuthenticated });
+        }
+    }, [authLoading, isAuthenticated]);
 
     useEffect(() => {
         if (selectedEnterprise) {

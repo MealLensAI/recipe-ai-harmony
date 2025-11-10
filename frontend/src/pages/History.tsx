@@ -185,21 +185,21 @@ export function HistoryPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">History</h1>
-              <p className="text-gray-600 mt-1">Showing your all histories with a clear view.</p>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">History</h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1">Showing your all histories with a clear view.</p>
             </div>
             <div className="flex items-center">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                 <Input
                   placeholder="Search history..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-64"
+                  className="pl-8 sm:pl-10 w-full sm:w-64 text-sm"
                 />
               </div>
             </div>
@@ -208,15 +208,15 @@ export function HistoryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-3 sm:p-6">
         {filteredHistory.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-8 min-h-[400px]">
-            <Utensils className="h-16 w-16 text-gray-300 mb-4" aria-hidden="true" />
-            <p className="text-xl font-semibold">No detection history yet.</p>
-            <p className="text-md mt-2">Start scanning to see your results here.</p>
+          <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
+            <Utensils className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
+            <p className="text-lg sm:text-xl font-semibold">No detection history yet.</p>
+            <p className="text-sm sm:text-md mt-2">Start scanning to see your results here.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
             {filteredHistory.map((item) => (
               <HistoryCard key={item.id} item={item} />
             ))}
@@ -262,58 +262,58 @@ function HistoryCard({ item }: HistoryCardProps) {
 
   return (
     <Card
-      className="overflow-hidden shadow-lg transition-all hover:shadow-xl border border-gray-100 rounded-xl cursor-pointer hover:scale-[1.02] group"
+      className="overflow-hidden shadow-lg transition-all hover:shadow-xl border border-gray-100 rounded-lg sm:rounded-xl cursor-pointer hover:scale-[1.02] group"
       onClick={handleCardClick}
     >
-      <CardContent className="p-6">
+      <CardContent className="p-3 sm:p-6">
         {/* Header with play button */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="font-bold text-lg text-gray-900 mb-1 truncate">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-sm sm:text-lg text-gray-900 mb-1 truncate">
               {title}
             </h3>
             {additionalCount > 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-xs sm:text-sm text-gray-500">
                 +{additionalCount} more ingredients
               </p>
             )}
           </div>
-          <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-            <Play className="h-4 w-4" />
+          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
+            <Play className="h-3 w-3 sm:h-4 sm:w-4" />
           </div>
         </div>
 
         {/* Info grid */}
-        <div className="space-y-3">
-          <div className="flex items-center text-sm text-gray-600">
-            <Clock className="h-4 w-4 mr-2" />
-            {new Date(item.created_at).toLocaleTimeString([], {
+        <div className="space-y-2 sm:space-y-3">
+          <div className="flex items-center text-xs sm:text-sm text-gray-600">
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
+            <span className="truncate">{new Date(item.created_at).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
               second: '2-digit'
-            })}
+            })}</span>
           </div>
 
-          <div className="flex items-center text-sm text-gray-600">
-            <CalendarDays className="h-4 w-4 mr-2" />
-            {new Date(item.created_at).toLocaleDateString()}
+          <div className="flex items-center text-xs sm:text-sm text-gray-600">
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
+            <span className="truncate">{new Date(item.created_at).toLocaleDateString()}</span>
           </div>
 
-          <div className="flex items-center text-sm text-gray-600">
+          <div className="flex items-center text-xs sm:text-sm text-gray-600">
             {item.recipe_type === "food_detection" ? (
-              <Utensils className="h-4 w-4 mr-2" />
+              <Utensils className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
             ) : (
-              <BookOpen className="h-4 w-4 mr-2" />
+              <BookOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 flex-shrink-0" />
             )}
-            {item.recipe_type === "food_detection" ? "Food Detection" : "Ingredient Detection"}
+            <span className="truncate">{item.recipe_type === "food_detection" ? "Food Detection" : "Ingredient Detection"}</span>
           </div>
         </div>
 
         {/* Status badge */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100">
           <Badge
             variant="outline"
-            className={`${getStatusColor(item.recipe_type)} text-xs px-2 py-1`}
+            className={`${getStatusColor(item.recipe_type)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1`}
           >
             {getStatusText(item.recipe_type)}
           </Badge>

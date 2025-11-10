@@ -222,11 +222,11 @@ const DetectFoodPage = () => {
 
   return (
     <div
-      className="min-h-screen p-8 text-[#2D3436] leading-[1.6]"
+      className="min-h-screen text-[#2D3436] leading-[1.6]"
       style={{
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         background: "url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed",
-        padding: "2rem 1rem"
+        padding: "1rem 0.5rem"
       }}
     >
       <style>{`
@@ -236,16 +236,16 @@ const DetectFoodPage = () => {
         }
       `}</style>
 
-      <div className="max-w-[800px] mx-auto">
+      <div className="max-w-[800px] mx-auto px-2 sm:px-4">
         <div
-          className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative"
+          className="bg-[rgba(255,255,255,0.95)] rounded-2xl sm:rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-4 sm:p-8 lg:p-12 relative"
         >
           {/* Header */}
           {/* Removed Home and Sign Out buttons */}
 
           {/* Title */}
           <h1
-            className="text-[2.5rem] font-[800] text-center mb-8"
+            className="text-2xl sm:text-3xl lg:text-[2.5rem] font-[800] text-center mb-4 sm:mb-8"
             style={{
               background: "linear-gradient(135deg, #FF6B6B, #FF8E53)",
               WebkitBackgroundClip: "text",
@@ -258,12 +258,12 @@ const DetectFoodPage = () => {
           </h1>
 
           {/* Image Input */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <input
               type="file"
               id="fileInput"
               accept="image/*"
-              className="w-full p-4 border-2 border-[rgba(0,0,0,0.1)] rounded-2xl text-[1.1rem] transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
+              className="w-full p-3 sm:p-4 border-2 border-[rgba(0,0,0,0.1)] rounded-xl sm:rounded-2xl text-sm sm:text-base lg:text-[1.1rem] transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
               onChange={handleImageSelect}
             />
             <div style={{ display: "flex", justifyContent: "center", marginTop: "10px" }}>
@@ -273,8 +273,9 @@ const DetectFoodPage = () => {
                 alt="Image Preview"
                 style={{
                   display: imagePreview ? "block" : "none",
-                  width: "400px",
-                  height: "300px",
+                  width: "100%",
+                  maxWidth: "400px",
+                  height: "auto",
                   objectFit: "cover",
                   borderRadius: "1rem"
                 }}
@@ -286,32 +287,32 @@ const DetectFoodPage = () => {
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-2xl py-4 px-8 text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-lg lg:text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-1px] sm:hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Submit
           </button>
 
           {/* Loading Spinner */}
           {isLoading && (
-            <div className="flex justify-center mt-8">
-              <div className="w-12 h-12 border-4 border-[rgba(255,107,107,0.3)] border-t-[#FF6B6B] rounded-full animate-spin"></div>
+            <div className="flex justify-center mt-6 sm:mt-8">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-[rgba(255,107,107,0.3)] border-t-[#FF6B6B] rounded-full animate-spin"></div>
             </div>
           )}
 
           {/* Results */}
           {showResults && (
-            <div className="mt-4">
+            <div className="mt-4 sm:mt-6">
               {/* Instructions Section */}
               {instructions && (
                 <div
-                  className="mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
+                  className="mt-6 sm:mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-xl sm:rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
                 >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                  <div className="p-3 sm:p-4 mt-2">
+                    <h5 className="text-[#2D3436] font-bold text-base sm:text-lg lg:text-xl mb-3 sm:mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-2 sm:pb-3 text-left">
                       Cooking Instructions
                     </h5>
                     <div
-                      className="leading-[1.4] m-0 text-left"
+                      className="leading-[1.4] m-0 text-left text-sm sm:text-base"
                       style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
                       dangerouslySetInnerHTML={{ __html: instructions }}
                     />
@@ -321,7 +322,7 @@ const DetectFoodPage = () => {
 
               {/* Resources Section */}
               {loadingResources && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mt-4 sm:mt-6">
                   {/* YouTube Resources Loading */}
                   <div
                     className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
@@ -368,7 +369,7 @@ const DetectFoodPage = () => {
 
               {/* Resources Content */}
               {resources && !loadingResources && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mt-4 sm:mt-6">
                   {/* YouTube Resources */}
                   <div
                     className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"

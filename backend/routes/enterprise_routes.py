@@ -267,18 +267,34 @@ def get_my_enterprises():
     try:
         supabase = get_supabase_client()
         
-        # Get enterprises owned by user
-        result = supabase.table('enterprises').select('*').eq('created_by', request.user_id).execute()
+        # Get enterprises owned by user with retry logic for connection issues
+        max_retries = 3
+        retry_count = 0
+        last_error = None
         
-        # Return enterprises without stats for now
-        enterprises = result.data
-        
-        return jsonify({
-            'success': True,
-            'enterprises': enterprises
-        }), 200
+        while retry_count < max_retries:
+            try:
+                result = supabase.table('enterprises').select('*').eq('created_by', request.user_id).execute()
+                
+                # Return enterprises without stats for now
+                enterprises = result.data or []
+                
+                return jsonify({
+                    'success': True,
+                    'enterprises': enterprises
+                }), 200
+            except Exception as e:
+                retry_count += 1
+                last_error = e
+                current_app.logger.warning(f"Attempt {retry_count}/{max_retries} failed to fetch enterprises: {str(e)}")
+                if retry_count < max_retries:
+                    import time
+                    time.sleep(0.5)  # Wait 500ms before retry
+                    continue
+                raise e
         
     except Exception as e:
+        current_app.logger.error(f'Failed to fetch enterprises after {max_retries} retries: {str(e)}')
         return jsonify({'error': f'Failed to fetch enterprises: {str(e)}'}), 500
 
 
@@ -443,7 +459,7 @@ def invite_user(enterprise_id):
             'invitation_token': invitation_token,
             'role': data.get('role', 'patient'),
             'message': data.get('message'),
-            'expires_at': (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+            'expires_at': (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         }
         
         result = supabase.table('invitations').insert(invitation_data).execute()
@@ -841,15 +857,15 @@ def create_user():
         if not membership_result.data:
             return jsonify({'error': 'Failed to add user to organization'}), 500
 
-        # Create a trial for the new user (7 days for enterprise users)
+        # Create a trial for the new user (30 days for enterprise users)
         try:
             trial_result = admin_supabase.rpc('create_user_trial', {
                 'p_user_id': user_id,
-                'p_duration_days': 7  # 7 days trial for enterprise users
+                'p_duration_days': 30  # 30 days trial for enterprise users
             }).execute()
             
             if trial_result.data and trial_result.data.get('success'):
-                print(f"✅ Created 7-day trial for user {user_id}")
+                print(f"✅ Created 30-day trial for user {user_id}")
             else:
                 print(f"⚠️ Failed to create trial for user {user_id}: {trial_result.data}")
         except Exception as trial_error:
