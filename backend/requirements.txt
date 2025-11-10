@@ -4,3 +4,4 @@ supabase
 marshmallow
 dotenv
 requests
+gunicorn
