@@ -47,43 +47,7 @@ class SupabaseService:
             
             # Store the key for verification
             self._service_role_key = supabase_key
-            key_contains_service_role = 'service_role' in str(supabase_key)
-            print("[INFO] Supabase client created.")
-            if not key_contains_service_role:
-                print("[WARNING] The provided key may not have admin privileges. Admin operations may fail.")
-                
-            # Set the search path to include the auth schema
-            try:
-                with self.supabase.postgrest._session() as session:
-                    session.post(
-                        f"{supabase_url}/rest/v1/rpc/set_config",
-                        json={"name": "search_path", "value": "auth, public"}
-                    )
-                print("[INFO] Supabase search_path set to include auth schema.")
-            except Exception as e:
-                print("[WARNING] Could not set search_path for Supabase database. This is usually safe to ignore.")
-            
-            # Test the connection by making a simple query
-            print("[INFO] Testing Supabase connection...")
-            try:
-                # Try to fetch first user from auth schema (if any exists)
-                # This is a lightweight operation to test the connection
-                result = self.supabase.table('auth.users').select('*').limit(1).execute()
-                print("[INFO] Successfully connected to Supabase. User table accessible.")
-                
-                # Also check if profiles table exists
-                try:
-                    profiles = self.supabase.table('profiles').select('*').limit(1).execute()
-                    print("[INFO] Successfully queried profiles table.")
-                except Exception as profiles_error:
-                    print("[WARNING] Could not query profiles table. It may not exist yet.")
-                    
-            except Exception as connection_error:
-                error_msg = str(connection_error)
-                print("[WARNING] Could not verify Supabase connection. Check your Supabase project configuration, exposed schemas, and permissions.")
-                if 'permission denied' in error_msg.lower():
-                    print("[WARNING] This might be due to Row Level Security (RLS) policies. Ensure your service role key has proper permissions.")
-                print("[INFO] Continuing with client initialization, but some features may not work.")
+            print("[INFO] Supabase client initialized successfully.")
                 
             print("Supabase client initialized with service role key.")
             
