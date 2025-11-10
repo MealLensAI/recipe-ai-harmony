@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { APP_CONFIG } from '@/lib/config';
-import { safeGetItem } from '@/lib/utils';
+import { safeGetItem, useAuth } from '@/lib/utils';
 
 export interface MealPlan {
   day: string;
@@ -62,15 +62,24 @@ export interface SavedMealPlan {
 }
 
 export const useMealPlans = (filterBySickness?: boolean) => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Fetch all meal plans from backend API on mount
+  // BUT ONLY when authentication is ready!
   useEffect(() => {
+    // Don't fetch if not authenticated or auth still loading
+    if (!isAuthenticated || authLoading) {
+      console.log('⏸️ useMealPlans: Skipping fetch (not authenticated or auth loading)');
+      return;
+    }
+
     const fetchPlans = async () => {
       setLoading(true);
       try {
+        console.log('🔍 useMealPlans: Fetching meal plans');
         const token = safeGetItem('access_token');
         const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
           method: 'GET',
@@ -154,7 +163,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       setLoading(false);
     };
     fetchPlans();
-  }, [filterBySickness]);
+  }, [filterBySickness, isAuthenticated, authLoading]);
 
   const generateWeekDates = (startDate: Date): { startDate: string; endDate: string; name: string } => {
     const endDate = new Date(startDate);

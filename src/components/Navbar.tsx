@@ -20,7 +20,7 @@ const Navbar = () => {
   const location = useLocation()
   const { toast } = useToast()
   const { user, signOut, isAuthenticated } = useAuth()
-  const { hasEnterprises, isOrganizationOwner, canCreateOrganizations } = useEnterpriseRole()
+  const { hasEnterprises, isOrganizationOwner, canCreateOrganizations, isLoading: enterpriseLoading } = useEnterpriseRole()
 
   const isActive = (path: string) => location.pathname === path
 
@@ -148,7 +148,8 @@ const Navbar = () => {
                   <span className="mr-2">💳</span>
                   <span>Payment</span>
                 </DropdownMenuItem>
-                {(canCreateOrganizations || hasEnterprises) && (
+                {/* STRICT: Only show enterprise features to organization owners or users who can create organizations */}
+                {!enterpriseLoading && (canCreateOrganizations || hasEnterprises) && (
                   <DropdownMenuItem onClick={() => navigate("/enterprise")}>
                     <Building2 className="mr-2 h-4 w-4" />
                     <span>

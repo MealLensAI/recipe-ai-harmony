@@ -205,6 +205,13 @@ class APIService {
           throw new APIError('Access denied. You do not have permission to perform this action.', 403)
         }
 
+        // Handle 500 Server Errors - DON'T logout for server errors!
+        if (response.status === 500) {
+          const errorMessage = data?.error || data?.message || 'Server error. Please try again later.'
+          console.error('❌ Server error (500):', errorMessage)
+          throw new APIError(errorMessage, 500, data)
+        }
+
         // Handle 404 Not Found
         if (response.status === 404) {
           throw new APIError('Resource not found. Please check the URL and try again.', 404)

@@ -131,7 +131,7 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
             onClick={onClick}
         >
             {/* Food Image */}
-            <div className="relative h-48">
+            <div className="relative h-36 sm:h-48">
                 {imageLoading ? (
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
                         <div className="absolute inset-0 animate-shimmer" />
@@ -145,18 +145,18 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                             onLoad={handleImageLoad}
                             onError={handleImageError}
                         />
-                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
-                            <span className="text-lg">{getMealIcon(mealType)}</span>
+                        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-white/90 backdrop-blur-sm rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center shadow-sm">
+                            <span className="text-sm sm:text-lg">{getMealIcon(mealType)}</span>
                         </div>
-                        <div className="absolute top-3 right-3">
-                            <Badge className={`${getMealTypeColor(mealType)} border`}>
+                        <div className="absolute top-2 right-2 sm:top-3 sm:right-3">
+                            <Badge className={`${getMealTypeColor(mealType)} border text-[10px] sm:text-xs`}>
                                 {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
                             </Badge>
                         </div>
                         {hasNutritionData && calories && (
-                            <div className="absolute bottom-3 right-3 bg-orange-500/90 backdrop-blur-sm px-2 py-1 text-white text-xs font-semibold flex items-center gap-1">
-                                <Flame className="h-3 w-3" />
-                                {calories} cal
+                            <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 bg-orange-500/90 backdrop-blur-sm px-1.5 py-0.5 sm:px-2 sm:py-1 text-white text-[10px] sm:text-xs font-semibold flex items-center gap-0.5 sm:gap-1">
+                                <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                {calories}
                             </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
@@ -164,56 +164,56 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 )}
             </div>
 
-            <CardContent className="p-4">
+            <CardContent className="p-2 sm:p-4">
                 {/* Meal Name */}
-                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{name}</h3>
+                <h3 className="text-sm sm:text-lg font-bold text-gray-900 mb-1 sm:mb-2 line-clamp-2">{name}</h3>
 
                 {/* Nutrition Macros - Only show if data available */}
                 {hasNutritionData && (
-                    <div className="grid grid-cols-3 gap-2 mb-3 pb-3 border-b">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-2 sm:mb-3 pb-2 sm:pb-3 border-b">
                         <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                                <Drumstick className="h-3 w-3 text-red-600" />
+                            <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                                <Drumstick className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-red-600" />
                             </div>
-                            <div className="text-sm font-bold text-gray-900">{protein}g</div>
-                            <div className="text-xs text-gray-500">Protein</div>
+                            <div className="text-xs sm:text-sm font-bold text-gray-900">{protein}g</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">Protein</div>
                         </div>
                         <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                                <Wheat className="h-3 w-3 text-amber-600" />
+                            <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                                <Wheat className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600" />
                             </div>
-                            <div className="text-sm font-bold text-gray-900">{carbs}g</div>
-                            <div className="text-xs text-gray-500">Carbs</div>
+                            <div className="text-xs sm:text-sm font-bold text-gray-900">{carbs}g</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">Carbs</div>
                         </div>
                         <div className="text-center">
-                            <div className="flex items-center justify-center gap-1 mb-1">
-                                <Droplet className="h-3 w-3 text-yellow-600" />
+                            <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-0.5 sm:mb-1">
+                                <Droplet className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-yellow-600" />
                             </div>
-                            <div className="text-sm font-bold text-gray-900">{fat}g</div>
-                            <div className="text-xs text-gray-500">Fat</div>
+                            <div className="text-xs sm:text-sm font-bold text-gray-900">{fat}g</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">Fat</div>
                         </div>
                     </div>
                 )}
 
                 {/* Health Benefit */}
                 {benefit && (
-                    <div className="mb-3 p-2 bg-green-50 border border-green-200 text-xs text-green-800">
-                        <div className="flex items-start gap-1">
-                            <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                            <span className="line-clamp-2">{benefit}</span>
+                    <div className="mb-2 sm:mb-3 p-1.5 sm:p-2 bg-green-50 border border-green-200 text-[10px] sm:text-xs text-green-800">
+                        <div className="flex items-start gap-0.5 sm:gap-1">
+                            <Info className="h-2.5 w-2.5 sm:h-3 sm:w-3 mt-0.5 flex-shrink-0" />
+                            <span className="line-clamp-2 leading-snug">{benefit}</span>
                         </div>
                     </div>
                 )}
 
                 {/* Ingredients */}
-                <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-xs font-semibold text-gray-700">
-                        <Utensils className="h-3 w-3" />
+                <div className="space-y-0.5 sm:space-y-1">
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs font-semibold text-gray-700">
+                        <Utensils className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         Ingredients:
                     </div>
-                    <ul className="text-xs text-gray-600 space-y-0.5 max-h-20 overflow-y-auto">
+                    <ul className="text-[10px] sm:text-xs text-gray-600 space-y-0.5 max-h-16 sm:max-h-20 overflow-y-auto">
                         {ingredients.slice(0, 4).map((ingredient, index) => (
-                            <li key={index} className="pl-2">• {ingredient}</li>
+                            <li key={index} className="pl-2 leading-snug">• {ingredient}</li>
                         ))}
                         {ingredients.length > 4 && (
                             <li className="pl-2 text-gray-400">+ {ingredients.length - 4} more...</li>
@@ -222,8 +222,8 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 </div>
 
                 {/* Click to view instructions hint */}
-                <div className="mt-3 pt-3 border-t text-center">
-                    <span className="text-xs text-[#FF6B35] font-medium">
+                <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t text-center">
+                    <span className="text-[10px] sm:text-xs text-[#FF6B35] font-medium">
                         Click to view cooking instructions →
                     </span>
                 </div>

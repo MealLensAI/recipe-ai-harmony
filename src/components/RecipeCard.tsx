@@ -102,10 +102,10 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
 
   return (
     <div
-      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer transform hover:scale-105"
+      className="bg-white rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer transform hover:scale-105"
       onClick={onClick}
     >
-      <div className="relative h-48">
+      <div className="relative h-36 sm:h-48">
         {imageLoading ? (
           <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse">
             <div className="absolute inset-0 animate-shimmer" />
@@ -119,30 +119,30 @@ const RecipeCard: React.FC<RecipeCardProps> = ({ title, image, time, rating, mea
               onLoad={handleImageLoad}
               onError={handleImageError}
             />
-            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-sm">
-              <span className="text-lg">{getMealTypeIcon()}</span>
+            <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-white/90 backdrop-blur-sm rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center shadow-sm">
+              <span className="text-sm sm:text-lg">{getMealTypeIcon()}</span>
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
           </>
         )}
       </div>
 
-      <div className="p-4">
-        <h3 className="font-semibold text-[#2D3436] mb-2 text-sm leading-tight line-clamp-2">
+      <div className="p-2 sm:p-4">
+        <h3 className="font-semibold text-[#2D3436] mb-1 sm:mb-2 text-xs sm:text-sm leading-tight line-clamp-2">
           {originalTitle || title}
         </h3>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center text-[#1e293b] text-xs">
-            <Clock className="w-3 h-3 mr-1" />
+          <div className="flex items-center text-[#1e293b] text-[10px] sm:text-xs">
+            <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
             <span>{time}</span>
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center gap-0.5">
             {[...Array(5)].map((_, i) => (
               <Star
                 key={i}
-                className={`w-3 h-3 ${i < rating ? 'text-[#e09026] fill-current' : 'text-gray-300'
+                className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${i < rating ? 'text-[#e09026] fill-current' : 'text-gray-300'
                   }`}
               />
             ))}

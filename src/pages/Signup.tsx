@@ -195,25 +195,33 @@ const Signup = () => {
           // If organization signup, register the organization after user creation
           if (isOrganizationSignup) {
             try {
-              const orgResponse = await fetch(`${APP_CONFIG.api.base_url}/api/enterprise/register`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${loginResult.access_token}`
-                },
-                body: JSON.stringify(organizationData)
-              })
+              const orgResult = await api.registerEnterprise(organizationData)
 
-              if (orgResponse.ok) {
+              if (orgResult.success) {
                 toast({
                   title: "Organization Registered!",
                   description: "Your organization has been successfully registered.",
                 })
               } else {
-                console.warn('Failed to register organization, but user account was created')
+                // Show error to user - this is critical!
+                toast({
+                  title: "Organization Registration Failed",
+                  description: orgResult.error || "Failed to register organization. You can create it later from Enterprise Dashboard.",
+                  variant: "destructive",
+                  duration: 7000,
+                })
+                console.error('Failed to register organization:', orgResult.error)
+                // Still continue to app - user can create org later
               }
-            } catch (error) {
-              console.warn('Failed to register organization, but user account was created:', error)
+            } catch (error: any) {
+              toast({
+                title: "Organization Registration Failed",
+                description: error.message || "Failed to register organization. You can create it later from Enterprise Dashboard.",
+                variant: "destructive",
+                duration: 7000,
+              })
+              console.error('Failed to register organization:', error)
+              // Still continue to app - user can create org later
             }
           }
 

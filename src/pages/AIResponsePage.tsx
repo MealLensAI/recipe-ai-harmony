@@ -383,28 +383,29 @@ const AIResponsePage: FC = () => {
       style={{
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         background: "url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed",
-        padding: "2rem 1rem",
+        padding: "1rem 0.5rem sm:2rem 1rem",
         color: "#2D3436",
         lineHeight: "1.6"
       }}
     >
-      <div className="max-w-[1400px] mx-auto">
+      <div className="max-w-[1400px] mx-auto px-2 sm:px-4">
         <div
-          className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative max-w-[800px] mx-auto"
+          className="bg-[rgba(255,255,255,0.95)] rounded-2xl sm:rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-4 sm:p-8 lg:p-12 relative max-w-[800px] mx-auto"
         >
           {/* Title */}
           <h1
-            className="text-[2.5rem] font-extrabold text-center mb-8 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent tracking-[-1px]"
+            className="text-2xl sm:text-3xl lg:text-[2.5rem] font-extrabold text-center mb-4 sm:mb-8 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent tracking-[-1px]"
           >
             Ingredient Detection
           </h1>
 
           {/* Health-aware detection badge */}
           {sicknessSettings.hasSickness && (
-            <div className="absolute top-4 right-4">
-              <div className="inline-flex items-center bg-orange-100 text-orange-800 rounded-full px-4 py-2 text-sm font-medium">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
-                Health-aware detection
+            <div className="absolute top-2 right-2 sm:top-4 sm:right-4">
+              <div className="inline-flex items-center bg-orange-100 text-orange-800 rounded-full px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium">
+                <div className="w-2 h-2 bg-orange-500 rounded-full mr-1 sm:mr-2"></div>
+                <span className="hidden sm:inline">Health-aware detection</span>
+                <span className="sm:hidden">Health-aware</span>
               </div>
             </div>
           )}
@@ -428,21 +429,21 @@ const AIResponsePage: FC = () => {
           {/* Image Input */}
           {inputType === "image" && (
             <div className="mb-4">
-              <label className="block font-semibold text-lg text-[#2D3436] mb-3">
+              <label className="block font-semibold text-sm sm:text-lg text-[#2D3436] mb-2 sm:mb-3">
                 Share Your Food Image
               </label>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageSelect}
-                className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
+                className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-xl sm:rounded-2xl p-3 sm:p-4 text-sm sm:text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
               />
               {imagePreview && (
                 <div className="flex justify-center mt-2.5">
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    className="w-[400px] h-[300px] object-cover rounded-2xl"
+                    className="w-full max-w-[400px] h-auto sm:h-[300px] object-cover rounded-xl sm:rounded-2xl"
                   />
                 </div>
               )}
@@ -452,7 +453,7 @@ const AIResponsePage: FC = () => {
           {/* Ingredient Input */}
           {inputType === "ingredient_list" && (
             <div className="mb-4">
-              <label className="block font-semibold text-lg text-[#2D3436] mb-3">
+              <label className="block font-semibold text-sm sm:text-lg text-[#2D3436] mb-2 sm:mb-3">
                 What ingredients do you have?
               </label>
               <input
@@ -460,7 +461,7 @@ const AIResponsePage: FC = () => {
                 value={ingredientList}
                 onChange={(e) => setIngredientList(e.target.value)}
                 placeholder="e.g., chicken, tomatoes, basil, olive oil"
-                className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
+                className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-xl sm:rounded-2xl p-3 sm:p-4 text-sm sm:text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
               />
             </div>
           )}
@@ -469,7 +470,7 @@ const AIResponsePage: FC = () => {
           <button
             onClick={handleDiscoverRecipes}
             disabled={isLoading || (sicknessSettings.hasSickness && isHealthMode && !isHealthProfileComplete)}
-            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-2xl py-4 px-8 text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {(sicknessSettings.hasSickness && isHealthMode) ? "Generate Health Meals" : "Discover Recipes"}
           </button>
@@ -932,70 +933,70 @@ const AIResponsePage: FC = () => {
 
       {/* Meal Info Modal */}
       {showMealModal && selectedMealForModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-[#2D3436]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <div className="flex justify-between items-center mb-4 sm:mb-6">
+                <h3 className="text-lg sm:text-2xl font-bold text-[#2D3436] pr-4">
                   {selectedMealForModal.food_suggestions[0] || "Health Meal"}
                 </h3>
                 <button
                   onClick={() => setShowMealModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="text-gray-500 hover:text-gray-700 text-2xl flex-shrink-0"
                 >
                   ×
                 </button>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div>
-                  <h4 className="font-semibold text-[#2D3436] mb-3">Health Benefit:</h4>
-                  <p className="text-gray-600 leading-relaxed">
+                  <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] mb-2 sm:mb-3">Health Benefit:</h4>
+                  <p className="text-xs sm:text-base text-gray-600 leading-relaxed">
                     {selectedMealForModal.health_benefit}
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-[#2D3436] mb-3">Nutrition Information:</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-orange-50 rounded-lg p-4">
-                      <span className="font-medium text-orange-700">Calories:</span>
-                      <span className="ml-2 text-orange-600 font-bold text-lg">{selectedMealForModal.calories}</span>
+                  <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] mb-2 sm:mb-3">Nutrition Information:</h4>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div className="bg-orange-50 rounded-lg p-2 sm:p-4">
+                      <span className="font-medium text-orange-700 text-xs sm:text-base">Calories:</span>
+                      <span className="ml-1 sm:ml-2 text-orange-600 font-bold text-sm sm:text-lg">{selectedMealForModal.calories}</span>
                     </div>
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <span className="font-medium text-blue-700">Protein:</span>
-                      <span className="ml-2 text-blue-600 font-bold text-lg">{selectedMealForModal.protein}g</span>
+                    <div className="bg-blue-50 rounded-lg p-2 sm:p-4">
+                      <span className="font-medium text-blue-700 text-xs sm:text-base">Protein:</span>
+                      <span className="ml-1 sm:ml-2 text-blue-600 font-bold text-sm sm:text-lg">{selectedMealForModal.protein}g</span>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <span className="font-medium text-green-700">Carbs:</span>
-                      <span className="ml-2 text-green-600 font-bold text-lg">{selectedMealForModal.carbs}g</span>
+                    <div className="bg-green-50 rounded-lg p-2 sm:p-4">
+                      <span className="font-medium text-green-700 text-xs sm:text-base">Carbs:</span>
+                      <span className="ml-1 sm:ml-2 text-green-600 font-bold text-sm sm:text-lg">{selectedMealForModal.carbs}g</span>
                     </div>
-                    <div className="bg-purple-50 rounded-lg p-4">
-                      <span className="font-medium text-purple-700">Fat:</span>
-                      <span className="ml-2 text-purple-600 font-bold text-lg">{selectedMealForModal.fat}g</span>
+                    <div className="bg-purple-50 rounded-lg p-2 sm:p-4">
+                      <span className="font-medium text-purple-700 text-xs sm:text-base">Fat:</span>
+                      <span className="ml-1 sm:ml-2 text-purple-600 font-bold text-sm sm:text-lg">{selectedMealForModal.fat}g</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-[#2D3436] mb-3">Ingredients Used:</h4>
-                  <ul className="space-y-2">
+                  <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] mb-2 sm:mb-3">Ingredients Used:</h4>
+                  <ul className="space-y-1 sm:space-y-2">
                     {selectedMealForModal.ingredients_used.map((ingredient, idx) => (
-                      <li key={idx} className="flex items-center text-gray-600">
-                        <span className="w-2 h-2 bg-orange-400 rounded-full mr-3"></span>
+                      <li key={idx} className="flex items-center text-xs sm:text-base text-gray-600">
+                        <span className="w-2 h-2 bg-orange-400 rounded-full mr-2 sm:mr-3 flex-shrink-0"></span>
                         {ingredient}
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="pt-4 border-t">
+                <div className="pt-3 sm:pt-4 border-t">
                   <button
                     onClick={() => {
                       setShowMealModal(false);
                       handleHealthMealInstructions(selectedMealForModal);
                     }}
-                    className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white border-none rounded-xl py-3 px-4 font-semibold transition-all duration-300 hover:from-orange-600 hover:to-red-600 hover:translate-y-[-2px] hover:shadow-lg"
+                    className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white border-none rounded-lg sm:rounded-xl py-2.5 sm:py-3 px-4 text-sm sm:text-base font-semibold transition-all duration-300 hover:from-orange-600 hover:to-red-600 hover:translate-y-[-2px] hover:shadow-lg"
                   >
                     Get Cooking Instructions
                   </button>

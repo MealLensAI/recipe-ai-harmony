@@ -1,4 +1,4 @@
-/* AI Response Page Specific Styles */
+/* AI Response Page Specific Styles - Mobile First */
 .detection-container {
   background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
 }
@@ -6,6 +6,13 @@
 .upload-area {
   border: 2px dashed #d1d5db;
   transition: all 0.3s ease;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .upload-area {
+    padding: 1.5rem;
+  }
 }
 
 .upload-area:hover {
@@ -16,7 +23,13 @@
 .upload-area.dragover {
   border-color: #ef4444;
   background-color: #fef2f2;
-  transform: scale(1.02);
+  transform: scale(1.01);
+}
+
+@media (min-width: 640px) {
+  .upload-area.dragover {
+    transform: scale(1.02);
+  }
 }
 
 .image-preview {
@@ -127,17 +140,31 @@
   background: linear-gradient(135deg, #ef4444, #f97316);
   color: white;
   font-weight: bold;
-  font-size: 1.25rem;
-  padding: 1rem 2rem;
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 12px;
   transition: all 0.3s ease;
   width: 100%;
 }
 
+@media (min-width: 640px) {
+  .submit-button {
+    font-size: 1.25rem;
+    padding: 1rem 2rem;
+  }
+}
+
 .submit-button:hover:not(:disabled) {
   background: linear-gradient(135deg, #dc2626, #ea580c);
-  transform: translateY(-2px);
-  box-shadow: 0 15px 30px rgba(239, 68, 68, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+}
+
+@media (min-width: 640px) {
+  .submit-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(239, 68, 68, 0.4);
+  }
 }
 
 .submit-button:disabled {
@@ -184,18 +211,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 0.5rem;
   z-index: 50;
+}
+
+@media (min-width: 640px) {
+  .feedback-modal {
+    padding: 1rem;
+  }
 }
 
 .feedback-content {
   background: white;
-  border-radius: 16px;
-  padding: 2rem;
+  border-radius: 12px;
+  padding: 1rem;
   width: 100%;
   max-width: 32rem;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  .feedback-content {
+    border-radius: 16px;
+    padding: 2rem;
+  }
 }
 
 .feedback-button {
