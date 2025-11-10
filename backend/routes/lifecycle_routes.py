@@ -143,7 +143,7 @@ def activate_subscription():
                 'error': 'Request data required'
             }), 400
         
-        duration_days = data.get('duration_days', 7)
+        duration_days = data.get('duration_days', 30)
         paystack_data = data.get('paystack_data', {})
         
         # Check if test mode is enabled
