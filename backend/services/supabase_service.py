@@ -42,17 +42,8 @@ class SupabaseService:
         try:
             print("[DEBUG] Creating Supabase client...")
             
-            # Create the client with connection pooling options
-            options = {
-                'schema': 'public',
-                'headers': {
-                    'apikey': supabase_key,
-                },
-                'auto_refresh_token': True,
-                'persist_session': False
-            }
-            
-            self.supabase: Client = create_client(supabase_url, supabase_key, options=options)
+            # Create the client (service role key provides full access)
+            self.supabase: Client = create_client(supabase_url, supabase_key)
             
             # Store the key for verification
             self._service_role_key = supabase_key
