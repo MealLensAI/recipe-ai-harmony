@@ -638,13 +638,6 @@ class SubscriptionService:
                 'metadata': paystack_data
             }
             
-            print(f"💳 Saving payment transaction:")
-            print(f"   User ID: {user_id}")
-            print(f"   Plan ID: {plan_id}")
-            print(f"   Amount: {transaction_data['amount']}")
-            print(f"   Status: {transaction_data['status']}")
-            print(f"   Reference: {transaction_data['paystack_reference']}")
-            
             # Insert transaction record
             result = self.supabase.table('payment_transactions').insert(transaction_data).execute()
             
