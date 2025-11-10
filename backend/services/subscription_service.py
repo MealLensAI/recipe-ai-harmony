@@ -46,7 +46,6 @@ class SubscriptionService:
             # Use provided user_id directly (we're using Supabase auth, not Firebase)
             if user_id and user_id != 'anon':
                 supabase_user_id = user_id
-                print(f"✅ Using provided user ID: {supabase_user_id}")
             # Supabase-only implementation; no Firebase UID fallback
             
             if not supabase_user_id:
@@ -61,11 +60,9 @@ class SubscriptionService:
                 }
             
             # Get ALL subscriptions for user (not just active ones) to check for expiry
-            print(f"🔍 Looking for subscriptions for user ID: {supabase_user_id}")
             subscription_result = self.supabase.table('user_subscriptions').select(
                 'id, plan_id, status, current_period_start, current_period_end, created_at, updated_at'
             ).eq('user_id', supabase_user_id).execute()
-            print(f"🔍 Subscription query result: {subscription_result.data}")
             
             subscription = None
             has_active_subscription = False
@@ -76,13 +73,6 @@ class SubscriptionService:
             # Also check if user has ever had a subscription (fallback for users who paid before payment transactions were working)
             has_ever_had_subscription = has_ever_paid or len(subscription_result.data) > 0
             
-            print(f"🔍 Payment history check:")
-            print(f"   User ID: {supabase_user_id}")
-            print(f"   Payment transactions found: {len(payment_result.data)}")
-            print(f"   Subscriptions found: {len(subscription_result.data)}")
-            print(f"   Has ever paid (transactions): {has_ever_paid}")
-            print(f"   Has ever had subscription: {has_ever_had_subscription}")
-            
             if subscription_result.data:
                 # Check all subscriptions for expiry, regardless of current status
                 from datetime import datetime, timezone
@@ -92,19 +82,16 @@ class SubscriptionService:
                     end_date_str = sub.get('current_period_end')
                     if end_date_str:
                         end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
-                        print(f"🔍 Checking subscription {sub['id']}: status={sub['status']}, end_date={end_date}, now={now}, expired={end_date <= now}")
                         
                         # If subscription is marked as active but expired, auto-expire it
                         if sub['status'] == 'active' and end_date <= now:
-                            print(f"⚠️ Subscription {sub['id']} is expired, auto-expiring...")
                             try:
                                 self.supabase.table('user_subscriptions').update({
                                     'status': 'expired',
                                     'updated_at': now.isoformat()
                                 }).eq('id', sub['id']).execute()
-                                print(f"✅ Auto-expired subscription {sub['id']} (end_date: {end_date}, now: {now})")
                             except Exception as e:
-                                print(f"⚠️ Failed to auto-expire subscription {sub['id']}: {e}")
+                                pass  # Silent fail, not critical
                             # Don't consider this subscription as active
                             continue
                         
@@ -121,7 +108,6 @@ class SubscriptionService:
                                 'updated_at': sub['updated_at']
                             }
                             has_active_subscription = True
-                            print(f"✅ Subscription {sub['id']} is still active")
                             break
             
             # Get trial info
@@ -435,7 +421,6 @@ class SubscriptionService:
             # Check if user has a profile, if not create one
             profile_result = self.supabase.table('profiles').select('*').eq('id', supabase_user_id).execute()
             if not profile_result.data:
-                print(f"🔍 User {supabase_user_id} doesn't have a profile, creating one...")
                 # Create a basic profile for the user
                 from datetime import timezone
                 profile_data = {
@@ -445,16 +430,9 @@ class SubscriptionService:
                     'updated_at': datetime.now(timezone.utc).isoformat()
                 }
                 try:
-                    profile_create_result = self.supabase.table('profiles').insert(profile_data).execute()
-                    if not profile_create_result.data:
-                        print(f"⚠️ Failed to create profile for user {supabase_user_id}")
-                        print(f"⚠️ Profile creation error: {profile_create_result}")
-                    else:
-                        print(f"✅ Created profile for user {supabase_user_id}")
-                except Exception as e:
-                    print(f"⚠️ Exception creating profile for user {supabase_user_id}: {e}")
-            else:
-                print(f"✅ User {supabase_user_id} already has a profile")
+                    self.supabase.table('profiles').insert(profile_data).execute()
+                except Exception:
+                    pass  # Profile creation is not critical
             
             # Get or create a default plan for custom duration
             plan_result = self.supabase.table('subscription_plans').select('*').eq('duration_days', duration_days).execute()
@@ -670,20 +648,13 @@ class SubscriptionService:
             # Insert transaction record
             result = self.supabase.table('payment_transactions').insert(transaction_data).execute()
             
-            print(f"💳 Payment transaction insert result:")
-            print(f"   Success: {bool(result.data)}")
-            print(f"   Data: {result.data}")
-            print(f"   Error: {result.error if hasattr(result, 'error') else 'None'}")
-            
             if result.data:
-                print(f"✅ Payment transaction saved successfully: {result.data[0]['id']}")
                 return {
                     'success': True,
                     'transaction_id': result.data[0]['id'],
                     'message': 'Payment transaction saved successfully'
                 }
             
-            print(f"❌ Failed to save payment transaction")
             return {
                 'success': False,
                 'error': 'Failed to save transaction'

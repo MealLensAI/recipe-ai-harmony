@@ -55,27 +55,18 @@ class AuthService:
         Returns:
             Tuple[Optional[str], str]: (user_id, auth_type) or (None, '') if verification fails
         """
-        print(f"\n--- Verifying token ---")  # Debug
-        print(f"Token length: {len(token) if token else 0}")
-        print(f"Token starts with: {token[:30]}..." if token else "No token provided")
-        
         if not token:
-            print("No token provided")
             return None, ''
             
         # Remove 'Bearer ' prefix if present
         if token.startswith('Bearer '):
             token = token[7:]
-            print("Removed 'Bearer ' prefix from token")
             
         # Verify as Supabase token
-        print("Attempting to verify as Supabase token...")
         user_id, auth_type = self._verify_supabase_token(token)
         if user_id:
-            print(f"Successfully verified as Supabase token. User ID: {user_id}")
             return user_id, auth_type
 
-        print("Supabase token verification failed")
         return None, ''
 
     # Backwards compatibility for old callers
