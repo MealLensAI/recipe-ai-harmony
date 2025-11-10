@@ -209,7 +209,11 @@ CREATE POLICY "Enterprise owners can manage invitations" ON public.invitations
 -- 5. CREATE/FIX UPSERT_USER_SETTINGS RPC FUNCTION
 -- ──────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE FUNCTION public.upsert_user_settings(
+-- Drop existing function first (if it exists)
+DROP FUNCTION IF EXISTS public.upsert_user_settings(UUID, TEXT, JSONB);
+
+-- Create new function with correct return type
+CREATE FUNCTION public.upsert_user_settings(
     p_user_id UUID,
     p_settings_type TEXT,
     p_settings_data JSONB
