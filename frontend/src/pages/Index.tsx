@@ -114,66 +114,6 @@ const Index = () => {
     }
   }, [showPlanManager, currentPlan, savedPlans]);
 
-  // Full-page skeleton while meal plans are loading
-  if (mealPlansLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Header skeleton */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-3">
-              <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-64 bg-gray-200 rounded animate-pulse" />
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-40 bg-gray-200 rounded animate-pulse" />
-              <div className="h-10 w-40 bg-gray-200 rounded animate-pulse" />
-            </div>
-          </div>
-
-          {/* Content grid skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left/main content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Filters/search row */}
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-40 bg-gray-200 rounded animate-pulse" />
-                <div className="h-10 w-56 bg-gray-200 rounded animate-pulse" />
-                <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
-              </div>
-              {/* Recipe cards grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[...Array(6)].map((_, idx) => (
-                  <div key={idx} className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
-                    <div className="h-40 bg-gray-200 animate-pulse" />
-                    <div className="p-4 space-y-3">
-                      <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
-                      <div className="flex items-center justify-between">
-                        <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
-                        <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right/sidebar skeleton (e.g., plan manager) */}
-            <div className="space-y-4">
-              <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
-              <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
-              <div className="space-y-3">
-                {[...Array(4)].map((_, idx) => (
-                  <div key={idx} className="h-16 w-full bg-gray-100 rounded border border-gray-200 animate-pulse" />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const weekDates = generateWeekDates(selectedDate);
 
   // Find all unique week start dates from savedPlans, sorted ascending

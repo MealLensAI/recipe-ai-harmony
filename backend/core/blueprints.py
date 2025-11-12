@@ -4,7 +4,6 @@ Centralizes all route blueprint registration for better organization.
 """
 import logging
 from flask import Flask
-
 logger = logging.getLogger(__name__)
 
 

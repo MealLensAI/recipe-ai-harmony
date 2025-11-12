@@ -2,7 +2,7 @@
 
 ## Overview
 
-As a senior software engineer, I've addressed the outstanding issues in the MealLens AI application. Below is a comprehensive summary of the work completed.
+I've addressed the outstanding issues in the MealLens AI application. Below is a comprehensive summary of the work completed.
 
 ## Issues Status
 
@@ -30,13 +30,17 @@ As a senior software engineer, I've addressed the outstanding issues in the Meal
 **Documentation**:
 - Created `BUG_FIX_SETTINGS_NOT_SAVING.md` with detailed fix information
 
+
 ---
+
 
 #### Issue #2: History Not Being Fetched
 **Status**: ✅ COMPLETED (Previously)
 **Description**: Detection history not loading for users
 
+
 ---
+
 
 #### Issue #4: Invitations Not Working
 **Status**: ✅ COMPLETED (Previously)

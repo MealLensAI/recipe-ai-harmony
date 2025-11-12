@@ -99,45 +99,24 @@ def create_app():
       # Support comma-separated list in env
       for item in env_allowed.split(","):
           origin = item.strip()
-          if origin:
+          if origin and origin not in allowed_origins:
               allowed_origins.append(origin)
 
+  # Configure CORS with proper settings
   CORS(
       app,
       resources={
-          r"/api/*": {
+          r"/*": {  # Allow all routes, not just /api/*
               "origins": allowed_origins,
-              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-              "allow_headers": ["Content-Type", "Authorization"],
+              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+              "allow_headers": ["Content-Type", "Authorization", "Accept"],
               "supports_credentials": True,
               "expose_headers": ["Content-Type", "Authorization"],
-              "max_age": 600  # Cache preflight request for 10 minutes
+              "max_age": 3600
           }
       },
       supports_credentials=True
   )
-  
-  # Add CORS headers to all responses for preflight requests
-  @app.after_request
-  def after_request(response):
-      # Only add CORS headers if they're not already set by Flask-CORS
-      if 'Access-Control-Allow-Origin' not in response.headers:
-          # Echo back allowed origin or fall back to first allowed
-          origin = request.headers.get('Origin')
-          try:
-              if origin and origin in allowed_origins:
-                  response.headers.add('Access-Control-Allow-Origin', origin)
-              else:
-                  # Prefer production domain as default fallback instead of localhost
-                  default_origin = 'https://www.meallensai.com' if 'https://www.meallensai.com' in allowed_origins else allowed_origins[0]
-                  response.headers.add('Access-Control-Allow-Origin', default_origin)
-          except Exception:
-              # As a very last resort, use production domain to avoid leaking localhost in prod
-              response.headers.add('Access-Control-Allow-Origin', 'https://www.meallensai.com')
-          response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-          response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-          response.headers.add('Access-Control-Allow-Credentials', 'true')
-      return response
 
   # Initialize Supabase clients
   supabase_url = os.environ.get("SUPABASE_URL")

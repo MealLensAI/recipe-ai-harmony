@@ -239,10 +239,10 @@ const WelcomePage: React.FC = () => {
 
                             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
                                 End Cooking Burnout
-                                <span className="block text-orange-500">Get Better Health From Your Food.</span>
+                                <span className="text-orange-500"> Get Better Health From Your Food.</span>
                             </h1>
 
-                            <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
+                            <p className="text-lg sm:text-xl lg:text-base text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
                                 MealLensAI helps you end cooking burnout, improve your health by giving you food suggestions tailored to your health condition.
                                 Snap your ingredients to get 10+ recipe ideas
                                 with step-by-step instructions, or health-focused

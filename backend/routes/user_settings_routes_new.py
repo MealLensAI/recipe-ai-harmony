@@ -7,7 +7,6 @@ from core.dependencies import get_supabase_service
 
 user_settings_bp = Blueprint('user_settings', __name__)
 
-
 @user_settings_bp.route('/settings', methods=['POST'])
 def save_user_settings():
     """

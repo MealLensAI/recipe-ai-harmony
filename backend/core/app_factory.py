@@ -59,7 +59,7 @@ def create_app(config_name: str = None) -> Flask:
     
     logger.info("Flask application created successfully")
     return app
-
+    
 
 def register_error_handlers(app: Flask) -> None:
     """

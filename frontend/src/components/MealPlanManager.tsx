@@ -77,6 +77,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
         description: `"${plan.name}" has been duplicated for ${weekDates.name}.`,
       });
     } catch (error) {
+      
       toast({
         title: "Error",
         description: "Failed to duplicate meal plan. Please try again.",
