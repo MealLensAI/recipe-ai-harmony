@@ -6,10 +6,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Utensils, BookOpen, CalendarDays, Clock, Search, Play } from "lucide-react"
+import { Utensils, BookOpen, CalendarDays, Clock, Search, Play } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
-import LoadingSpinner from "@/components/LoadingSpinner"
 
 interface SharedRecipe {
   id: string
@@ -56,10 +55,6 @@ export function HistoryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
-
-  if (authLoading) {
-    return <LoadingSpinner />
-  }
 
   if (!isAuthenticated) {
     return (
@@ -150,24 +145,7 @@ export function HistoryPage() {
       suggestion.toLowerCase().includes(searchLower)
   })
 
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 min-h-[600px] w-full">
-        <Loader2 className="h-12 w-12 animate-spin text-red-500" aria-label="Loading authentication" />
-        <span className="mt-4 text-xl font-medium text-gray-600">Loading authentication...</span>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 min-h-[600px] w-full">
-        <Loader2 className="h-12 w-12 animate-spin text-red-500" aria-label="Loading history" />
-        <span className="mt-4 text-xl font-medium text-gray-600">Loading history...</span>
-      </div>
-    )
-  }
+  // Removed loading screens - show content immediately
 
   if (error) {
     return (

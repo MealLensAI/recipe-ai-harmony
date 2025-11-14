@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Loader2, Utensils, BookOpen } from "lucide-react"
+import { ArrowLeft, Utensils, BookOpen } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useAPI } from "@/lib/api"
-import LoadingSpinner from "@/components/LoadingSpinner"
 
 interface HistoryDetail {
   id: string
@@ -125,11 +124,9 @@ const HistoryDetailPage = () => {
     return (match && match[2] && match[2].length === 11) ? match[2] : null
   }
 
-  if (authLoading) {
-    return <LoadingSpinner />
-  }
+  // Removed loading screens - show content immediately
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
@@ -149,15 +146,6 @@ const HistoryDetailPage = () => {
             </Button>
           </div>
         </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 min-h-[600px] w-full">
-        <Loader2 className="h-12 w-12 animate-spin text-red-500" aria-label="Loading history detail" />
-        <span className="mt-4 text-xl font-medium text-gray-600">Loading history detail...</span>
       </div>
     )
   }
