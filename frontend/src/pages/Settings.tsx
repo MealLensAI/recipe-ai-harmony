@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock } from 'lucide-react';
@@ -10,47 +9,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
-import { api } from '@/lib/api';
 
 const Settings = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { settings, loading, updateSettings, saveSettings } = useSicknessSettings();
-  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isLoading } = useTrial();
+  const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
 
-  // Profile info & password change state
-  const [email, setEmail] = useState<string>('');
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [changing, setChanging] = useState(false);
-
-  // Fetch user profile on mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const result = await api.getUserProfile();
-        if (result.status === 'success' && result.profile) {
-          setEmail(result.profile.email || '');
-        }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        // Fallback to localStorage for migration
-        try {
-          const userData = localStorage.getItem('user_data');
-          if (userData) {
-            const u = JSON.parse(userData);
-            setEmail(u?.email || '');
-          }
-        } catch { }
-      } finally {
-        setProfileLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, []);
+  // Removed profile fetching - not needed for this page
 
   const handleSicknessChange = (value: string) => {
     const hasSickness = value === 'yes';
@@ -152,63 +118,7 @@ const Settings = () => {
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast({ title: 'Error', description: 'Fill all password fields.', variant: 'destructive' });
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast({ title: 'Error', description: 'New password must be at least 6 characters.', variant: 'destructive' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({ title: 'Error', description: 'New passwords do not match.', variant: 'destructive' });
-      return;
-    }
-    try {
-      setChanging(true);
-      const res: any = await api.post('/change-password', {
-        current_password: currentPassword,
-        new_password: newPassword
-      });
-      if (res.status === 'success') {
-        toast({ title: 'Password Updated', description: 'Please sign in again.' });
-        // Proactively clear session to avoid stale gating
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('supabase_refresh_token');
-        localStorage.removeItem('supabase_session_id');
-        localStorage.removeItem('supabase_user_id');
-        localStorage.removeItem('meallensai_user_access_status');
-        localStorage.removeItem('meallensai_trial_start');
-        localStorage.removeItem('meallensai_subscription_status');
-        localStorage.removeItem('meallensai_subscription_expires_at');
-        window.location.href = '/login';
-      } else {
-        toast({ title: 'Error', description: res.message || 'Failed to update password.', variant: 'destructive' });
-      }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e?.message || 'Failed to update password.', variant: 'destructive' });
-    } finally {
-      setChanging(false);
-    }
-  };
-
-  // Simple loading indicator - much faster than skeleton
-  if (isLoading || loading) {
-    return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-              <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
-            </div>
-            <p className="mt-4 text-sm text-muted-foreground">Loading settings...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Removed loading screen - show content immediately
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -219,17 +129,10 @@ const Settings = () => {
             Manage your account settings and preferences
           </p>
           {!hasActiveSubscription && (
-            isLoading ? (
-              <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-gray-100 border-gray-200 animate-pulse">
-                <div className="h-3 w-3 rounded-full bg-gray-300" />
-                <div className="h-3 w-28 rounded bg-gray-300" />
-              </div>
-            ) : (
-              <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
-                <Clock className="h-3 w-3" />
-                {isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}
-              </div>
-            )
+            <div className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${isTrialExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+              <Clock className="h-3 w-3" />
+              {isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}
+            </div>
           )}
         </div>
 
@@ -244,28 +147,6 @@ const Settings = () => {
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {loading ? (
-              <div className="space-y-6 animate-pulse">
-                <div className="space-y-3">
-                  <div className="h-4 w-2/3 bg-gray-200 rounded" />
-                  <div className="flex items-center gap-3">
-                    <div className="h-4 w-4 rounded-full bg-gray-300" />
-                    <div className="h-4 w-48 bg-gray-200 rounded" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-4 w-4 rounded-full bg-gray-300" />
-                    <div className="h-4 w-56 bg-gray-200 rounded" />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 w-1/2 bg-gray-200 rounded" />
-                  <div className="h-10 w-full bg-gray-200 rounded" />
-                  <div className="h-3 w-3/4 bg-gray-200 rounded" />
-                </div>
-                <div className="h-10 w-full bg-gray-300 rounded" />
-              </div>
-            ) : (
-              <>
                 <div className="space-y-4">
                   <Label className="text-base font-medium">
                     Do you have any health conditions or sickness?
@@ -444,15 +325,13 @@ const Settings = () => {
                   </div>
                 )}
 
-                <Button
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  {loading ? 'Saving...' : 'Save Health Profile'}
-                </Button>
-              </>
-            )}
+            <Button
+              onClick={handleSave}
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? 'Saving...' : 'Save Health Profile'}
+            </Button>
           </CardContent>
         </Card>
       </div>
