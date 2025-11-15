@@ -80,6 +80,19 @@ except Exception as e:
     print(f"Enterprise routes error: {e}")
     print("Enterprise endpoints will be disabled.")
 
+# Mock AI routes import (for local development)
+try:
+    from routes.mock_ai_routes import mock_ai_bp
+    MOCK_AI_ROUTES_ENABLED = True
+    print("Mock AI routes loaded successfully.")
+except ImportError as e:
+    MOCK_AI_ROUTES_ENABLED = False
+    print(f"Mock AI routes not available: {e}")
+except Exception as e:
+    MOCK_AI_ROUTES_ENABLED = False
+    print(f"Mock AI routes error: {e}")
+    print("Mock AI endpoints will be disabled.")
+
 def create_app():
   """
   Factory function to create and configure the Flask application.
@@ -211,6 +224,13 @@ def create_app():
       print("Enterprise routes registered.")
   else:
       print("Enterprise routes disabled.")
+
+  # Register mock AI routes (for local development)
+  if MOCK_AI_ROUTES_ENABLED:
+      app.register_blueprint(mock_ai_bp)
+      print("Mock AI routes registered.")
+  else:
+      print("Mock AI routes disabled.")
 
   return app
 
