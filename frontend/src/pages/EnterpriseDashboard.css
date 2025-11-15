@@ -273,6 +273,11 @@
   padding: 0;
 }
 
+.team-panel__actions {
+  display: flex;
+  gap: 10px;
+}
+
 .table-wrapper {
   overflow-x: auto;
   border: 1px solid #e1e4ec;
