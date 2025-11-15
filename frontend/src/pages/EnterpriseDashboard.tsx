@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,29 @@ import { useAuth } from "@/lib/utils";
 import EntrepriseSidebar from "@/components/enterprise/sidebar/EntrepriseSidebar";
 import "./EnterpriseDashboard.css";
 
+type CustomTable = {
+  id: string;
+  title: string;
+  description?: string;
+  createdAt: string;
+};
+
+type ImportedMember = {
+  tempId: string;
+  full_name?: string;
+  email: string;
+  role?: string;
+  joined_at?: string;
+  member_id?: string;
+  work_type?: string;
+  status?: string;
+  department?: string;
+  isImported: true;
+};
+
+const NAV_SECTIONS = ["Overview", "Activity", "Task", "Member", "Notes", "Companies"] as const;
+const PERIOD_OPTIONS = ["December 2023", "November 2023", "October 2023", "Q3 2023", "FY 2023"];
+
 export default function EnterpriseDashboardRedesign() {
   const { toast } = useToast();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -37,8 +60,9 @@ export default function EnterpriseDashboardRedesign() {
 
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [showInviteUserForm, setShowInviteUserForm] = useState(false);
+  const [inviteContextTeam, setInviteContextTeam] = useState<string | null>(null);
 
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: any }>({
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: any; relationId?: string; teamName?: string }>({
     isOpen: false,
     user: null,
   });
@@ -48,6 +72,30 @@ export default function EnterpriseDashboardRedesign() {
   const [permissionReason, setPermissionReason] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [activeNav, setActiveNav] = useState<(typeof NAV_SECTIONS)[number]>("Member");
+  const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
+  const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
+  const periodMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showCustomTableForm, setShowCustomTableForm] = useState(false);
+  const [customTableForm, setCustomTableForm] = useState({ title: "", description: "" });
+  const [customTablesByOrg, setCustomTablesByOrg] = useState<Record<string, CustomTable[]>>({});
+
+  const [importedMembers, setImportedMembers] = useState<Record<string, Record<string, ImportedMember[]>>>({});
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importingTeam, setImportingTeam] = useState<string | null>(null);
+
+  const currentCustomTables = useMemo(() => {
+    if (!selectedEnterprise) return [];
+    return customTablesByOrg[selectedEnterprise.id] ?? [];
+  }, [customTablesByOrg, selectedEnterprise]);
+
+  const currentImports = useMemo(() => {
+    if (!selectedEnterprise) return {};
+    return importedMembers[selectedEnterprise.id] ?? {};
+  }, [importedMembers, selectedEnterprise]);
 
   
 
@@ -66,6 +114,17 @@ export default function EnterpriseDashboardRedesign() {
       setInvitations([]);
     }
   }, [selectedEnterprise]);
+
+  useEffect(() => {
+    if (!isPeriodMenuOpen) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!periodMenuRef.current) return;
+      if (periodMenuRef.current.contains(event.target as Node)) return;
+      setIsPeriodMenuOpen(false);
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [isPeriodMenuOpen]);
 
   const checkUserPermissions = async () => {
     try {
@@ -135,15 +194,6 @@ export default function EnterpriseDashboardRedesign() {
     }
   };
 
-  const handleInviteUserOrMember = async (email: string, role: string, message: string) => {
-    try{
-      console.log("Inviting user:", email, role);
-
-    }catch(error:any){
-      toast({ title: "Error", description: "Failed to invite user", variant: "destructive" });
-    }
-  }
-
   const handleCancelInvitation = async (invitationId: string) => {
     try {
       const res: any = await api.cancelInvitation(invitationId);
@@ -159,6 +209,10 @@ export default function EnterpriseDashboardRedesign() {
   };
 
   const deleteUser = async (userRelationId: string) => {
+    if (!userRelationId) {
+      toast({ title: "Error", description: "Unable to identify member record.", variant: "destructive" });
+      return;
+    }
     try {
       const r: any = await api.deleteEnterpriseUser(userRelationId);
       if (r.success) {
@@ -194,12 +248,249 @@ export default function EnterpriseDashboardRedesign() {
       ? Math.min(100, Math.round((totalUsers / selectedEnterprise.seat_limit) * 100))
       : totalUsers ? 72 : 0;
 
-  const groupedUsers = filteredUsers.reduce<Record<string, any[]>>((acc, current) => {
-    const key = current?.department || current?.team || current?.role || "General Team";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(current);
-    return acc;
-  }, {});
+  const groupedUsers = useMemo(() => {
+    return filteredUsers.reduce<Record<string, any[]>>((acc, current) => {
+      const key = current?.department || current?.team || current?.role || "General Team";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(current);
+      return acc;
+    }, {});
+  }, [filteredUsers]);
+
+  const generateTempId = () => {
+    try {
+      if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+        return crypto.randomUUID();
+      }
+    } catch {
+      // ignore
+    }
+    return `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  };
+
+  const getMemberRelationId = (member: any) =>
+    member?.relation_id ?? member?.membership_id ?? member?.enterprise_user_id ?? member?.id ?? member?.user_id;
+
+  const handleNavChange = (section: (typeof NAV_SECTIONS)[number]) => {
+    setActiveNav(section);
+    if (section !== "Member") {
+      toast({
+        title: `${section} view`,
+        description: "This view is informational for now. Member management lives in the Member tab.",
+      });
+    }
+  };
+
+  const handlePeriodSelect = (period: string) => {
+    setSelectedPeriod(period);
+    setIsPeriodMenuOpen(false);
+    toast({
+      title: "Period updated",
+      description: `Showing metrics for ${period}`,
+    });
+  };
+
+  const handleViewSettings = () => {
+    if (!selectedEnterprise) {
+      toast({ title: "Select an organization", description: "Choose an organization to review its settings.", variant: "destructive" });
+      return;
+    }
+    setShowSettingsPanel(true);
+  };
+
+  const handleCopyOrgId = async () => {
+    if (!selectedEnterprise?.id) return;
+    if (typeof navigator === "undefined" || !navigator?.clipboard) {
+      toast({ title: "Clipboard unavailable", description: "Your browser blocked clipboard access.", variant: "destructive" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(selectedEnterprise.id);
+      toast({ title: "Copied", description: "Organization ID copied to clipboard." });
+    } catch {
+      toast({ title: "Unable to copy", description: "Clipboard access was blocked.", variant: "destructive" });
+    }
+  };
+
+  const handleCustomTableSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedEnterprise) {
+      toast({ title: "Select an organization", description: "Choose an organization before adding a custom table.", variant: "destructive" });
+      return;
+    }
+    if (!customTableForm.title.trim()) {
+      toast({ title: "Missing title", description: "Give the table a name so your team can identify it.", variant: "destructive" });
+      return;
+    }
+    const newTable: CustomTable = {
+      id: generateTempId(),
+      title: customTableForm.title.trim(),
+      description: customTableForm.description.trim() || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    setCustomTablesByOrg((prev) => ({
+      ...prev,
+      [selectedEnterprise.id]: [...(prev[selectedEnterprise.id] ?? []), newTable],
+    }));
+    toast({ title: "Table added", description: `${newTable.title} is now pinned to this workspace.` });
+    setCustomTableForm({ title: "", description: "" });
+    setShowCustomTableForm(false);
+  };
+
+  const openCustomTableForm = () => {
+    if (!selectedEnterprise) {
+      toast({ title: "Select an organization", description: "Create or pick an organization before adding custom tables.", variant: "destructive" });
+      return;
+    }
+    setShowCustomTableForm(true);
+  };
+
+  const handleRemoveCustomTable = (tableId: string) => {
+    if (!selectedEnterprise) return;
+    setCustomTablesByOrg((prev) => {
+      const tables = prev[selectedEnterprise.id] ?? [];
+      return {
+        ...prev,
+        [selectedEnterprise.id]: tables.filter((table) => table.id !== tableId),
+      };
+    });
+    toast({ title: "Table removed", description: "Custom table removed from this workspace." });
+  };
+
+  const handleImportClick = (teamName: string) => {
+    if (!selectedEnterprise) {
+      toast({ title: "Select an organization", description: "Select an organization before importing members.", variant: "destructive" });
+      return;
+    }
+    setImportingTeam(teamName);
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+      importInputRef.current.click();
+    }
+  };
+
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setImportingTeam(null);
+      return;
+    }
+    if (!importingTeam || !selectedEnterprise) {
+      toast({ title: "Import cancelled", description: "Select a team before importing.", variant: "destructive" });
+      setImportingTeam(null);
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      toast({ title: "File too large", description: "Please upload a CSV under 1MB.", variant: "destructive" });
+      setImportingTeam(null);
+      return;
+    }
+    try {
+      const text = await file.text();
+      const parsed = parseImportedMembers(text, importingTeam);
+      if (!parsed.length) {
+        toast({ title: "No members detected", description: "We could not find valid email addresses in this file.", variant: "destructive" });
+        return;
+      }
+      setImportedMembers((prev) => {
+        const existing = prev[selectedEnterprise.id] ?? {};
+        const teamMembers = existing[importingTeam] ?? [];
+        return {
+          ...prev,
+          [selectedEnterprise.id]: {
+            ...existing,
+            [importingTeam]: [...teamMembers, ...parsed],
+          },
+        };
+      });
+      toast({
+        title: "Import ready",
+        description: `${parsed.length} draft member${parsed.length > 1 ? "s" : ""} added to ${importingTeam}.`,
+      });
+    } catch (error: any) {
+      toast({ title: "Import failed", description: error?.message || "Unable to read the selected file.", variant: "destructive" });
+    } finally {
+      setImportingTeam(null);
+    }
+  };
+
+  const parseImportedMembers = (contents: string, teamName: string): ImportedMember[] => {
+    const lines = contents.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const members: ImportedMember[] = [];
+
+    lines.forEach((line, index) => {
+      const cells = line.split(",").map((cell) => cell.trim()).filter(Boolean);
+      const explicitEmail = cells.find((cell) => cell.includes("@"));
+      const fallbackEmail = line.match(/[^\s,;<>]+@[^\s,;<>]+/i)?.[0];
+      const email = explicitEmail || fallbackEmail;
+      if (!email) return;
+      const possibleName = cells.find((cell) => !cell.includes("@"));
+      const possibleRole = cells.length > 1 ? cells[cells.length - 1] : undefined;
+      const newMember: ImportedMember = {
+        tempId: generateTempId(),
+        full_name: possibleName && possibleName !== email ? possibleName : undefined,
+        email,
+        role: possibleRole && possibleRole !== email ? possibleRole : "Member",
+        joined_at: new Date().toISOString(),
+        member_id: `IMP-${(index + 1).toString().padStart(3, "0")}`,
+        work_type: "Imported",
+        status: "draft",
+        department: teamName,
+        isImported: true as const,
+      };
+      members.push(newMember);
+    });
+
+    return members;
+  };
+
+  const handleRemoveImportedMember = (teamName: string, tempId: string) => {
+    if (!selectedEnterprise) return;
+    setImportedMembers((prev) => {
+      const orgImports = prev[selectedEnterprise.id] ?? {};
+      const teamImports = orgImports[teamName] ?? [];
+      const updatedTeam = teamImports.filter((member) => member.tempId !== tempId);
+      return {
+        ...prev,
+        [selectedEnterprise.id]: {
+          ...orgImports,
+          [teamName]: updatedTeam,
+        },
+      };
+    });
+    toast({ title: "Draft removed", description: "Imported draft removed from the table." });
+  };
+
+  const handleMemberRemovalRequest = (member: any, teamName: string) => {
+    if (member?.isImported) {
+      handleRemoveImportedMember(teamName, member.tempId);
+      return;
+    }
+    const relationId = getMemberRelationId(member);
+    if (!relationId) {
+      toast({ title: "Cannot remove member", description: "Missing relation identifier from server response.", variant: "destructive" });
+      return;
+    }
+    setDeleteConfirm({ isOpen: true, user: member, relationId, teamName });
+  };
+
+  const handleInviteMemberClick = (teamName?: string) => {
+    if (!selectedEnterprise) {
+      toast({
+        title: "Select an organization",
+        description: "Pick an organization before inviting members.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setInviteContextTeam(teamName ?? null);
+    setShowInviteUserForm(true);
+  };
+
+  const handleCloseInviteForm = () => {
+    setShowInviteUserForm(false);
+    setInviteContextTeam(null);
+  };
 
   if (isLoading) {
     return (
@@ -214,15 +505,48 @@ export default function EnterpriseDashboardRedesign() {
 
   return (
     <div className="enterprise-dashboard">
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".csv,.txt"
+        style={{ display: "none" }}
+        onChange={handleImportFileChange}
+      />
       <EntrepriseSidebar />
 
       <main className="dashboard-main">
         <div className="dashboard-content">
-        
+          <nav className="dashboard-nav">
+            {NAV_SECTIONS.map((item) => (
+              <button
+                key={item}
+                className={`nav-pill ${item === activeNav ? "active" : ""}`}
+                type="button"
+                onClick={() => handleNavChange(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </nav>
+
+          {activeNav !== "Member" && (
+            <div className="section-banner">
+              <div>
+                <p className="muted">You are previewing the {activeNav} workspace.</p>
+                <p>Member actions stay live so you can continue managing invites.</p>
+              </div>
+              <Button variant="outline" className="flat-button subtle" onClick={() => setActiveNav("Member")}>
+                Return to Members
+              </Button>
+            </div>
+          )}
+
           <header className="dashboard-toolbar">
             <div>
+              <p className="eyebrow">Member Database</p>
               <h1>Organization Workspace</h1>
-              {/* <div className="muted">Manage your organization's members, teams, and invitations all in one place.</div> */}
+              <div className="active-view-pill">{activeNav} view</div>
+              <span className="muted">Last updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
             </div>
             <div className="toolbar-actions">
               <Button
@@ -232,11 +556,11 @@ export default function EnterpriseDashboardRedesign() {
               >
                 <RefreshCw className="icon" /> Refresh
               </Button>
-              {/* {canCreateOrganizations && (
+              {canCreateOrganizations && (
                 <Button className="flat-button primary" onClick={() => setShowRegistrationForm(true)}>
                   <Plus className="icon" /> New Organization
                 </Button>
-              )} */}
+              )}
             </div>
           </header>
           {!canCreateOrganizations && (
@@ -255,14 +579,31 @@ export default function EnterpriseDashboardRedesign() {
                 className="control"
               />
             </div>
-            <Button variant="outline" className="flat-button subtle">
+            <Button variant="outline" className="flat-button subtle" onClick={handleViewSettings}>
               <Settings className="icon" /> View Setting
             </Button>
-            <div className="selector">
-
-              <button type="button">
-                December 2023 <ChevronDown className="icon" />
+            <Button variant="outline" className="flat-button subtle" onClick={openCustomTableForm}>
+              <FileText className="icon" /> Add Table
+            </Button>
+            <div className="selector period-selector" ref={periodMenuRef}>
+              <span>Period</span>
+              <button type="button" onClick={() => setIsPeriodMenuOpen((prev) => !prev)}>
+                {selectedPeriod} <ChevronDown className={`icon ${isPeriodMenuOpen ? "rotated" : ""}`} />
               </button>
+              {isPeriodMenuOpen && (
+                <div className="selector-menu">
+                  {PERIOD_OPTIONS.map((period) => (
+                    <button
+                      type="button"
+                      key={period}
+                      className={period === selectedPeriod ? "active" : ""}
+                      onClick={() => handlePeriodSelect(period)}
+                    >
+                      {period}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {enterprises.length > 1 && (
               <div className="selector">
@@ -322,12 +663,23 @@ export default function EnterpriseDashboardRedesign() {
             </article>
           </section>
 
-          <section className="">
+          <section className="data-board">
             <header className="data-board__header">
               <div>
+                <h3>{selectedEnterprise?.name || "No organization selected"}</h3>
+                <p className="muted">
+                  {selectedEnterprise
+                    ? `${totalUsers} members • ${filteredInvitations.length} invitations`
+                    : "Select or create an organization to begin"}
+                </p>
+                {selectedEnterprise && (
+                  <p className="note">
+                    Organizations stay independent — creating a new one will not nest it inside {selectedEnterprise.name}.
+                  </p>
+                )}
               </div>
               <div className="data-board__actions">
-                <Button className="flat-button subtle" onClick={() => selectedEnterprise && setShowInviteUserForm(true)}>
+                <Button className="flat-button subtle" onClick={() => handleInviteMemberClick()}>
                   <Plus className="icon" /> Invite member
                 </Button>
                 <Button
@@ -352,8 +704,20 @@ export default function EnterpriseDashboardRedesign() {
                         <h4>{teamName}</h4>
                       </div>
                       <div className="team-panel__meta">
-                        <span>{teamMembers.length} members</span>
-                        <button type="button">Import</button>
+                        <span>
+                          {teamMembers.length} members
+                          {(currentImports[teamName]?.length || 0) > 0 && (
+                            <em className="draft-count"> + {currentImports[teamName]!.length} draft{currentImports[teamName]!.length > 1 ? "s" : ""}</em>
+                          )}
+                        </span>
+                        <div className="team-panel__actions">
+                          <button type="button" onClick={() => handleInviteMemberClick(teamName)}>
+                            Invite
+                          </button>
+                          <button type="button" onClick={() => handleImportClick(teamName)}>
+                            Import
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -372,13 +736,14 @@ export default function EnterpriseDashboardRedesign() {
                           </tr>
                         </thead>
                         <tbody>
-                          {teamMembers.map((member, index) => (
-                            <tr key={member.id || index}>
+                          {[...(teamMembers ?? []), ...(currentImports[teamName] ?? [])].map((member: any, index) => (
+                            <tr key={member.id || member.tempId || index}>
                               <td>{index + 1}</td>
                               <td>
                                 <div className="member-cell">
                                   <span className="member-name">{member.full_name || member.email || "Unspecified"}</span>
                                   <span className="muted">{member.email || "—"}</span>
+                                  {member.isImported && <span className="draft-pill">Imported draft</span>}
                                 </div>
                               </td>
                               <td>{member.role ?? "—"}</td>
@@ -386,14 +751,16 @@ export default function EnterpriseDashboardRedesign() {
                               <td>{member.member_id ?? "#" + (index + 1).toString().padStart(3, "0")}</td>
                               <td>{member.work_type ?? "Full Time"}</td>
                               <td>
-                                <Badge variant={member.status === "active" ? "default" : "secondary"}>{member.status ?? "N/A"}</Badge>
+                                <Badge variant={member.isImported ? "secondary" : member.status === "active" ? "default" : "secondary"}>
+                                  {member.isImported ? "Draft" : member.status ?? "N/A"}
+                                </Badge>
                               </td>
                               <td className="table-actions">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="flat-button subtle"
-                                  onClick={() => setDeleteConfirm({ isOpen: true, user: member })}
+                                  onClick={() => handleMemberRemovalRequest(member, teamName)}
                                 >
                                   <Trash2 className="icon" />
                                 </Button>
@@ -471,7 +838,8 @@ export default function EnterpriseDashboardRedesign() {
           {showInviteUserForm && selectedEnterprise && (
             <InviteUserForm
               enterpriseId={selectedEnterprise.id}
-              onClose={() => setShowInviteUserForm(false)}
+              teamName={inviteContextTeam ?? undefined}
+              onClose={handleCloseInviteForm}
               onSuccess={() => loadEnterpriseDetails(selectedEnterprise.id)}
             />
           )}
@@ -490,7 +858,12 @@ export default function EnterpriseDashboardRedesign() {
                   <Button variant="outline" className="flat-button subtle" onClick={() => setDeleteConfirm({ isOpen: false, user: null })}>
                     Cancel
                   </Button>
-                  <Button variant="destructive" className="flat-button" onClick={() => deleteUser(deleteConfirm.user.id)}>
+                  <Button
+                    variant="destructive"
+                    className="flat-button"
+                    disabled={!deleteConfirm.relationId}
+                    onClick={() => deleteConfirm.relationId && deleteUser(deleteConfirm.relationId)}
+                  >
                     Remove
                   </Button>
                 </div>

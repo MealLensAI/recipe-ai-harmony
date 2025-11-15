@@ -4,7 +4,7 @@ import {
   Navigate,
 } from "react-router-dom"
 import { useEffect } from "react"
-import Login from "./pages/auth/Login"
+import Login from "./auth/Login"
 import Signup from "./pages/Signup"
 import DetectFoodPage from "./pages/DetectFoodPage"
 import AIResponsePage from "./pages/AIResponsePage"
