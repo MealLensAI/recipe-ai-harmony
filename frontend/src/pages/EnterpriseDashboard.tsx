@@ -1,539 +1,504 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Users, Mail, Plus, MailOpen, XCircle, Trash2, CheckCircle, Clock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { EnterpriseRegistrationForm } from '@/components/enterprise/EnterpriseRegistrationForm';
-import { InviteUserForm } from '@/components/enterprise/InviteUserForm';
-import MainLayout from '@/components/MainLayout';
-import { api } from '@/lib/api';
-import { useAuth } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { Card, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Building2,
+  Users,
+  Mail,
+  Plus,
+  Trash2,
+  Search,
+  Settings,
+  Activity,
+  FileText,
+  LayoutDashboard,
+  ChevronDown,
+  RefreshCw,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { EnterpriseRegistrationForm } from "@/components/enterprise/EnterpriseRegistrationForm";
+import { InviteUserForm } from "@/components/enterprise/InviteUserForm";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/utils";
+import EntrepriseSidebar from "@/components/enterprise/sidebar/EntrepriseSidebar";
+import "./EnterpriseDashboard.css";
 
-interface Enterprise {
-    id: string;
-    name: string;
-    email: string;
-    phone?: string;
-    address?: string;
-    organization_type: string;
-    created_at: string;
-    max_users: number;
-    stats?: {
-        total_users: number;
-        active_users: number;
-        pending_invitations: number;
-        accepted_invitations: number;
-    };
-}
+export default function EnterpriseDashboardRedesign() {
+  const { toast } = useToast();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-interface OrganizationUser {
-    id: string;
-    user_id: string;
-    email: string;
-    role: string;
-    status: string;
-    joined_at: string;
-    notes?: string;
-}
+  const [enterprises, setEnterprises] = useState<any[]>([]);
+  const [selectedEnterprise, setSelectedEnterprise] = useState<any>(null);
 
-interface Invitation {
-    id: string;
-    email: string;
-    status: string;
-    sent_at: string;
-    expires_at: string;
-    accepted_at?: string;
-    role: string;
-    message?: string;
-}
+  const [users, setUsers] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
 
-export default function EnterpriseDashboard() {
-    const { toast } = useToast();
-    const { isAuthenticated, loading: authLoading } = useAuth();
-    const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
-    const [selectedEnterprise, setSelectedEnterprise] = useState<Enterprise | null>(null);
-    const [users, setUsers] = useState<OrganizationUser[]>([]);
-    const [invitations, setInvitations] = useState<Invitation[]>([]);
-    const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-    const [showInviteUserForm, setShowInviteUserForm] = useState(false);
-    const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean, user: any }>({ isOpen: false, user: null });
-    const [isLoading, setIsLoading] = useState(true);
-    const [canCreateOrganizations, setCanCreateOrganizations] = useState(true);
-    const [permissionReason, setPermissionReason] = useState('');
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [showInviteUserForm, setShowInviteUserForm] = useState(false);
 
-    // Wait for auth to be ready before loading data
-    useEffect(() => {
-        if (!authLoading && isAuthenticated) {
-            console.log('🔍 EnterpriseDashboard: Auth ready, loading data');
-            loadEnterprises();
-            checkUserPermissions();
-        } else {
-            console.log('⏸️ EnterpriseDashboard: Waiting for auth', { authLoading, isAuthenticated });
-        }
-    }, [authLoading, isAuthenticated]);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: any }>({
+    isOpen: false,
+    user: null,
+  });
 
-    useEffect(() => {
-        if (selectedEnterprise) {
-            loadEnterpriseDetails(selectedEnterprise.id);
-        }
-    }, [selectedEnterprise]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [canCreateOrganizations, setCanCreateOrganizations] = useState(true);
+  const [permissionReason, setPermissionReason] = useState("");
 
-    const checkUserPermissions = async () => {
-        try {
-            const result = await api.canCreateOrganization();
-            if (result.success) {
-                setCanCreateOrganizations(result.can_create);
-                setPermissionReason(result.reason);
-            }
-        } catch (error: any) {
-            console.error('Failed to check user permissions:', error);
-            // Default to allowing creation if check fails
-            setCanCreateOrganizations(true);
-        }
-    };
+  const [searchTerm, setSearchTerm] = useState("");
 
-    const loadEnterprises = async () => {
-        try {
-            const result = await api.getMyEnterprises();
-            
-            if (result.success) {
-                const loadedEnterprises = result.enterprises || [];
-                setEnterprises(loadedEnterprises);
+  
 
-                // Auto-select first enterprise if available
-                if (loadedEnterprises.length > 0) {
-                    setSelectedEnterprise(loadedEnterprises[0]);
-                } else {
-                    // No enterprises - clear selection
-                    setSelectedEnterprise(null);
-                }
-            } else {
-                throw new Error(result.message || 'Failed to load enterprises');
-            }
-        } catch (error: any) {
-            console.error('Load enterprises error:', error);
-            toast({
-                title: 'Error',
-                description: error.message || 'Failed to load enterprises',
-                variant: 'destructive'
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const loadEnterpriseDetails = async (enterpriseId: string) => {
-        try {
-            // Load users
-            const usersResult = await api.getEnterpriseUsers(enterpriseId);
-            if (usersResult.success) {
-                setUsers(usersResult.users || []);
-            }
-
-            // Load invitations
-            const invitationsResult = await api.getEnterpriseInvitations(enterpriseId);
-            if (invitationsResult.success) {
-                setInvitations(invitationsResult.invitations || []);
-            }
-        } catch (error: any) {
-            console.error('Failed to load enterprise details:', error);
-        }
-    };
-
-    const handleCancelInvitation = async (invitationId: string) => {
-        try {
-            const result = await api.cancelInvitation(invitationId);
-
-            if (result.success) {
-                toast({
-                    title: 'Success',
-                    description: 'Invitation cancelled'
-                });
-                if (selectedEnterprise) {
-                    loadEnterpriseDetails(selectedEnterprise.id);
-                }
-            } else {
-                throw new Error(result.message || result.error || 'Failed to cancel invitation');
-            }
-        } catch (error: any) {
-            toast({
-                title: 'Error',
-                description: error.message || 'Failed to cancel invitation',
-                variant: 'destructive'
-            });
-        }
-    };
-
-    const deleteUser = async (userRelationId: string) => {
-        try {
-            const result = await api.deleteEnterpriseUser(userRelationId);
-
-            if (result.success) {
-                toast({
-                    title: 'Success',
-                    description: result.message || 'User account deleted successfully. They can now be re-invited or register again.'
-                });
-
-                // Reload users to update the list
-                if (selectedEnterprise) {
-                    loadEnterpriseDetails(selectedEnterprise.id);
-                }
-
-                // Close confirmation modal
-                setDeleteConfirm({ isOpen: false, user: null });
-            } else {
-                toast({
-                    title: 'Error',
-                    description: data.error || 'Failed to remove user from organization',
-                    variant: 'destructive'
-                });
-            }
-        } catch (error: any) {
-            toast({
-                title: 'Error',
-                description: error.message || 'Failed to remove user from organization',
-                variant: 'destructive'
-            });
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <MainLayout>
-                <div className="flex items-center justify-center min-h-screen">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                        <p className="text-gray-600">Loading...</p>
-                    </div>
-                </div>
-            </MainLayout>
-        );
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadEnterprises();
+      checkUserPermissions();
     }
+  }, [authLoading, isAuthenticated]);
 
-    if (enterprises.length === 0) {
-        return (
-            <MainLayout>
-                <div className="container mx-auto p-6">
-                    <div className="flex items-center justify-center min-h-[60vh]">
-                        <Card className="w-full max-w-lg text-center">
-                            <CardContent className="p-8">
-                                <Building2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                                <h2 className="text-2xl font-bold mb-2">No Organizations Yet</h2>
-                                {canCreateOrganizations ? (
-                                    <>
-                                        <p className="text-gray-600 mb-6">
-                                            Register your clinic, hospital, or practice to start inviting patients and managing their nutrition plans.
-                                        </p>
-                                        <Button onClick={() => setShowRegistrationForm(true)}>
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Register Organization
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="text-gray-600 mb-6">
-                                            {permissionReason || "You don't have permission to create organizations."}
-                                        </p>
-                                        <p className="text-sm text-gray-500">
-                                            As an invited user, you can only access organizations you've been invited to.
-                                            Contact your organization administrator if you need access to additional features.
-                                        </p>
-                                    </>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {showRegistrationForm && canCreateOrganizations && (
-                        <EnterpriseRegistrationForm
-                            onClose={() => setShowRegistrationForm(false)}
-                            onSuccess={loadEnterprises}
-                        />
-                    )}
-                </div>
-            </MainLayout>
-        );
+  useEffect(() => {
+    if (selectedEnterprise) loadEnterpriseDetails(selectedEnterprise.id);
+    else {
+      // clear lists if no enterprise
+      setUsers([]);
+      setInvitations([]);
     }
+  }, [selectedEnterprise]);
 
+  const checkUserPermissions = async () => {
+    try {
+      const result: any = await api.canCreateOrganization();
+      if (result.success) {
+        setCanCreateOrganizations(result.can_create);
+        setPermissionReason(result.reason || "");
+      }
+    } catch (error: any) {
+      setCanCreateOrganizations(true);
+    }
+  };
+
+  const loadEnterprises = async () => {
+    try {
+      const result: any = await api.getMyEnterprises();
+      if (result.success) {
+        const loaded = result.enterprises || [];
+        setEnterprises(loaded);
+        setSelectedEnterprise((prev: any) => prev ?? loaded[0] ?? null);
+      } else {
+        toast({ title: "Error", description: result.message || "Unable to fetch organizations", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: (error?.message) || "Failed to load enterprises", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadEnterpriseDetails = async (enterpriseId?: string) => {
+    if (!enterpriseId) return;
+    try {
+      // use parallel requests
+      const [usersResult, invitesResult] = await Promise.allSettled([
+        api.getEnterpriseUsers(enterpriseId),
+        api.getEnterpriseInvitations(enterpriseId),
+      ]);
+
+      // users
+      if (usersResult.status === "fulfilled") {
+        const res: any = usersResult.value;
+        if (res.success) setUsers(res.users || []);
+        else {
+          setUsers([]);
+          toast({ title: "Error", description: res.message || "Failed to fetch users", variant: "destructive" });
+        }
+      } else {
+        setUsers([]);
+        toast({ title: "Error", description: "Failed to fetch users (network)", variant: "destructive" });
+      }
+
+      // invitations
+      if (invitesResult.status === "fulfilled") {
+        const res: any = invitesResult.value;
+        if (res.success) setInvitations(res.invitations || []);
+        else {
+          setInvitations([]);
+          toast({ title: "Error", description: res.message || "Failed to fetch invitations", variant: "destructive" });
+        }
+      } else {
+        setInvitations([]);
+        toast({ title: "Error", description: "Failed to fetch invitations (network)", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: "Failed to load enterprise details", variant: "destructive" });
+    }
+  };
+
+  const handleInviteUserOrMember = async (email: string, role: string, message: string) => {
+    try{
+      console.log("Inviting user:", email, role);
+
+    }catch(error:any){
+      toast({ title: "Error", description: "Failed to invite user", variant: "destructive" });
+    }
+  }
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    try {
+      const res: any = await api.cancelInvitation(invitationId);
+      if (res.success) {
+        toast({ title: "Success", description: "Invitation cancelled" });
+        if (selectedEnterprise) await loadEnterpriseDetails(selectedEnterprise.id);
+      } else {
+        toast({ title: "Error", description: res.message || "Failed to cancel", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Failed to cancel invitation", variant: "destructive" });
+    }
+  };
+
+  const deleteUser = async (userRelationId: string) => {
+    try {
+      const r: any = await api.deleteEnterpriseUser(userRelationId);
+      if (r.success) {
+        toast({ title: "Success", description: "User removed" });
+        if (selectedEnterprise) await loadEnterpriseDetails(selectedEnterprise.id);
+        setDeleteConfirm({ isOpen: false, user: null });
+      } else {
+        toast({ title: "Error", description: r.message || "Failed to remove user", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "Failed to remove user", variant: "destructive" });
+    }
+  };
+
+  const filteredUsers = users.filter((u) =>
+    (((u?.email ?? "") + " " + (u?.role ?? "") + " " + (u?.department ?? "")).toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const filteredInvitations = invitations.filter((inv) =>
+    (inv?.email ?? "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const pendingInvites = filteredInvitations.filter((inv) => (inv.status ?? "").toLowerCase() === "pending");
+  const activeUsers = filteredUsers.filter((u) => (u.status ?? "").toLowerCase() === "active").length;
+  const totalUsers = filteredUsers.length;
+  const inviteAcceptanceRate =
+    filteredInvitations.length === 0
+      ? 0
+      : Math.round(((filteredInvitations.length - pendingInvites.length) / filteredInvitations.length) * 100);
+  const userActivityRate = totalUsers === 0 ? 0 : Math.round((activeUsers / totalUsers) * 100);
+  const capacityRate =
+    selectedEnterprise?.seat_limit && selectedEnterprise.seat_limit > 0
+      ? Math.min(100, Math.round((totalUsers / selectedEnterprise.seat_limit) * 100))
+      : totalUsers ? 72 : 0;
+
+  const groupedUsers = filteredUsers.reduce<Record<string, any[]>>((acc, current) => {
+    const key = current?.department || current?.team || current?.role || "General Team";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(current);
+    return acc;
+  }, {});
+
+  if (isLoading) {
     return (
-        <MainLayout>
-            <div className="container mx-auto p-6 space-y-6">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-3xl font-bold">Enterprise Dashboard</h1>
-                        <p className="text-gray-600 mt-1">Manage your organization and invite users</p>
-                    </div>
-                    {canCreateOrganizations && (
-                        <Button onClick={() => setShowRegistrationForm(true)}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Register New Organization
-                        </Button>
-                    )}
-                </div>
-
-                {/* Enterprise Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <Users className="h-8 w-8 text-blue-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">Total Users</p>
-                                    <p className="text-2xl font-bold">{users.length}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <Building2 className="h-8 w-8 text-purple-500" />
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">Organizations</p>
-                                    <p className="text-2xl font-bold">{enterprises.length}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Organization Selector */}
-                {enterprises.length > 1 && (
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center space-x-4">
-                                <span className="font-medium">Select Organization:</span>
-                                <select
-                                    value={selectedEnterprise?.id || ''}
-                                    onChange={(e) => {
-                                        const enterprise = enterprises.find(ent => ent.id === e.target.value);
-                                        setSelectedEnterprise(enterprise || null);
-                                    }}
-                                    className="border p-2"
-                                >
-                                    {enterprises.map(ent => (
-                                        <option key={ent.id} value={ent.id}>{ent.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Tabs for Users and Invitations */}
-                <Tabs defaultValue="users" className="space-y-4">
-                    <TabsList>
-                        <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
-                        <TabsTrigger value="invitations">
-                            Invitations ({invitations.filter(i => i.status === 'pending').length} pending, {invitations.filter(i => i.status === 'accepted').length} accepted)
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="users" className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h3 className="text-lg font-medium">Enrolled Users</h3>
-                                <p className="text-sm text-gray-600">{users.length} user{users.length !== 1 ? 's' : ''} registered</p>
-                            </div>
-                            <Button onClick={() => setShowInviteUserForm(true)}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Invite User
-                            </Button>
-                        </div>
-
-                        <div className="grid gap-4">
-                            {users.length === 0 ? (
-                                <Card>
-                                    <CardContent className="p-8 text-center text-gray-500">
-                                        <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                                        <p>No users yet. Start by inviting your first user!</p>
-                                    </CardContent>
-                                </Card>
-                            ) : (
-                                users.map((user) => (
-                                    <Card key={user.id}>
-                                        <CardContent className="p-4">
-                                            <div className="flex justify-between items-start">
-                                                <div className="space-y-2">
-                                                    <div>
-                                                        <p className="font-medium text-lg">
-                                                            {user.email.split('@')[0]}
-                                                        </p>
-                                                        <p className="text-sm text-gray-600">{user.email}</p>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                                                            {user.status}
-                                                        </Badge>
-                                                        <Badge variant="outline" className="capitalize">
-                                                            {user.role}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-sm text-gray-600">
-                                                        Joined: {new Date(user.joined_at).toLocaleDateString()}
-                                                    </p>
-                                                    {user.notes && (
-                                                        <p className="text-sm text-gray-600 mt-2">
-                                                            <strong>Notes:</strong> {user.notes}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="text-right space-y-2">
-                                                    <p className="text-xs text-gray-500">ID: {user.id.slice(0, 8)}...</p>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setDeleteConfirm({ isOpen: true, user })}
-                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-1" />
-                                                        Remove
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))
-                            )}
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="invitations" className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-medium">Sent Invitations</h3>
-                            <Button onClick={() => setShowInviteUserForm(true)}>
-                                <Mail className="h-4 w-4 mr-2" />
-                                Send New Invitation
-                            </Button>
-                        </div>
-
-                        <div className="grid gap-4">
-                            {invitations.length === 0 ? (
-                                <Card>
-                                    <CardContent className="p-8 text-center text-gray-500">
-                                        <MailOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                                        <p>No invitations sent yet.</p>
-                                    </CardContent>
-                                </Card>
-                            ) : (
-                                invitations.map((invitation) => (
-                                    <Card 
-                                        key={invitation.id}
-                                        className={invitation.status === 'accepted' ? 'border-green-500 bg-green-50/50' : ''}
-                                    >
-                                        <CardContent className="p-4">
-                                            <div className="flex justify-between items-start">
-                                                <div className="space-y-1">
-                                                    <p className="font-medium">{invitation.email}</p>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Badge
-                                                            variant={
-                                                                invitation.status === 'accepted' ? 'default' :
-                                                                    invitation.status === 'pending' ? 'secondary' :
-                                                                        'destructive'
-                                                            }
-                                                        >
-                                                            {invitation.status === 'accepted' && <CheckCircle className="h-3 w-3 mr-1" />}
-                                                            {invitation.status === 'expired' && <Clock className="h-3 w-3 mr-1" />}
-                                                            {invitation.status === 'cancelled' && <XCircle className="h-3 w-3 mr-1" />}
-                                                            {invitation.status}
-                                                        </Badge>
-                                                        <Badge variant="outline" className="capitalize">
-                                                            {invitation.role}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-sm text-gray-600">
-                                                        Sent: {new Date(invitation.sent_at).toLocaleDateString()}
-                                                    </p>
-                                                    {invitation.status === 'accepted' && invitation.accepted_at ? (
-                                                        <p className="text-sm text-green-600 font-medium">
-                                                            ✓ Accepted: {new Date(invitation.accepted_at).toLocaleDateString()}
-                                                        </p>
-                                                    ) : (
-                                                    <p className="text-sm text-gray-600">
-                                                        Expires: {new Date(invitation.expires_at).toLocaleDateString()}
-                                                    </p>
-                                                    )}
-                                                    {invitation.message && (
-                                                        <p className="text-sm text-gray-600 mt-2 italic">
-                                                            "{invitation.message}"
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                {invitation.status === 'pending' && (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleCancelInvitation(invitation.id)}
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))
-                            )}
-                        </div>
-                    </TabsContent>
-                </Tabs>
-
-                {showRegistrationForm && canCreateOrganizations && (
-                    <EnterpriseRegistrationForm
-                        onClose={() => setShowRegistrationForm(false)}
-                        onSuccess={loadEnterprises}
-                    />
-                )}
-
-                {showInviteUserForm && selectedEnterprise && (
-                    <InviteUserForm
-                        enterpriseId={selectedEnterprise.id}
-                        onClose={() => setShowInviteUserForm(false)}
-                        onSuccess={() => selectedEnterprise && loadEnterpriseDetails(selectedEnterprise.id)}
-                    />
-                )}
-
-                {/* Delete Confirmation Modal */}
-                {deleteConfirm.isOpen && deleteConfirm.user && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <Card className="w-full max-w-md">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2 text-red-600">
-                                    <Trash2 className="h-5 w-5" />
-                                    Remove User
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <p className="text-gray-600">
-                                    Are you sure you want to remove <strong>{deleteConfirm.user.first_name} {deleteConfirm.user.last_name}</strong> ({deleteConfirm.user.email}) from the organization?
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                    This action cannot be undone. The user's account will be completely deleted and they can be re-invited or register again with the same email.
-                                </p>
-                                <div className="flex justify-end space-x-2 pt-4">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setDeleteConfirm({ isOpen: false, user: null })}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        onClick={() => deleteUser(deleteConfirm.user.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Remove User
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-            </div>
-        </MainLayout>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
     );
-}
+  }
 
+  return (
+    <div className="enterprise-dashboard">
+      <EntrepriseSidebar />
+
+      <main className="dashboard-main">
+        <div className="dashboard-content">
+        
+          <header className="dashboard-toolbar">
+            <div>
+              <h1>Organization Workspace</h1>
+              {/* <div className="muted">Manage your organization's members, teams, and invitations all in one place.</div> */}
+            </div>
+            <div className="toolbar-actions">
+              <Button
+                variant="ghost"
+                className="flat-button"
+                onClick={() => selectedEnterprise && loadEnterpriseDetails(selectedEnterprise.id)}
+              >
+                <RefreshCw className="icon" /> Refresh
+              </Button>
+              {/* {canCreateOrganizations && (
+                <Button className="flat-button primary" onClick={() => setShowRegistrationForm(true)}>
+                  <Plus className="icon" /> New Organization
+                </Button>
+              )} */}
+            </div>
+          </header>
+          {!canCreateOrganizations && (
+            <div className="notice warning">
+              {permissionReason || "You currently cannot create additional organizations."}
+            </div>
+          )}
+
+          <div className="toolbar-controls">
+            <div className="search-box">
+              <Search className="icon" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search members, teams, invitations"
+                className="control"
+              />
+            </div>
+            <Button variant="outline" className="flat-button subtle">
+              <Settings className="icon" /> View Setting
+            </Button>
+            <div className="selector">
+
+              <button type="button">
+                December 2023 <ChevronDown className="icon" />
+              </button>
+            </div>
+            {enterprises.length > 1 && (
+              <div className="selector">
+                <span>Organization</span>
+                <select
+                  value={selectedEnterprise?.id || ""}
+                  onChange={(e) =>
+                    setSelectedEnterprise(enterprises.find((x) => x.id === e.target.value) || null)
+                  }
+                >
+                  {enterprises.map((ent) => (
+                    <option key={ent.id} value={ent.id}>
+                      {ent.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <section className="kpi-grid">
+            <article className="kpi-card">
+              <div>
+                <p className="muted">Active Member Rate</p>
+                <h2>{userActivityRate || 0}%</h2>
+                <span className="trend positive">
+                  <Activity className="icon" /> +{Math.min(userActivityRate, 18)}%
+                </span>
+              </div>
+              <Users className="metric-icon" />
+            </article>
+            <article className="kpi-card">
+              <div>
+                <p className="muted">Pending Invites</p>
+                <h2>{pendingInvites.length}</h2>
+                <span className="trend neutral">{filteredInvitations.length} total</span>
+              </div>
+              <Mail className="metric-icon" />
+            </article>
+            <article className="kpi-card">
+              <div>
+                <p className="muted">Capacity Rate</p>
+                <h2>{capacityRate || 0}%</h2>
+                <span className="trend negative">
+                  <LayoutDashboard className="icon" /> Seats {selectedEnterprise?.seat_limit ?? "∞"}
+                </span>
+              </div>
+              <Building2 className="metric-icon" />
+            </article>
+            <article className="kpi-card">
+              <div>
+                <p className="muted">Invite Acceptance</p>
+                <h2>{inviteAcceptanceRate}%</h2>
+                <span className="trend neutral">{filteredInvitations.length || 0} invites</span>
+              </div>
+              <FileText className="metric-icon" />
+            </article>
+          </section>
+
+          <section className="">
+            <header className="data-board__header">
+              <div>
+              </div>
+              <div className="data-board__actions">
+                <Button className="flat-button subtle" onClick={() => selectedEnterprise && setShowInviteUserForm(true)}>
+                  <Plus className="icon" /> Invite member
+                </Button>
+                <Button
+                  className="flat-button subtle"
+                  variant="outline"
+                  onClick={() => selectedEnterprise && loadEnterpriseDetails(selectedEnterprise.id)}
+                >
+                  <RefreshCw className="icon" /> Sync
+                </Button>
+              </div>
+            </header>
+
+            {selectedEnterprise ? (
+              Object.keys(groupedUsers).length === 0 ? (
+                <div className="empty-state">No members match your filters.</div>
+              ) : (
+                Object.entries(groupedUsers).map(([teamName, teamMembers]) => (
+                  <article className="team-panel" key={teamName}>
+                    <div className="team-panel__header">
+                      <div>
+                        <p className="muted">Team from {selectedEnterprise.name}</p>
+                        <h4>{teamName}</h4>
+                      </div>
+                      <div className="team-panel__meta">
+                        <span>{teamMembers.length} members</span>
+                        <button type="button">Import</button>
+                      </div>
+                    </div>
+
+                    <div className="table-wrapper">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>No</th>
+                            <th>Full Name / Email</th>
+                            <th>Role</th>
+                            <th>Date Added</th>
+                            <th>Member ID</th>
+                            <th>Work Type</th>
+                            <th>Status</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teamMembers.map((member, index) => (
+                            <tr key={member.id || index}>
+                              <td>{index + 1}</td>
+                              <td>
+                                <div className="member-cell">
+                                  <span className="member-name">{member.full_name || member.email || "Unspecified"}</span>
+                                  <span className="muted">{member.email || "—"}</span>
+                                </div>
+                              </td>
+                              <td>{member.role ?? "—"}</td>
+                              <td>{member.joined_at ? new Date(member.joined_at).toLocaleDateString() : "—"}</td>
+                              <td>{member.member_id ?? "#" + (index + 1).toString().padStart(3, "0")}</td>
+                              <td>{member.work_type ?? "Full Time"}</td>
+                              <td>
+                                <Badge variant={member.status === "active" ? "default" : "secondary"}>{member.status ?? "N/A"}</Badge>
+                              </td>
+                              <td className="table-actions">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="flat-button subtle"
+                                  onClick={() => setDeleteConfirm({ isOpen: true, user: member })}
+                                >
+                                  <Trash2 className="icon" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </article>
+                ))
+              )
+            ) : (
+              <div className="empty-state">
+                You currently have no organization selected. Create one to start managing members.
+              </div>
+            )}
+          </section>
+
+          <section className="data-board invitations">
+            <header className="data-board__header">
+              <div>
+                <h3>Pending Invitations</h3>
+                <p className="muted">Keep track of outstanding invites and follow-ups</p>
+              </div>
+            </header>
+            {filteredInvitations.length === 0 ? (
+              <div className="empty-state">No invitations yet.</div>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Sent</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredInvitations.map((inv, idx) => (
+                      <tr key={inv.id}>
+                        <td>{idx + 1}</td>
+                        <td>{inv.email}</td>
+                        <td>{inv.role ?? "—"}</td>
+                        <td>{inv.sent_at ? new Date(inv.sent_at).toLocaleDateString() : "—"}</td>
+                        <td>
+                          <Badge variant={inv.status === "accepted" ? "default" : "secondary"}>{inv.status}</Badge>
+                        </td>
+                        <td className="table-actions">
+                          {inv.status === "pending" && (
+                            <Button
+                              variant="outline"
+                              className="flat-button subtle"
+                              onClick={() => handleCancelInvitation(inv.id)}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {showRegistrationForm && (
+            <EnterpriseRegistrationForm onClose={() => setShowRegistrationForm(false)} onSuccess={loadEnterprises} />
+          )}
+
+          {showInviteUserForm && selectedEnterprise && (
+            <InviteUserForm
+              enterpriseId={selectedEnterprise.id}
+              onClose={() => setShowInviteUserForm(false)}
+              onSuccess={() => loadEnterpriseDetails(selectedEnterprise.id)}
+            />
+          )}
+
+          {deleteConfirm.isOpen && deleteConfirm.user && (
+            <div className="modal-overlay">
+              <Card className="modal-card">
+                <CardTitle className="modal-title">
+                  <Trash2 className="icon" /> Remove Member
+                </CardTitle>
+                <p>
+                  Are you sure you want to remove <strong>{deleteConfirm.user.email}</strong> from{" "}
+                  {selectedEnterprise?.name || "this organization"}?
+                </p>
+                <div className="modal-actions">
+                  <Button variant="outline" className="flat-button subtle" onClick={() => setDeleteConfirm({ isOpen: false, user: null })}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" className="flat-button" onClick={() => deleteUser(deleteConfirm.user.id)}>
+                    Remove
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

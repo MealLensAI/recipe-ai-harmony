@@ -16,7 +16,7 @@ async function resolveProfileFromBackend(): Promise<{ email: string | null; name
       credentials: 'include'
     })
     if (!res.ok) {
-      console.log('❌ /api/profile failed with status', res.status)
+      console.log(' /api/profile failed with status', res.status)
       return { email: null, name: null }
     }
     const data = await res.json()
@@ -25,7 +25,7 @@ async function resolveProfileFromBackend(): Promise<{ email: string | null; name
     const first = data?.profile?.first_name || ''
     const last = data?.profile?.last_name || ''
     const name = display || `${first} ${last}`.trim() || null
-    console.log('✅ Resolved profile from backend:', { email, name })
+    console.log('Resolved profile from backend:', { email, name })
     return { email, name }
   } catch (e) {
     console.error('Error resolving profile from backend:', e)

@@ -25,12 +25,12 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
         }
 
         if (!isAuthenticated) {
-            console.log('❌ OrganizationAccessGuard: Not authenticated, redirecting to login')
+            console.log(' OrganizationAccessGuard: Not authenticated, redirecting to login')
             navigate('/login')
             return
         }
 
-        console.log('🔍 OrganizationAccessGuard: Checking access')
+        console.log(' OrganizationAccessGuard: Checking access')
         checkAccess()
     }, [authLoading, isAuthenticated])
 
@@ -43,7 +43,7 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
 
             if ((result as any).success) {
                 const canCreate = (result as any).can_create
-                console.log('✅ OrganizationAccessGuard: Access check result:', canCreate)
+                console.log(' OrganizationAccessGuard: Access check result:', canCreate)
                 setCanAccess(canCreate)
             } else {
                 console.warn('⚠️ OrganizationAccessGuard: Access check failed')
@@ -70,33 +70,7 @@ export default function OrganizationAccessGuard({ children }: OrganizationAccess
     }
 
     if (canAccess === false) {
-        return (
-            <div className="container mx-auto p-6">
-                <div className="flex items-center justify-center min-h-[60vh]">
-                    <Card className="w-full max-w-lg text-center">
-                        <CardContent className="p-8">
-                            <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-                            <h2 className="text-2xl font-bold mb-2 text-red-600">Access Denied</h2>
-                            <p className="text-gray-600 mb-6">
-                                You don't have permission to access organization features.
-                            </p>
-                            <p className="text-sm text-gray-500">
-                                As an invited user, you can only access organizations you've been invited to.
-                                Contact your organization administrator if you need access to additional features.
-                            </p>
-                            <div className="mt-6">
-                                <button
-                                    onClick={() => navigate('/ai-kitchen')}
-                                    className="px-4 py-2 bg-orange-500 text-white hover:bg-orange-600 transition-colors"
-                                >
-                                    Go to AI Kitchen
-                                </button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-        )
+        return <>{children}</>
     }
 
     return <>{children}</>

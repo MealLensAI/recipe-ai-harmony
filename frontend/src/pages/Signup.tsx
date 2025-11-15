@@ -9,10 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle, Building2, Users } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, Utensils, Loader2, CheckCircle, XCircle, Building2 } from "lucide-react"
 import { useAuth, safeSetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
-import { APP_CONFIG } from "@/lib/config"
 
 const Signup = () => {
   const navigate = useNavigate()
@@ -144,7 +143,7 @@ const Signup = () => {
     setIsLoading(true)
     try {
       // Use centralized API service for registration
-      const registerResult = await api.register({
+      const registerResult: any = await api.register({
         email: formData.email,
         password: formData.password,
         first_name: formData.firstName,
@@ -162,7 +161,7 @@ const Signup = () => {
       }
 
       // Auto-login after successful registration
-      const loginResult = await api.login({
+      const loginResult: any = await api.login({
         email: formData.email,
         password: formData.password
       })
@@ -195,7 +194,7 @@ const Signup = () => {
           // If organization signup, register the organization after user creation
           if (isOrganizationSignup) {
             try {
-              const orgResult = await api.registerEnterprise(organizationData)
+              const orgResult: any = await api.registerEnterprise(organizationData)
 
               if (orgResult.success) {
                 toast({
@@ -225,8 +224,11 @@ const Signup = () => {
             }
           }
 
-          // After signup, walk the user through onboarding first
-          navigate("/onboarding", { replace: true })
+          if (isOrganizationSignup) {
+            window.location.assign("/enterprise")
+          } else {
+            navigate("/onboarding", { replace: true })
+          }
         } else {
           toast({
             title: "Signup Failed",
