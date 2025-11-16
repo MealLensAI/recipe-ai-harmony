@@ -543,10 +543,7 @@ export default function EnterpriseDashboardRedesign() {
 
           <header className="dashboard-toolbar">
             <div>
-              <p className="eyebrow">Member Database</p>
               <h1>Organization Workspace</h1>
-              <div className="active-view-pill">{activeNav} view</div>
-              <span className="muted">Last updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
             </div>
             <div className="toolbar-actions">
               <Button
@@ -556,11 +553,11 @@ export default function EnterpriseDashboardRedesign() {
               >
                 <RefreshCw className="icon" /> Refresh
               </Button>
-              {canCreateOrganizations && (
+              {/* {canCreateOrganizations && (
                 <Button className="flat-button primary" onClick={() => setShowRegistrationForm(true)}>
                   <Plus className="icon" /> New Organization
                 </Button>
-              )}
+              )} */}
             </div>
           </header>
           {!canCreateOrganizations && (
@@ -582,11 +579,9 @@ export default function EnterpriseDashboardRedesign() {
             <Button variant="outline" className="flat-button subtle" onClick={handleViewSettings}>
               <Settings className="icon" /> View Setting
             </Button>
-            <Button variant="outline" className="flat-button subtle" onClick={openCustomTableForm}>
-              <FileText className="icon" /> Add Table
-            </Button>
+            
             <div className="selector period-selector" ref={periodMenuRef}>
-              <span>Period</span>
+              {/* <span>Period</span> */}
               <button type="button" onClick={() => setIsPeriodMenuOpen((prev) => !prev)}>
                 {selectedPeriod} <ChevronDown className={`icon ${isPeriodMenuOpen ? "rotated" : ""}`} />
               </button>
@@ -627,10 +622,10 @@ export default function EnterpriseDashboardRedesign() {
           <section className="kpi-grid">
             <article className="kpi-card">
               <div>
-                <p className="muted">Active Member Rate</p>
-                <h2>{userActivityRate || 0}%</h2>
+                <p className="muted">Total Members </p>
+                <h2>{userActivityRate || 0}</h2>
                 <span className="trend positive">
-                  <Activity className="icon" /> +{Math.min(userActivityRate, 18)}%
+                  Total Members {Math.min(userActivityRate, 18)}
                 </span>
               </div>
               <Users className="metric-icon" />
@@ -643,16 +638,7 @@ export default function EnterpriseDashboardRedesign() {
               </div>
               <Mail className="metric-icon" />
             </article>
-            <article className="kpi-card">
-              <div>
-                <p className="muted">Capacity Rate</p>
-                <h2>{capacityRate || 0}%</h2>
-                <span className="trend negative">
-                  <LayoutDashboard className="icon" /> Seats {selectedEnterprise?.seat_limit ?? "∞"}
-                </span>
-              </div>
-              <Building2 className="metric-icon" />
-            </article>
+            
             <article className="kpi-card">
               <div>
                 <p className="muted">Invite Acceptance</p>
@@ -663,20 +649,10 @@ export default function EnterpriseDashboardRedesign() {
             </article>
           </section>
 
-          <section className="data-board">
+          <section className="">
             <header className="data-board__header">
               <div>
-                <h3>{selectedEnterprise?.name || "No organization selected"}</h3>
-                <p className="muted">
-                  {selectedEnterprise
-                    ? `${totalUsers} members • ${filteredInvitations.length} invitations`
-                    : "Select or create an organization to begin"}
-                </p>
-                {selectedEnterprise && (
-                  <p className="note">
-                    Organizations stay independent — creating a new one will not nest it inside {selectedEnterprise.name}.
-                  </p>
-                )}
+              
               </div>
               <div className="data-board__actions">
                 <Button className="flat-button subtle" onClick={() => handleInviteMemberClick()}>
@@ -774,8 +750,8 @@ export default function EnterpriseDashboardRedesign() {
                 ))
               )
             ) : (
-              <div className="empty-state">
-                You currently have no organization selected. Create one to start managing members.
+              <div className="">
+                {/* You currently have no organization selected. Create one to start managing members. */}
               </div>
             )}
           </section>
