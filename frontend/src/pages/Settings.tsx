@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +12,64 @@ import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 
 const Settings = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const { settings, loading, updateSettings, saveSettings } = useSicknessSettings();
+  const {
+    settings,
+    loading,
+    updateSettings,
+    saveSettings,
+    resetToLastSaved,
+    hasExistingData
+  } = useSicknessSettings();
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
+  const [isEditing, setIsEditing] = useState(false);
 
-  // Removed profile fetching - not needed for this page
+  const displayValue = (value?: string | number, suffix: string = '') => {
+    if (value === undefined || value === null || value === '') {
+      return 'Not set';
+    }
+    return `${value}${suffix}`;
+  };
+
+  useEffect(() => {
+    if (!hasExistingData) {
+      setIsEditing(true);
+    }
+  }, [hasExistingData]);
+
+  const summaryEntries = useMemo(
+    () => [
+      {
+        label: 'Health status',
+        value: settings.hasSickness ? 'Has a health condition' : 'No health condition recorded'
+      },
+      {
+        label: 'Condition',
+        value: settings.hasSickness ? displayValue(settings.sicknessType) : '—'
+      },
+      { label: 'Goal', value: displayValue(settings.goal) },
+      { label: 'Age', value: displayValue(settings.age) },
+      { label: 'Gender', value: displayValue(settings.gender, '') },
+      { label: 'Height', value: displayValue(settings.height, ' cm') },
+      { label: 'Weight', value: displayValue(settings.weight, ' kg') },
+      { label: 'Waist', value: displayValue(settings.waist, ' cm') },
+      {
+        label: 'Activity level',
+        value: displayValue(settings.activityLevel ? settings.activityLevel.replace('_', ' ') : '')
+      },
+      { label: 'Location', value: displayValue(settings.location) }
+    ],
+    [settings]
+  );
+
+  const startEditing = () => {
+    resetToLastSaved();
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    resetToLastSaved();
+    setIsEditing(false);
+  };
 
   const handleSicknessChange = (value: string) => {
     const hasSickness = value === 'yes';
@@ -105,10 +158,9 @@ const Settings = () => {
     if (result.success) {
       toast({
         title: "Settings Saved",
-        description: "Your health profile has been saved successfully.",
+        description: "Your health profile has been saved successfully. Review below or keep editing.",
       });
-      // After saving, take user back to the Meal Planner where these settings apply
-      try { navigate('/planner'); } catch { }
+      setIsEditing(false);
     } else {
       toast({
         title: "Error",
@@ -136,6 +188,31 @@ const Settings = () => {
           )}
         </div>
 
+        {hasExistingData && !isEditing && (
+          <Card className="bg-white/80 border border-orange-100 shadow-sm">
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-lg">Current Health Profile</CardTitle>
+                <CardDescription>Information used for medical meal plans</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={startEditing}>
+                Edit health profile
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                {summaryEntries.map((item) => (
+                  <div key={item.label}>
+                    <p className="text-muted-foreground">{item.label}</p>
+                    <p className="font-semibold">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {(isEditing || !hasExistingData) && (
         <Card>
           <CardHeader>
             <CardTitle>Health Information</CardTitle>
@@ -325,15 +402,29 @@ const Settings = () => {
                   </div>
                 )}
 
-            <Button
-              onClick={handleSave}
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? 'Saving...' : 'Save Health Profile'}
-            </Button>
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row">
+              <Button
+                onClick={handleSave}
+                disabled={loading}
+                className="w-full sm:flex-1"
+              >
+                {loading ? 'Saving...' : 'Save Health Profile'}
+              </Button>
+              {hasExistingData && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  className="w-full sm:flex-1"
+                  onClick={cancelEditing}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
+        )}
       </div>
     </div>
   );

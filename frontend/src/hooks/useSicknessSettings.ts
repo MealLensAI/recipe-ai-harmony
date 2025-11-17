@@ -1,90 +1,122 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/utils';
 
 export interface SicknessSettings {
   hasSickness: boolean;
   sicknessType: string;
   age?: number;
   gender?: 'male' | 'female' | 'other';
-  height?: number; // in cm
-  weight?: number; // in kg
-  waist?: number; // in cm (measured at navel level)
+  height?: number;
+  weight?: number;
+  waist?: number;
   activityLevel?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   goal?: 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness';
   location?: string;
 }
 
+const DEFAULT_SETTINGS: SicknessSettings = {
+  hasSickness: false,
+  sicknessType: '',
+  age: undefined,
+  gender: undefined,
+  height: undefined,
+  weight: undefined,
+  waist: undefined,
+  activityLevel: undefined,
+  goal: undefined,
+  location: undefined
+};
+
+const createEmptySettings = (): SicknessSettings => ({
+  ...DEFAULT_SETTINGS
+});
+
+const normalizeSettings = (incoming?: Partial<SicknessSettings> | null): SicknessSettings => ({
+  ...DEFAULT_SETTINGS,
+  ...(incoming || {})
+});
+
 export const useSicknessSettings = () => {
-  const [settings, setSettings] = useState<SicknessSettings>({
-    hasSickness: false,
-    sicknessType: '',
-    age: undefined,
-    gender: undefined,
-    height: undefined,
-    weight: undefined,
-    waist: undefined,
-    activityLevel: undefined,
-    goal: undefined,
-    location: undefined
-  });
+  const [settings, setSettings] = useState<SicknessSettings>(createEmptySettings());
   const [loading, setLoading] = useState(false);
+  const [hasExistingData, setHasExistingData] = useState(false);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const isMountedRef = useRef(true);
+  const lastSavedRef = useRef<SicknessSettings>(createEmptySettings());
 
-  // Load settings from API on mount
   useEffect(() => {
-    let isMounted = true;
-    const loadSettings = async () => {
-      setLoading(true);
-      try {
-        const result = await api.getUserSettings('health_profile');
-        if (isMounted) {
-          if (result.status === 'success' && result.settings) {
-            // Only update state if component is still mounted
-            setSettings(result.settings);
-            console.log('✅ Health settings loaded from backend:', result.settings);
-          } else {
-            // No settings found in backend - start with defaults
-            console.log('No health settings found in backend, using defaults');
-            // Keep default state, don't update
-          }
-        }
-      } catch (error) {
-        console.error('Error loading sickness settings from API:', error);
-        // Do NOT fall back to localStorage - always use backend as source of truth
-        // Keep default state on error
-        if (isMounted) {
-          console.log('Failed to load from backend, using default settings');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadSettings();
-    
-    // Cleanup function to prevent state updates after unmount
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, []);
 
+  const loadSettingsFromBackend = useCallback(async () => {
+    if (authLoading || !isAuthenticated) {
+      return;
+    }
+
+    if (isMountedRef.current) {
+      setLoading(true);
+    }
+
+    try {
+      const result = await api.getUserSettings('health_profile');
+      if (!isMountedRef.current) return;
+
+      const hasData =
+        result.status === 'success' &&
+        typeof result.settings === 'object' &&
+        result.settings !== null &&
+        Object.keys(result.settings).length > 0;
+
+      if (hasData) {
+        const normalized = normalizeSettings(result.settings);
+        setSettings(normalized);
+        lastSavedRef.current = normalized;
+        setHasExistingData(true);
+        console.log('✅ Health settings loaded from backend:', normalized);
+      } else {
+        console.log('No health settings found in backend, using defaults');
+        const emptySettings = createEmptySettings();
+        setSettings(emptySettings);
+        lastSavedRef.current = emptySettings;
+        setHasExistingData(false);
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        console.error('Error loading sickness settings from API:', error);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [authLoading, isAuthenticated]);
+
+  useEffect(() => {
+    loadSettingsFromBackend();
+  }, [loadSettingsFromBackend]);
+
   const updateSettings = (newSettings: Partial<SicknessSettings>) => {
-    const updatedSettings = { ...settings, ...newSettings };
-    setSettings(updatedSettings);
-    // Do NOT update localStorage - backend is the source of truth
+    setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
+  const resetToLastSaved = useCallback(() => {
+    setSettings({ ...lastSavedRef.current });
+  }, []);
+
   const saveSettings = async (newSettings: SicknessSettings) => {
+    const payload = normalizeSettings(newSettings);
     setLoading(true);
     try {
-      // Save to API - this will automatically save previous settings to history
-      const result = await api.saveUserSettings('health_profile', newSettings);
-      
+      const result = await api.saveUserSettings('health_profile', payload);
+
       if (result.status === 'success') {
-        // Only update local state after successful save
-        setSettings(newSettings);
-        // Do NOT save to localStorage - backend is the source of truth
+        lastSavedRef.current = payload;
+        setSettings(payload);
+        setHasExistingData(true);
+        await loadSettingsFromBackend();
         console.log('✅ Health settings saved to backend successfully');
         return { success: true };
       } else {
@@ -92,10 +124,11 @@ export const useSicknessSettings = () => {
       }
     } catch (error: any) {
       console.error('❌ Error saving sickness settings:', error);
-      // Don't update local state on error - keep previous settings
       return { success: false, error: error?.message || 'Failed to save settings' };
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -118,7 +151,17 @@ export const useSicknessSettings = () => {
   };
 
   const getHealthProfilePayload = () => {
-    if (!settings.hasSickness || !settings.age || !settings.gender || !settings.height || !settings.weight || !settings.waist || !settings.activityLevel || !settings.goal || !settings.location) {
+    if (
+      !settings.hasSickness ||
+      !settings.age ||
+      !settings.gender ||
+      !settings.height ||
+      !settings.weight ||
+      !settings.waist ||
+      !settings.activityLevel ||
+      !settings.goal ||
+      !settings.location
+    ) {
       return null;
     }
     return {
@@ -135,7 +178,8 @@ export const useSicknessSettings = () => {
   };
 
   const isHealthProfileComplete = () => {
-    return settings.hasSickness &&
+    return (
+      settings.hasSickness &&
       !!settings.age &&
       !!settings.gender &&
       !!settings.height &&
@@ -144,7 +188,8 @@ export const useSicknessSettings = () => {
       !!settings.activityLevel &&
       !!settings.goal &&
       !!settings.sicknessType &&
-      !!settings.location;
+      !!settings.location
+    );
   };
 
   return {
@@ -152,8 +197,10 @@ export const useSicknessSettings = () => {
     loading,
     updateSettings,
     saveSettings,
+    resetToLastSaved,
+    hasExistingData,
     getSicknessInfo,
     getHealthProfilePayload,
     isHealthProfileComplete
   };
-}; 
+};
