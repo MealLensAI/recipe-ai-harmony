@@ -78,8 +78,10 @@ export function useProvideAuth(): AuthContextType {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const initRef = useRef(false)
-  const refreshInProgressRef = useRef(false)
+  const lifecycleRef = useRef({
+    initialized: false,
+    isRefreshing: false
+  })
 
   // Smooth page transition overlay to avoid route flash
   const showFadeTransition = useCallback(() => {
@@ -179,12 +181,12 @@ export function useProvideAuth(): AuthContextType {
 
   // Refresh authentication state
   const refreshAuth = useCallback(async (skipVerification = false) => {
-    if (refreshInProgressRef.current) {
+    if (lifecycleRef.current.isRefreshing) {
       console.log('⏸️ refreshAuth already in progress, skipping')
       return
     }
 
-    refreshInProgressRef.current = true
+    lifecycleRef.current.isRefreshing = true
     setLoading(true)
     console.log('🔄 refreshAuth called', { skipVerification })
 
@@ -257,15 +259,15 @@ export function useProvideAuth(): AuthContextType {
     } catch (error) {
       console.error('❌ Error in refreshAuth:', error)
     } finally {
-      refreshInProgressRef.current = false
+      lifecycleRef.current.isRefreshing = false
       setLoading(false)
     }
   }, [clearSession, token, user])
 
   // Initialize auth state
   useEffect(() => {
-    if (initRef.current) return
-    initRef.current = true
+    if (lifecycleRef.current.initialized) return
+    lifecycleRef.current.initialized = true
     refreshAuth()
   }, [refreshAuth])
 
