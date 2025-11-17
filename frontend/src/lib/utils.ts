@@ -79,6 +79,7 @@ export function useProvideAuth(): AuthContextType {
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const initRef = useRef(false)
+  const refreshInProgressRef = useRef(false)
 
   // Smooth page transition overlay to avoid route flash
   const showFadeTransition = useCallback(() => {
@@ -178,68 +179,55 @@ export function useProvideAuth(): AuthContextType {
 
   // Refresh authentication state
   const refreshAuth = useCallback(async (skipVerification = false) => {
-    // Prevent multiple simultaneous refresh calls
-    if (loading) {
+    if (refreshInProgressRef.current) {
       console.log('⏸️ refreshAuth already in progress, skipping')
       return
     }
 
-    console.log('🔄 refreshAuth called', { skipVerification })
+    refreshInProgressRef.current = true
     setLoading(true)
+    console.log('🔄 refreshAuth called', { skipVerification })
+
     try {
-      // Check if we have a stored token (from backend login)
       const storedToken = safeGetItem(TOKEN_KEY)
       const storedUserData = safeGetItem(USER_KEY)
 
       if (storedToken && storedUserData) {
         try {
           const parsedUser = JSON.parse(storedUserData)
-          
-          // Validate token format (basic check)
+
           if (!storedToken || storedToken.length < 10) {
             console.warn('⚠️ Invalid token format, clearing session')
             clearSession()
-            setLoading(false)
             return
           }
 
-          // Validate user data
           if (!parsedUser || !parsedUser.uid || !parsedUser.email) {
             console.warn('⚠️ Invalid user data, clearing session')
             clearSession()
-            setLoading(false)
             return
           }
 
-          // Set auth state immediately - use functional updates to ensure state is set
           setToken(() => storedToken)
           setUser(() => parsedUser as User)
           console.log('✅ Auth state restored from storage')
 
-          // Only verify token if not skipping (e.g., after fresh login)
-          // and if we don't already have valid auth state
           if (!skipVerification && (!token || !user)) {
             try {
-              // Make a lightweight call to verify token (e.g., get user profile)
               const { api } = await import('./api')
               const profileResult = await api.getUserProfile()
-              
+
               if (profileResult.status === 'success') {
                 console.log('✅ Token verified, auth state confirmed')
               } else {
-                // Token might be expired, but don't logout immediately
-                // Let the API error handling deal with 401s
                 console.warn('⚠️ Token verification returned non-success, but keeping session')
               }
             } catch (verifyError: any) {
-              // Only logout on 401 (unauthorized), not on network errors
               if (verifyError?.status === 401 || verifyError?.response?.status === 401) {
                 console.warn('⚠️ Token expired or invalid (401), clearing session')
                 clearSession()
-                setLoading(false)
                 return
               } else {
-                // Network error or other issue - keep session, API will handle retries
                 console.warn('⚠️ Token verification failed (non-401), keeping session:', verifyError?.message)
               }
             }
@@ -247,37 +235,32 @@ export function useProvideAuth(): AuthContextType {
             console.log('⏭️ Skipping token verification (fresh login)')
           }
 
-          setLoading(false)
           console.log('✅ refreshAuth completed successfully')
 
-          // Trigger trial status refresh after successful login
           try {
             await import('./trialService')
             safeRemoveItem('meallensai_user_access_status')
           } catch (error) {
-            // Non-critical, continue
+            // non-critical
           }
 
           return
         } catch (error) {
           console.error('❌ Error parsing stored user data:', error)
-          // Clear invalid data
           clearSession()
-          setLoading(false)
           return
         }
       }
 
-      // No token or user data found
       console.log('ℹ️ No stored auth data found')
       clearSession()
-      setLoading(false)
     } catch (error) {
       console.error('❌ Error in refreshAuth:', error)
-      // Don't clear session on unexpected errors - might be temporary
+    } finally {
+      refreshInProgressRef.current = false
       setLoading(false)
     }
-  }, [clearSession, loading])
+  }, [clearSession, token, user])
 
   // Initialize auth state
   useEffect(() => {
