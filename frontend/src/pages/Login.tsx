@@ -68,17 +68,27 @@ const Login = () => {
         }
         safeSetItem('user_data', JSON.stringify(userData))
 
-        // Update auth context
-        await refreshAuth()
+        // Update auth context - skip verification since we just logged in
+        await refreshAuth(true)
 
+        // Show success toast
         toast({
           title: "Welcome back!",
           description: "You have been successfully logged in.",
         })
 
-        // Redirect to intended page or main app using client-side navigation only.
-        // This avoids a full page reload that would clear the in-memory auth fallback
-        // used on browsers that block localStorage (e.g., Opera Mini/private modes).
+        // Wait for React to process state updates before redirecting
+        // This ensures isAuthenticated is true when ProtectedRoute checks it
+        await new Promise(resolve => {
+          // Use requestAnimationFrame to wait for next render cycle
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              resolve(undefined)
+            }, 100)
+          })
+        })
+
+        // Redirect to intended page
         const from = location.state?.from?.pathname || "/ai-kitchen"
         console.log('🔄 Redirecting after login to:', from)
         navigate(from, { replace: true })

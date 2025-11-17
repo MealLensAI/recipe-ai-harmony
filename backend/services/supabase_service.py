@@ -755,6 +755,35 @@ class SupabaseService:
             print(f"[DEBUG] Existing records: {existing.data}")
             
             if existing.data and len(existing.data) > 0:
+                # Save previous settings to history before updating
+                existing_settings = existing.data[0].get('settings_data', {})
+                try:
+                    # Detect changed fields
+                    changed_fields = []
+                    if isinstance(existing_settings, dict) and isinstance(settings_data, dict):
+                        all_keys = set(list(existing_settings.keys()) + list(settings_data.keys()))
+                        for key in all_keys:
+                            old_val = existing_settings.get(key)
+                            new_val = settings_data.get(key)
+                            if old_val != new_val:
+                                changed_fields.append(key)
+                    
+                    # Save to history
+                    history_data = {
+                        'user_id': user_id,
+                        'settings_type': settings_type,
+                        'settings_data': settings_data,
+                        'previous_settings_data': existing_settings,
+                        'changed_fields': changed_fields,
+                        'created_at': datetime.utcnow().isoformat() + 'Z',
+                        'created_by': user_id
+                    }
+                    self.supabase.table('user_settings_history').insert(history_data).execute()
+                    print(f"[DEBUG] Saved settings history with {len(changed_fields)} changed fields")
+                except Exception as history_error:
+                    # Don't fail the update if history save fails
+                    print(f"[WARNING] Failed to save settings history: {history_error}")
+                
                 # Update existing
                 print(f"[DEBUG] Updating existing record...")
                 result = self.supabase.table('user_settings').update({
@@ -773,6 +802,23 @@ class SupabaseService:
                     'updated_at': datetime.utcnow().isoformat() + 'Z'
                 }).execute()
                 print(f"[DEBUG] Insert result: {result.data}")
+                
+                # Save to history (first insert)
+                try:
+                    history_data = {
+                        'user_id': user_id,
+                        'settings_type': settings_type,
+                        'settings_data': settings_data,
+                        'previous_settings_data': None,
+                        'changed_fields': list(settings_data.keys()) if isinstance(settings_data, dict) else [],
+                        'created_at': datetime.utcnow().isoformat() + 'Z',
+                        'created_by': user_id
+                    }
+                    self.supabase.table('user_settings_history').insert(history_data).execute()
+                    print(f"[DEBUG] Saved initial settings to history")
+                except Exception as history_error:
+                    # Don't fail the insert if history save fails
+                    print(f"[WARNING] Failed to save settings history: {history_error}")
             
             if result.data:
                 print(f"[SUCCESS] Settings saved via direct table operation")
