@@ -31,23 +31,42 @@ export const useSicknessSettings = () => {
 
   // Load settings from API on mount
   useEffect(() => {
+    let isMounted = true;
     const loadSettings = async () => {
+      setLoading(true);
       try {
         const result = await api.getUserSettings('health_profile');
-        if (result.status === 'success' && result.settings) {
-          setSettings(result.settings);
-        } else {
-          // No settings found in backend - start with defaults
-          console.log('No health settings found in backend, using defaults');
+        if (isMounted) {
+          if (result.status === 'success' && result.settings) {
+            // Only update state if component is still mounted
+            setSettings(result.settings);
+            console.log('✅ Health settings loaded from backend:', result.settings);
+          } else {
+            // No settings found in backend - start with defaults
+            console.log('No health settings found in backend, using defaults');
+            // Keep default state, don't update
+          }
         }
       } catch (error) {
         console.error('Error loading sickness settings from API:', error);
         // Do NOT fall back to localStorage - always use backend as source of truth
-        console.log('Failed to load from backend, using default settings');
+        // Keep default state on error
+        if (isMounted) {
+          console.log('Failed to load from backend, using default settings');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadSettings();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const updateSettings = (newSettings: Partial<SicknessSettings>) => {
@@ -59,20 +78,22 @@ export const useSicknessSettings = () => {
   const saveSettings = async (newSettings: SicknessSettings) => {
     setLoading(true);
     try {
-      // Save to API
+      // Save to API - this will automatically save previous settings to history
       const result = await api.saveUserSettings('health_profile', newSettings);
       
       if (result.status === 'success') {
+        // Only update local state after successful save
         setSettings(newSettings);
         // Do NOT save to localStorage - backend is the source of truth
-        console.log('Health settings saved to backend successfully');
+        console.log('✅ Health settings saved to backend successfully');
         return { success: true };
       } else {
         throw new Error(result.message || 'Failed to save settings');
       }
-    } catch (error) {
-      console.error('Error saving sickness settings:', error);
-      return { success: false, error };
+    } catch (error: any) {
+      console.error('❌ Error saving sickness settings:', error);
+      // Don't update local state on error - keep previous settings
+      return { success: false, error: error?.message || 'Failed to save settings' };
     } finally {
       setLoading(false);
     }

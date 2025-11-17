@@ -140,6 +140,14 @@ class SubscriptionService:
             # Determine if user can access app (subscription OR active trial)
             can_access_app = has_active_subscription or trial_active
             
+            # Check organization time restrictions if user is in an organization
+            time_restriction_info = None
+            if can_access_app:
+                time_restriction_info = self._check_time_restrictions(supabase_user_id)
+                if time_restriction_info and not time_restriction_info.get('can_access_now', True):
+                    # User has access but is outside allowed time window
+                    can_access_app = False
+            
             return {
                 'success': True,
                 'data': {
@@ -147,7 +155,8 @@ class SubscriptionService:
                     'has_ever_had_subscription': has_ever_had_subscription,
                     'subscription': subscription,
                     'trial': trial,
-                    'can_access_app': can_access_app
+                    'can_access_app': can_access_app,
+                    'time_restriction': time_restriction_info
                 }
             }
             
@@ -941,6 +950,138 @@ class SubscriptionService:
                 'success': False,
                 'error': str(e),
                 'usage_stats': []
+            }
+    
+    def _check_time_restrictions(self, user_id: str) -> Dict[str, Any]:
+        """
+        Check if user is within allowed time window based on organization settings.
+        
+        Returns:
+            Dict with 'can_access_now', 'restrictions_enabled', 'allowed_start_time', 
+            'allowed_end_time', 'current_time', 'timezone', 'message'
+        """
+        try:
+            from datetime import datetime, time
+            import pytz
+            
+            # Check if user is in an organization
+            org_result = self.supabase.table('organization_users').select(
+                'enterprise_id, allowed_start_time, allowed_end_time, timezone, restrictions_enabled'
+            ).eq('user_id', user_id).execute()
+            
+            if not org_result.data or len(org_result.data) == 0:
+                # User not in organization, no restrictions
+                return {
+                    'can_access_now': True,
+                    'restrictions_enabled': False,
+                    'message': 'No organization restrictions'
+                }
+            
+            org_user = org_result.data[0]
+            restrictions_enabled = org_user.get('restrictions_enabled', False)
+            
+            # If restrictions not enabled for this user, check org defaults
+            if not restrictions_enabled:
+                enterprise_id = org_user.get('enterprise_id')
+                if enterprise_id:
+                    org_result = self.supabase.table('enterprises').select(
+                        'time_restrictions_enabled, default_start_time, default_end_time, default_timezone'
+                    ).eq('id', enterprise_id).execute()
+                    
+                    if org_result.data and len(org_result.data) > 0:
+                        org = org_result.data[0]
+                        restrictions_enabled = org.get('time_restrictions_enabled', False)
+                        if restrictions_enabled:
+                            allowed_start_time = org.get('default_start_time')
+                            allowed_end_time = org.get('default_end_time')
+                            timezone_str = org.get('default_timezone', 'UTC')
+                        else:
+                            return {
+                                'can_access_now': True,
+                                'restrictions_enabled': False,
+                                'message': 'No organization restrictions'
+                            }
+                    else:
+                        return {
+                            'can_access_now': True,
+                            'restrictions_enabled': False,
+                            'message': 'No organization restrictions'
+                        }
+                else:
+                    return {
+                        'can_access_now': True,
+                        'restrictions_enabled': False,
+                        'message': 'No organization restrictions'
+                    }
+            else:
+                # Use user-specific restrictions
+                allowed_start_time = org_user.get('allowed_start_time')
+                allowed_end_time = org_user.get('allowed_end_time')
+                timezone_str = org_user.get('timezone', 'UTC')
+            
+            if not restrictions_enabled:
+                return {
+                    'can_access_now': True,
+                    'restrictions_enabled': False,
+                    'message': 'No restrictions enabled'
+                }
+            
+            # Parse times and check current time
+            try:
+                # Get timezone
+                tz = pytz.timezone(timezone_str) if timezone_str else pytz.UTC
+                now = datetime.now(tz)
+                current_time = now.time()
+                
+                # Parse allowed times
+                if isinstance(allowed_start_time, str):
+                    start_time = datetime.strptime(allowed_start_time, '%H:%M:%S').time()
+                else:
+                    start_time = allowed_start_time
+                
+                if isinstance(allowed_end_time, str):
+                    end_time = datetime.strptime(allowed_end_time, '%H:%M:%S').time()
+                else:
+                    end_time = allowed_end_time
+                
+                # Check if current time is within allowed window
+                # Handle case where end time is next day (e.g., 22:00 - 06:00)
+                if start_time <= end_time:
+                    # Normal case: same day window (e.g., 09:00 - 17:00)
+                    can_access = start_time <= current_time <= end_time
+                else:
+                    # Overnight case: spans midnight (e.g., 22:00 - 06:00)
+                    can_access = current_time >= start_time or current_time <= end_time
+                
+                return {
+                    'can_access_now': can_access,
+                    'restrictions_enabled': True,
+                    'allowed_start_time': str(start_time),
+                    'allowed_end_time': str(end_time),
+                    'current_time': str(current_time),
+                    'timezone': timezone_str,
+                    'message': f"Access allowed between {start_time} and {end_time} ({timezone_str})" if can_access 
+                              else f"Access restricted. Allowed: {start_time} - {end_time} ({timezone_str})"
+                }
+                
+            except Exception as time_error:
+                print(f"Error parsing time restrictions: {time_error}")
+                # On error, allow access (fail open)
+                return {
+                    'can_access_now': True,
+                    'restrictions_enabled': True,
+                    'error': str(time_error),
+                    'message': 'Error checking time restrictions, access allowed'
+                }
+                
+        except Exception as e:
+            print(f"Error checking time restrictions: {e}")
+            # On error, allow access (fail open)
+            return {
+                'can_access_now': True,
+                'restrictions_enabled': False,
+                'error': str(e),
+                'message': 'Error checking restrictions, access allowed'
             }
 
 
