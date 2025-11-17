@@ -238,6 +238,13 @@ if __name__ == '__main__':
   import os
   app = create_app()
   # Use environment variables for production
-  port = int(os.environ.get('PORT', 5000))
+  # Default to 5001 to match Vite proxy configuration
+  port = int(os.environ.get('PORT', 5001))
   debug = os.environ.get('FLASK_ENV', 'production') != 'production'
+  print(f"\n{'='*60}")
+  print(f"🚀 MealLens AI Backend Server")
+  print(f"{'='*60}")
+  print(f"Server: http://127.0.0.1:{port}")
+  print(f"Debug Mode: {debug}")
+  print(f"{'='*60}\n")
   app.run(debug=debug, host='0.0.0.0', port=port)

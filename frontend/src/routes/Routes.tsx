@@ -1,22 +1,22 @@
 import Login from "@/auth/Login";
 import MainLayout from "@/components/MainLayout";
 import OrganizationAccessGuard from "@/components/OrganizationAccessGuard";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import ProtectedRoute from "@/auth/ProtectedRoute";
 import TrialBlocker from "@/components/TrialBlocker";
 import AcceptInvitation from "@/pages/AcceptInvitation";
 import AIResponsePage from "@/pages/AIResponsePage";
 import DetectFoodPage from "@/pages/DetectFoodPage";
 import EnterpriseDashboardRedesign from "@/pages/EnterpriseDashboard";
-import ForgotPassword from "@/pages/ForgotPassword";
+import ForgotPassword from "@/auth/ForgotPassword";
 import HistoryPage from "@/pages/History";
 import HistoryDetailPage from "@/pages/HistoryDetailPage";
 import Index from "@/pages/Index";
-import LogoutAndLogin from "@/pages/LogoutAndLogin";
-import Onboarding from "@/pages/Onboarding";
+import LogoutAndLogin from "@/auth/LogoutAndLogin";
+import Onboarding from "@/auth/Onboarding";
 import Payment from "@/pages/Payment";
 import Profile from "@/pages/Profile";
-import ResetPassword from "@/pages/ResetPassword";
-import Signup from "@/pages/Signup";
+import ResetPassword from "@/auth/ResetPassword";
+import Signup from "@/auth/Signup";
 import WelcomePage from "@/pages/WelcomePage";
 import { Settings } from "lucide-react";
 import { Navigate } from "react-router-dom";
@@ -165,7 +165,7 @@ const MEALLENS_AI_ROUTES = [
     )
   },
   {
-    path: "/enterprise",
+    path: "/organization/dashboard",
     element: (
       <ProtectedRoute>
         <OrganizationAccessGuard>
@@ -177,6 +177,10 @@ const MEALLENS_AI_ROUTES = [
   {
     path: "/accept-invitation",
     element: <AcceptInvitation />
+  },
+  {
+    path: "/member",
+    element: ""
   },
   {
     path: "*",

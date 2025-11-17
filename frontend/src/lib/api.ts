@@ -38,6 +38,7 @@ export interface LoginResponse {
   user_data?: { id: string; email: string; metadata?: any }
 }
 
+
 export interface RegisterResponse {
   status: 'success' | 'error'
   message?: string
@@ -86,6 +87,7 @@ class APIService {
     if (body && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json'
     }
+
 
     // Prepare request config with cross-browser timeout support
     // AbortSignal.timeout is not supported in some browsers (older Safari/Firefox),
@@ -207,8 +209,10 @@ class APIService {
 
         // Handle 500 Server Errors - DON'T logout for server errors!
         if (response.status === 500) {
-          const errorMessage = data?.error || data?.message || 'Server error. Please try again later.'
+          // Try to extract the actual error message from the backend response
+          const errorMessage = data?.message || data?.error || data?.error_type || 'Server error. Please try again later.'
           console.error('❌ Server error (500):', errorMessage)
+          console.error('❌ Full error data:', data)
           throw new APIError(errorMessage, 500, data)
         }
 
@@ -217,9 +221,16 @@ class APIService {
           throw new APIError('Resource not found. Please check the URL and try again.', 404)
         }
 
-        // Handle 500+ server errors with better fallback messages
+        // Handle other 500+ server errors with better fallback messages
         if (response.status >= 500) {
           console.error(`Server error ${response.status}:`, data)
+
+          // Try to get the actual error message first
+          const errorMessage = data?.message || data?.error || data?.error_type
+          
+          if (errorMessage) {
+            throw new APIError(errorMessage, response.status, data)
+          }
 
           // Provide user-friendly fallback messages based on endpoint
           let fallbackMessage = 'Server error. Please try again later.'
@@ -244,7 +255,7 @@ class APIService {
       // Clear pending timeout in error path as well
       // (AbortController may trigger an exception before response object exists)
       try {
-        // @ts-ignore - timeoutId may be null
+        // @ts-expect-ignore - timeoutId may be null
         if (timeoutId) clearTimeout(timeoutId)
       } catch { /* ignore */ }
       // Handle network errors

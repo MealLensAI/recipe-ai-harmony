@@ -115,7 +115,6 @@ const Index = () => {
   }, [showPlanManager, currentPlan, savedPlans]);
 
   // Removed skeleton loading screen - show content immediately
-
   const weekDates = generateWeekDates(selectedDate);
 
   // Find all unique week start dates from savedPlans, sorted ascending

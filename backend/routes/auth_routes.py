@@ -237,25 +237,40 @@ def login_user():
     """
     Supabase email/password login. Returns access and refresh tokens; also sets httpOnly cookie.
     """
-    supabase = get_supabase_client()
-    supabase_service = getattr(current_app, 'supabase_service', None)
-
-    if not all([supabase, supabase_service]):
-        return jsonify({'status': 'error', 'message': 'Authentication service is not properly configured'}), 500
-
     try:
+        supabase = get_supabase_client()
+        supabase_service = getattr(current_app, 'supabase_service', None)
+
+        if not supabase:
+            error_msg = "Supabase client not available"
+            current_app.logger.error(f"{error_msg}: get_supabase_client() returned None")
+            if not hasattr(current_app, 'supabase_service'):
+                error_msg += " - supabase_service not found on app"
+            elif not current_app.supabase_service:
+                error_msg += " - supabase_service is None"
+            return jsonify({'status': 'error', 'message': error_msg, 'error_type': 'service_unavailable'}), 500
+
+        if not supabase_service:
+            error_msg = "Supabase service not available"
+            current_app.logger.error(f"{error_msg}: supabase_service is None or not set")
+            return jsonify({'status': 'error', 'message': error_msg, 'error_type': 'service_unavailable'}), 500
+
         data = request.get_json() or {}
     except Exception as e:
-        current_app.logger.error(f"Error parsing JSON data: {e}")
+        current_app.logger.error(f"Error parsing JSON data: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Invalid request data'}), 400
 
     email = data.get('email')
     password = data.get('password')
     if email and password:
-        response, status = _handle_supabase_login(email, password, supabase, supabase_service)
-        if isinstance(response, Response):
-            return response, status
-        return jsonify(response), status
+        try:
+            response, status = _handle_supabase_login(email, password, supabase, supabase_service)
+            if isinstance(response, Response):
+                return response, status
+            return jsonify(response), status
+        except Exception as e:
+            current_app.logger.error(f"Error in _handle_supabase_login: {str(e)}", exc_info=True)
+            return jsonify({'status': 'error', 'message': f'Login failed: {str(e)}', 'error_type': 'login_error'}), 500
 
     current_app.logger.warning("No email/password provided in login request")
     return jsonify({'status': 'error', 'message': 'Email and password are required.'}), 400

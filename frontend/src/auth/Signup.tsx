@@ -200,7 +200,9 @@ const Signup = () => {
                 toast({
                   title: "Organization Registered!",
                   description: "Your organization has been successfully registered.",
+                  
                 })
+                navigate("/enterprise")
               } else {
                 // Show error to user - this is critical!
                 toast({
@@ -217,7 +219,7 @@ const Signup = () => {
                 title: "Organization Registration Failed",
                 description: error.message || "Failed to register organization. You can create it later from Enterprise Dashboard.",
                 variant: "destructive",
-                duration: 7000,
+                duration: 1000,
               })
               console.error('Failed to register organization:', error)
               // Still continue to app - user can create org later
@@ -609,6 +611,7 @@ const Signup = () => {
                 ) : (
                   isOrganizationSignup ? "Register Organization" : "Create Account"
                 )}
+                {/* Create Account */}
               </Button>
             </form>
 

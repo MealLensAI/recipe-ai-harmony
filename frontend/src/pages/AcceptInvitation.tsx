@@ -107,7 +107,7 @@ export default function AcceptInvitation() {
                 // Redirect to meal planner (user's account dashboard)
                 setTimeout(() => {
                     navigate('/planner');
-                }, 2000);
+                }, 1000);
             }
         } catch (error: any) {
             toast({

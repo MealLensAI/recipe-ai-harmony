@@ -196,9 +196,18 @@ export const APP_CONFIG = {
     api: {
         // Backend API URL - defaults to production Render backend
         // Set VITE_API_URL="" in .env.local to use Vite proxy for local backend
-        base_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_URL !== undefined) 
-                  ? (import.meta as any).env.VITE_API_URL 
-                  : 'https://meallensai.onrender.com',
+        // Empty string means use relative URLs (Vite proxy will handle it)
+        base_url: (() => {
+            if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+                const apiUrl = (import.meta as any).env.VITE_API_URL;
+                // If VITE_API_URL is explicitly set (even if empty), use it
+                // Empty string means use relative URLs (Vite proxy)
+                if (apiUrl !== undefined) {
+                    return apiUrl || ''; // Empty string for relative URLs
+                }
+            }
+            return 'https://meallensai.onrender.com';
+        })(),
         // AI API URL - defaults to production AI server
         ai_api_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_AI_API_URL) || 'http://35.238.225.150:7017',
         timeout: 30000
