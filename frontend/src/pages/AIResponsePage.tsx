@@ -8,7 +8,6 @@ import { Utensils } from "lucide-react"
 import "@/styles/ai-response.css"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
-import LoadingSpinner from "@/components/LoadingSpinner"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 
 
@@ -55,7 +54,13 @@ const AIResponsePage: FC = () => {
   }, [sicknessSettings.hasSickness, isHealthProfileComplete])
 
   if (loading) {
-    return <LoadingSpinner />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-orange-50 p-4">
+        <div className="bg-white/90 border border-orange-100 rounded-2xl px-6 py-8 text-center shadow-lg max-w-md w-full">
+          <p className="text-sm text-orange-800">Warming up the AI kitchen…</p>
+        </div>
+      </div>
+    )
   }
   if (!isAuthenticated) {
     return (

@@ -1,4 +1,5 @@
 import { useAuth, safeGetItem, safeRemoveItem } from './utils'
+import { secureStorage, secureGetItem, secureSetItem } from './secureStorage'
 import { APP_CONFIG } from '@/lib/config'
 
 // API base URL
@@ -51,14 +52,65 @@ export interface RequestOptions {
   body?: any
   headers?: Record<string, string>
   skipAuth?: boolean
-  timeout?: number
+  timeout?: number | null
   suppressAuthRedirect?: boolean
+  autoLogoutOn401?: boolean
 }
 
 // Centralized API service
 class APIService {
-  private getAuthToken(): string | null {
+  private async getAuthToken(): Promise<string | null> {
+    // Try secure storage first (encrypted)
+    const secureToken = await secureGetItem('access_token')
+    if (secureToken) return secureToken
+    
+    // Fallback to regular storage for backward compatibility
     return safeGetItem('access_token')
+  }
+  
+  /**
+   * Refresh access token using refresh token
+   */
+  private async refreshAccessToken(): Promise<string | null> {
+    try {
+      // Try to get refresh token from secure storage
+      const refreshToken = await secureGetItem('refresh_token') || safeGetItem('refresh_token')
+      
+      if (!refreshToken) {
+        console.warn('No refresh token available')
+        return null
+      }
+
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies
+        body: JSON.stringify({ refresh_token: refreshToken })
+      })
+
+      if (!response.ok) {
+        console.warn('Token refresh failed:', response.status)
+        return null
+      }
+
+      const data = await response.json()
+      
+      if (data.status === 'success' && data.access_token) {
+        // Store new token securely
+        await secureSetItem('access_token', data.access_token)
+        if (data.refresh_token) {
+          await secureSetItem('refresh_token', data.refresh_token)
+        }
+        return data.access_token
+      }
+
+      return null
+    } catch (error) {
+      console.error('Error refreshing token:', error)
+      return null
+    }
   }
 
   private async makeRequest<T = any>(
@@ -71,12 +123,19 @@ class APIService {
       headers = {},
       skipAuth = false,
       timeout = 10000,
-      suppressAuthRedirect = false
+      suppressAuthRedirect = false,
+      autoLogoutOn401 = false
     } = options
 
     // Add auth header if token is present; otherwise rely on cookie-based auth
     if (!skipAuth) {
-      const token = this.getAuthToken()
+      let token = await this.getAuthToken()
+      
+      // Check if token is expired and try to refresh
+      if (!token || await secureStorage.isTokenExpired()) {
+        token = await this.refreshAccessToken()
+      }
+      
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
       }
@@ -93,7 +152,9 @@ class APIService {
     const controller = new AbortController()
     let timeoutId: number | null = null
 
-    if (timeout && typeof window !== 'undefined') {
+    const shouldApplyTimeout = typeof timeout === 'number' && timeout > 0 && typeof window !== 'undefined'
+
+    if (shouldApplyTimeout) {
       try {
         timeoutId = window.setTimeout(() => controller.abort(), timeout)
       } catch {
@@ -136,68 +197,91 @@ class APIService {
 
       // Handle HTTP errors
       if (!response.ok) {
-        // Handle 401 Unauthorized
-        if (response.status === 401) {
-          // Don't automatically redirect for login/register requests - let them handle their own errors
+        // Handle 401 Unauthorized - try to refresh token first
+        if (response.status === 401 && !skipAuth) {
+          // Don't try to refresh for login/register endpoints
+          if (endpoint !== '/login' && endpoint !== '/register' && !suppressAuthRedirect) {
+            // Try to refresh token
+            const newToken = await this.refreshAccessToken()
+            if (newToken) {
+              // Retry the request with new token
+              headers['Authorization'] = `Bearer ${newToken}`
+              const retryResponse = await fetch(fullUrl, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : undefined,
+                signal: controller.signal,
+                credentials: 'include'
+              })
+              
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json()
+                return retryData
+              }
+            }
+          }
+          
+          // If refresh failed or this is a login/register request
           if (endpoint === '/login' || endpoint === '/register' || suppressAuthRedirect) {
-            // For login/register, just throw the error with the backend message
             const errorMessage = data?.message || 'Authentication failed'
             throw new APIError(errorMessage, 401, data)
           }
 
-          // For other requests, handle as expired/invalid session
-          // Branded overlay to avoid login flash
-          try {
-            const existing = document.getElementById('page-transition-overlay')
-            if (!existing) {
-              const overlay = document.createElement('div')
-              overlay.id = 'page-transition-overlay'
-              overlay.style.position = 'fixed'
-              overlay.style.inset = '0'
-              overlay.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)'
-              overlay.style.opacity = '0'
-              overlay.style.transition = 'opacity 150ms ease'
-              overlay.style.zIndex = '9999'
-              overlay.style.display = 'flex'
-              overlay.style.alignItems = 'center'
-              overlay.style.justifyContent = 'center'
+          if (autoLogoutOn401) {
+            // For other requests, handle as expired/invalid session
+            // Branded overlay to avoid login flash
+            try {
+              const existing = document.getElementById('page-transition-overlay')
+              if (!existing) {
+                const overlay = document.createElement('div')
+                overlay.id = 'page-transition-overlay'
+                overlay.style.position = 'fixed'
+                overlay.style.inset = '0'
+                overlay.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)'
+                overlay.style.opacity = '0'
+                overlay.style.transition = 'opacity 150ms ease'
+                overlay.style.zIndex = '9999'
+                overlay.style.display = 'flex'
+                overlay.style.alignItems = 'center'
+                overlay.style.justifyContent = 'center'
 
-              const container = document.createElement('div')
-              container.style.display = 'flex'
-              container.style.flexDirection = 'column'
-              container.style.alignItems = 'center'
-              container.style.gap = '12px'
+                const container = document.createElement('div')
+                container.style.display = 'flex'
+                container.style.flexDirection = 'column'
+                container.style.alignItems = 'center'
+                container.style.gap = '12px'
 
-              const spinner = document.createElement('div')
-              spinner.style.width = '44px'
-              spinner.style.height = '44px'
-              spinner.style.border = '4px solid rgba(0,0,0,0.08)'
-              spinner.style.borderTop = '4px solid #f97316'
-              spinner.style.borderRadius = '50%'
-              try { spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity }) } catch { }
+                const spinner = document.createElement('div')
+                spinner.style.width = '44px'
+                spinner.style.height = '44px'
+                spinner.style.border = '4px solid rgba(0,0,0,0.08)'
+                spinner.style.borderTop = '4px solid #f97316'
+                spinner.style.borderRadius = '50%'
+                try { spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity }) } catch { }
 
-              const label = document.createElement('div')
-              label.textContent = 'Loading...'
-              label.style.fontSize = '14px'
-              label.style.color = '#4b5563'
-              label.style.fontWeight = '600'
+                const label = document.createElement('div')
+                label.textContent = 'Loading...'
+                label.style.fontSize = '14px'
+                label.style.color = '#4b5563'
+                label.style.fontWeight = '600'
 
-              container.appendChild(spinner)
-              container.appendChild(label)
-              overlay.appendChild(container)
-              document.body.appendChild(overlay)
-              requestAnimationFrame(() => { overlay.style.opacity = '1' })
-            }
-          } catch { }
-          // Clear invalid token and all session data
-          safeRemoveItem('access_token')
-          safeRemoveItem('user_data')
-          safeRemoveItem('supabase_refresh_token')
-          safeRemoveItem('supabase_session_id')
-          safeRemoveItem('supabase_user_id')
-          // Redirect to landing page
-          setTimeout(() => window.location.replace('/landing'), 200)
-          throw new APIError('Authentication required. Please log in again.', 401)
+                container.appendChild(spinner)
+                container.appendChild(label)
+                overlay.appendChild(container)
+                document.body.appendChild(overlay)
+                requestAnimationFrame(() => { overlay.style.opacity = '1' })
+              }
+            } catch { }
+            // Clear invalid token and all session data
+            safeRemoveItem('access_token')
+            safeRemoveItem('user_data')
+            safeRemoveItem('supabase_refresh_token')
+            safeRemoveItem('supabase_session_id')
+            safeRemoveItem('supabase_user_id')
+            // Redirect to landing page
+            setTimeout(() => window.location.replace('/landing'), 200)
+          }
+          throw new APIError('Authentication required. Please log in again.', 401, data)
         }
 
         // Handle 403 Forbidden
@@ -208,7 +292,7 @@ class APIService {
         // Handle 500 Server Errors - DON'T logout for server errors!
         if (response.status === 500) {
           const errorMessage = data?.error || data?.message || 'Server error. Please try again later.'
-          console.error('❌ Server error (500):', errorMessage)
+          console.error(' Server error (500):', errorMessage)
           throw new APIError(errorMessage, 500, data)
         }
 
@@ -244,8 +328,9 @@ class APIService {
       // Clear pending timeout in error path as well
       // (AbortController may trigger an exception before response object exists)
       try {
-        // @ts-ignore - timeoutId may be null
-        if (timeoutId) clearTimeout(timeoutId)
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
       } catch { /* ignore */ }
       // Handle network errors
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -299,7 +384,8 @@ class APIService {
   }
 
   async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string; signup_type?: string }): Promise<RegisterResponse> {
-    return this.post('/register', userData, { skipAuth: true })
+    // Allow the request to complete regardless of duration (Supabase auth provisioning + onboarding can exceed 60s)
+    return this.post('/register', userData, { skipAuth: true, timeout: null })
   }
 
   async requestPasswordReset(email: string): Promise<APIResponse> {
@@ -386,7 +472,8 @@ class APIService {
     address?: string;
     organization_type: string;
   }): Promise<APIResponse> {
-    return this.post('/enterprise/register', data)
+    // Organization bootstrap can take longer; disable client-side timeout entirely
+    return this.post('/enterprise/register', data, { timeout: null })
   }
 
   async getEnterpriseDetails(enterpriseId: string): Promise<APIResponse> {
@@ -438,6 +525,10 @@ class APIService {
 
   async completeInvitation(invitationId: string): Promise<APIResponse> {
     return this.post('/enterprise/invitation/complete', { invitation_id: invitationId })
+  }
+
+  async getEnterpriseSettingsHistory(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/settings-history`)
   }
 }
 

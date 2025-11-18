@@ -171,7 +171,6 @@ Additional styles in `src/styles/` and component-specific CSS.
 - **Navbar**: Main navigation
 - **RecipeCard**: Display recipe information
 - **MealPlanManager**: Manage meal plans
-- **LoadingSpinner**: Loading states
 - **ProtectedRoute**: Route authentication
 
 ### Hooks

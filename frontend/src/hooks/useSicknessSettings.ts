@@ -39,7 +39,9 @@ const normalizeSettings = (incoming?: Partial<SicknessSettings> | null): Sicknes
 
 export const useSicknessSettings = () => {
   const [settings, setSettings] = useState<SicknessSettings>(createEmptySettings());
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [hasExistingData, setHasExistingData] = useState(false);
   const { isAuthenticated, loading: authLoading } = useAuth();
   const isMountedRef = useRef(true);
@@ -52,7 +54,19 @@ export const useSicknessSettings = () => {
   }, []);
 
   const loadSettingsFromBackend = useCallback(async () => {
-    if (authLoading || !isAuthenticated) {
+    if (authLoading) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      if (isMountedRef.current) {
+        const emptySettings = createEmptySettings();
+        setSettings(emptySettings);
+        lastSavedRef.current = emptySettings;
+        setHasExistingData(false);
+        setLoading(false);
+        setIsReady(true);
+      }
       return;
     }
 
@@ -90,6 +104,7 @@ export const useSicknessSettings = () => {
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
+        setIsReady(true);
       }
     }
   }, [authLoading, isAuthenticated]);
@@ -108,7 +123,7 @@ export const useSicknessSettings = () => {
 
   const saveSettings = async (newSettings: SicknessSettings) => {
     const payload = normalizeSettings(newSettings);
-    setLoading(true);
+    setSaving(true);
     try {
       const result = await api.saveUserSettings('health_profile', payload);
 
@@ -116,7 +131,6 @@ export const useSicknessSettings = () => {
         lastSavedRef.current = payload;
         setSettings(payload);
         setHasExistingData(true);
-        await loadSettingsFromBackend();
         console.log('✅ Health settings saved to backend successfully');
         return { success: true };
       } else {
@@ -127,7 +141,8 @@ export const useSicknessSettings = () => {
       return { success: false, error: error?.message || 'Failed to save settings' };
     } finally {
       if (isMountedRef.current) {
-        setLoading(false);
+        setSaving(false);
+        setIsReady(true);
       }
     }
   };
@@ -195,12 +210,14 @@ export const useSicknessSettings = () => {
   return {
     settings,
     loading,
+    saving,
     updateSettings,
     saveSettings,
     resetToLastSaved,
     hasExistingData,
     getSicknessInfo,
     getHealthProfilePayload,
-    isHealthProfileComplete
+    isHealthProfileComplete,
+    isReady
   };
 };

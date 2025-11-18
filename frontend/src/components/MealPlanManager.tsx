@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Calendar, Plus, Trash2, Copy, Edit, ChevronLeft, ChevronRight, MoreVertical, Heart, Shield } from 'lucide-react';
 import { SavedMealPlan, useMealPlans } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
-import LoadingSpinner from './LoadingSpinner';
 
 interface MealPlanManagerProps {
   onNewPlan: () => void;
@@ -186,8 +185,7 @@ const MealPlanManager: React.FC<MealPlanManagerProps> = ({ onNewPlan, onEditPlan
         <h3 className="text-lg font-semibold text-[#2D3436] mb-4">Saved Plans</h3>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-10 text-gray-500">
-            <LoadingSpinner />
-            <p className="mt-3">Loading your meal plans...</p>
+            <p className="text-sm">Loading your meal plans…</p>
           </div>
         ) : savedPlans.length === 0 ? (
           <div className="text-center py-8 text-gray-500">

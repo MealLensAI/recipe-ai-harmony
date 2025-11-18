@@ -14,12 +14,13 @@ const Settings = () => {
   const { toast } = useToast();
   const {
     settings,
-    loading,
+    saving,
     updateSettings,
     saveSettings,
     resetToLastSaved,
     hasExistingData
   } = useSicknessSettings();
+  const actionsDisabled = saving;
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -405,16 +406,16 @@ const Settings = () => {
             <div className="flex flex-col gap-3 pt-4 sm:flex-row">
               <Button
                 onClick={handleSave}
-                disabled={loading}
+                disabled={actionsDisabled}
                 className="w-full sm:flex-1"
               >
-                {loading ? 'Saving...' : 'Save Health Profile'}
+                {saving ? 'Saving...' : 'Save Health Profile'}
               </Button>
               {hasExistingData && (
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={loading}
+                  disabled={actionsDisabled}
                   className="w-full sm:flex-1"
                   onClick={cancelEditing}
                 >

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app, Response
 from typing import Optional
 import os
 import json
+from datetime import datetime
 from services.auth_service import AuthService
 from services.subscription_service import SubscriptionService
 from supabase import Client
@@ -192,44 +193,158 @@ def _handle_supabase_login(email: str, password: str, supabase, supabase_service
             }
         }
 
-        # Set httpOnly cookie with access token to support browsers that block localStorage
+        # Set httpOnly cookies for secure token storage
         from flask import make_response
         resp = make_response(jsonify(payload))
+        
+        # Determine cookie settings based on environment
+        is_dev = current_app.debug or (request.host.split(':')[0] in ['127.0.0.1', 'localhost'])
+        cookie_secure = False if is_dev else True
+        cookie_samesite = 'Lax' if is_dev else 'None'
+        
+        # Set access token cookie (24 hours)
         if access_token:
-            # 7-day cookie by default
-            max_age = 7 * 24 * 60 * 60
             try:
-                # Use secure cookie only in production (https). In local dev (http), browsers drop secure cookies.
-                is_dev = current_app.debug or (request.host.split(':')[0] in ['127.0.0.1', 'localhost'])
-                cookie_secure = False if is_dev else True
-                cookie_samesite = 'Lax' if is_dev else 'None'
                 resp.set_cookie(
                     'access_token',
                     value=access_token,
-                    max_age=max_age,
+                    max_age=24 * 60 * 60,  # 24 hours
                     secure=cookie_secure,
                     httponly=True,
-                    samesite=cookie_samesite
+                    samesite=cookie_samesite,
+                    path='/'
                 )
             except Exception as e:
                 current_app.logger.warning(f"Failed to set access_token cookie: {str(e)}")
+        
+        # Set refresh token cookie (7 days)
+        if refresh_token:
+            try:
+                resp.set_cookie(
+                    'refresh_token',
+                    value=refresh_token,
+                    max_age=7 * 24 * 60 * 60,  # 7 days
+                    secure=cookie_secure,
+                    httponly=True,
+                    samesite=cookie_samesite,
+                    path='/'
+                )
+            except Exception as e:
+                current_app.logger.warning(f"Failed to set refresh_token cookie: {str(e)}")
+        
+        # Set session ID cookie
+        if session_id:
+            try:
+                resp.set_cookie(
+                    'session_id',
+                    value=session_id,
+                    max_age=7 * 24 * 60 * 60,  # 7 days
+                    secure=cookie_secure,
+                    httponly=True,
+                    samesite=cookie_samesite,
+                    path='/'
+                )
+            except Exception as e:
+                current_app.logger.warning(f"Failed to set session_id cookie: {str(e)}")
 
         return resp, 200
     except Exception as e:
         current_app.logger.error(f"Supabase login error for {email}: {str(e)}")
         error_msg = str(e).lower()
+
+@auth_bp.route('/api/auth/refresh', methods=['POST'])
+def refresh_token():
+    """
+    Refresh access token using refresh token.
+    Supports both cookie-based and header-based refresh tokens.
+    """
+    try:
+        # Try to get refresh token from cookie first (most secure)
+        refresh_token = request.cookies.get('refresh_token')
         
-        # Check if user exists to provide appropriate error message (reuse robust helper)
-        normalized_email = str(email or '').strip().lower()
-        user_exists = _user_exists_by_email(normalized_email)
+        # Fallback to request body if no cookie
+        if not refresh_token:
+            data = request.get_json() or {}
+            refresh_token = data.get('refresh_token')
         
-        if 'invalid login credentials' in error_msg or 'invalid password' in error_msg or 'wrong password' in error_msg:
-            if not user_exists:
-                return {'status': 'error', 'message': "You don't have an account. Please sign up to create one."}, 401
-            else:
-                return {'status': 'error', 'message': 'Incorrect email or password. Please check your credentials and try again.'}, 401
-        else:
-            return {'status': 'error', 'message': 'Login failed. Please try again.'}, 401
+        if not refresh_token:
+            return jsonify({
+                'status': 'error',
+                'message': 'Refresh token required'
+            }), 401
+
+        supabase = get_supabase_client(use_admin=True)
+        if not supabase:
+            return jsonify({
+                'status': 'error',
+                'message': 'Service unavailable'
+            }), 500
+
+        # Use Supabase to refresh the token
+        try:
+            response = supabase.auth.refresh_session(refresh_token)
+            
+            if not response or not hasattr(response, 'session'):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invalid refresh token'
+                }), 401
+
+            new_access_token = response.session.access_token
+            new_refresh_token = response.session.refresh_token
+            
+            # Get user info
+            user_id = response.user.id
+            
+            # Create response with new tokens
+            from flask import make_response
+            resp = make_response(jsonify({
+                'status': 'success',
+                'access_token': new_access_token,
+                'refresh_token': new_refresh_token,
+                'user_id': user_id
+            }))
+            
+            # Set new tokens in HTTP-only cookies
+            is_dev = current_app.debug or (request.host.split(':')[0] in ['127.0.0.1', 'localhost'])
+            cookie_secure = False if is_dev else True
+            cookie_samesite = 'Lax' if is_dev else 'None'
+            
+            resp.set_cookie(
+                'access_token',
+                value=new_access_token,
+                max_age=24 * 60 * 60,  # 24 hours
+                secure=cookie_secure,
+                httponly=True,
+                samesite=cookie_samesite,
+                path='/'
+            )
+            
+            resp.set_cookie(
+                'refresh_token',
+                value=new_refresh_token,
+                max_age=7 * 24 * 60 * 60,  # 7 days
+                secure=cookie_secure,
+                httponly=True,
+                samesite=cookie_samesite,
+                path='/'
+            )
+            
+            return resp, 200
+            
+        except Exception as refresh_error:
+            current_app.logger.error(f"Token refresh error: {str(refresh_error)}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Token refresh failed'
+            }), 401
+
+    except Exception as e:
+        current_app.logger.error(f"Refresh token endpoint error: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Internal server error'
+        }), 500
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -263,14 +378,35 @@ def login_user():
 @auth_bp.route('/logout', methods=['POST'])
 def logout_user():
     """
-    Logout by clearing the httpOnly access_token cookie. Clients should also clear local storage tokens.
+    Secure logout: Clear all HTTP-only cookies and invalidate session.
+    Clients should also clear local storage tokens.
     """
     from flask import make_response
+    from datetime import datetime, timedelta
     resp = make_response(jsonify({'status': 'success', 'message': 'Logged out'}))
-    try:
-        resp.set_cookie('access_token', '', max_age=0, expires=0, secure=True, httponly=True, samesite='None')
-    except Exception as e:
-        current_app.logger.warning(f"Failed to clear access_token cookie: {str(e)}")
+    
+    # Determine cookie settings
+    is_dev = current_app.debug or (request.host.split(':')[0] in ['127.0.0.1', 'localhost'])
+    cookie_secure = False if is_dev else True
+    cookie_samesite = 'Lax' if is_dev else 'None'
+    
+    # Clear all authentication cookies
+    cookies_to_clear = ['access_token', 'refresh_token', 'session_id']
+    for cookie_name in cookies_to_clear:
+        try:
+            resp.set_cookie(
+                cookie_name,
+                value='',
+                max_age=0,
+                expires=datetime.utcnow() - timedelta(days=1),
+                secure=cookie_secure,
+                httponly=True,
+                samesite=cookie_samesite,
+                path='/'
+            )
+        except Exception as e:
+            current_app.logger.warning(f"Failed to clear {cookie_name} cookie: {str(e)}")
+    
     return resp, 200
 
 
@@ -520,39 +656,56 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
 
 
 def _create_user_profile(supabase: Client, user_id: str, email: str, 
-                       first_name: str, last_name: str) -> tuple[bool, Optional[dict]]:
+                       first_name: str, last_name: str, signup_type: str) -> tuple[bool, Optional[dict]]:
     """
-    Update user profile in the database (only if it already exists).
-    Should not be called during registration, as the trigger will create the profile row.
-    Use this for profile updates after registration.
+    Ensure a profile row exists (upsert) for the given user.
+    Supabase triggers sometimes fail to run in certain environments, so we explicitly upsert here.
     """
     try:
-        current_app.logger.info(f"Updating profile for user {user_id}")
-        update_data = {
+        current_app.logger.info(f"Upserting profile for user {user_id}")
+
+        timestamp = datetime.utcnow().isoformat()
+        display_name = f"{first_name} {last_name}".strip()
+        profile_payload = {
+            'id': user_id,
             'email': email,
-            'first_name': first_name,
-            'last_name': last_name,
-            'updated_at': 'now()'
+            'first_name': first_name or None,
+            'last_name': last_name or None,
+            'display_name': display_name or None,
+            'signup_type': signup_type,
+            'updated_at': timestamp
         }
-        result = supabase.table('profiles').update(update_data).eq('id', user_id).execute()
-        if result.data:
-            current_app.logger.info(f"Successfully updated profile for user {user_id}")
-            return True, None
+
+        # Preserve existing created_at if the profile already exists
+        existing = supabase.table('profiles').select('created_at').eq('id', user_id).execute()
+        if existing.data and len(existing.data) > 0:
+            profile_payload['created_at'] = existing.data[0].get('created_at')
         else:
-            error_msg = f"Profile not found for user {user_id}"
-            current_app.logger.warning(error_msg)
+            profile_payload['created_at'] = timestamp
+
+        result = supabase.table('profiles').upsert(
+            profile_payload,
+            on_conflict='id'
+        ).execute()
+
+        if result.data is None:
+            error_msg = 'Supabase returned no data for profile upsert'
+            current_app.logger.error(error_msg)
             return False, {
                 'status': 'error',
-                'message': 'Profile not found',
-                'error_type': 'not_found',
+                'message': 'Failed to persist profile record',
+                'error_type': 'profile_upsert_failed',
                 'details': error_msg
             }
+
+        current_app.logger.info(f"Profile upserted for user {user_id}")
+        return True, None
     except Exception as e:
-        error_msg = f"Unexpected error in profile update: {str(e)}"
+        error_msg = f"Unexpected error upserting profile: {str(e)}"
         current_app.logger.error(error_msg)
         return False, {
             'status': 'error',
-            'message': 'Failed to update user profile',
+            'message': 'Failed to save user profile',
             'error_type': 'server_error',
             'details': str(e)
         }
@@ -622,9 +775,12 @@ def register_user():
             if not user_id:
                 return jsonify(error_response), 400
         
-        # 3. Profile row will be created automatically by the DB trigger after user registration.
-        # If you want to update profile fields (e.g., after registration), you can do so here.
-        # For initial registration, do not manually insert into profiles.
+        # 3. Ensure profile row exists (upsert) since the Supabase trigger may not be present in all environments
+        profile_created, profile_error = _create_user_profile(
+            supabase, user_id, email, first_name, last_name, signup_type
+        )
+        if not profile_created:
+            return jsonify(profile_error), 500
 
         current_app.logger.info(f"Successfully completed registration for user {user_id}")
         # Create a trial for the new user in Supabase (non-blocking best-effort)

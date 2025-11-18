@@ -5,7 +5,6 @@ import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
 import HealthAssessmentCard from '../components/HealthAssessmentCard';
 import MealTypeFilter from '../components/MealTypeFilter';
-import LoadingSpinner from '../components/LoadingSpinner';
 import CookingTutorialModal from '../components/CookingTutorialModal';
 import MealPlanManager from '../components/MealPlanManager';
 import WeekSelector from '../components/WeekSelector';
@@ -967,7 +966,9 @@ const Index = () => {
               )}
 
               {isLoading ? (
-                <LoadingSpinner />
+                <div className="p-6 text-center border border-dashed border-orange-200 rounded-xl text-sm text-orange-700 bg-orange-50/40">
+                  Refreshing your recipes…
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {getRecipesForSelectedDay().map((recipe, index) => {

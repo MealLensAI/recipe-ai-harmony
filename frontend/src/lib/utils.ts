@@ -140,8 +140,17 @@ export function useProvideAuth(): AuthContextType {
     }
   }, [])
 
-  // Clear session data
-  const clearSession = useCallback(() => {
+  // Clear session data (secure + regular storage)
+  const clearSession = useCallback(async () => {
+    // Clear secure storage (encrypted)
+    try {
+      const { secureStorage } = await import('./secureStorage')
+      await secureStorage.clearAll()
+    } catch (error) {
+      console.warn('Failed to clear secure storage:', error)
+    }
+    
+    // Clear regular storage (backward compatibility)
     safeRemoveItem(TOKEN_KEY)
     safeRemoveItem(USER_KEY)
     safeRemoveItem('supabase_refresh_token')
@@ -161,13 +170,18 @@ export function useProvideAuth(): AuthContextType {
     try {
       // Show fade overlay first to prevent flashes while redirecting
       showFadeTransition()
-      // Ask backend to clear httpOnly cookie if present
+      // Ask backend to clear httpOnly cookies
       try {
         const { APP_CONFIG } = await import('./config')
-        await fetch(`${APP_CONFIG.api.base_url}/api/logout`, { method: 'POST', credentials: 'include' })
-      } catch { }
-      // Clear all session data
-      clearSession()
+        await fetch(`${APP_CONFIG.api.base_url}/api/auth/logout`, { 
+          method: 'POST', 
+          credentials: 'include' 
+        })
+      } catch (error) {
+        console.warn('Failed to call logout endpoint:', error)
+      }
+      // Clear all session data (secure storage + regular storage)
+      await clearSession()
       // Use window.location.replace to avoid flash
       setTimeout(() => window.location.replace('/landing'), 200)
     } catch (error) {

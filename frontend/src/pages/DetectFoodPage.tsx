@@ -6,7 +6,6 @@ import { Upload, Loader2, Utensils } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
 import { useToast } from "@/hooks/use-toast"
-import LoadingSpinner from "@/components/LoadingSpinner"
 
 const DetectFoodPage = () => {
   const navigate = useNavigate()
@@ -23,7 +22,13 @@ const DetectFoodPage = () => {
   const { token, isAuthenticated, loading } = useAuth()
 
   if (loading) {
-    return <LoadingSpinner />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-orange-50 p-4">
+        <div className="bg-white/90 border border-orange-100 rounded-2xl px-6 py-8 text-center shadow-lg max-w-md w-full">
+          <p className="text-sm text-orange-800">Preparing your kitchen experience…</p>
+        </div>
+      </div>
+    )
   }
 
   if (!isAuthenticated) {

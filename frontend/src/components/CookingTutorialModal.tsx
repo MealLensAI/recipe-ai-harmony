@@ -4,7 +4,6 @@ import CookingInstructions from './tutorial/CookingInstructions';
 import VideoPlayer from './tutorial/VideoPlayer';
 import YouTubeResources from './tutorial/YouTubeResources';
 import WebResources from './tutorial/WebResources';
-import TutorialLoadingSpinner from './tutorial/LoadingSpinner';
 import { useTutorialContent } from '../hooks/useTutorialContent';
 
 interface CookingTutorialModalProps {
@@ -99,7 +98,9 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
         <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
           {loading ? (
-            <TutorialLoadingSpinner />
+            <div className="py-24 text-center text-gray-600">
+              Cooking tips are on the way…
+            </div>
           ) : (
             <div className="p-8 space-y-10">
               {/* Cooking Instructions - Always show when loaded */}
