@@ -453,7 +453,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
         user_data = {
             'email': email,
             'password': str(password),
-            'email_confirm': True,
+            'email_confirm': True,  # Auto-confirm email
             'user_metadata': {
                 'first_name': first_name or "",
                 'last_name': last_name or "",
@@ -471,9 +471,16 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
             if v is not None and v != ""
         }
         current_app.logger.info(f"[SIGNUP] Admin API metadata to save: {user_data['user_metadata']}")
+        current_app.logger.info(f"[SIGNUP] Full user_data being sent: {json.dumps({k: v for k, v in user_data.items() if k != 'password'})}")
         
         # Create user using admin API
-        response = supabase.auth.admin.create_user(user_data)
+        try:
+            response = supabase.auth.admin.create_user(user_data)
+            current_app.logger.info(f"[SIGNUP] Admin API response received: {type(response)}")
+        except Exception as api_error:
+            current_app.logger.error(f"[SIGNUP] Admin API call exception: {str(api_error)}")
+            current_app.logger.error(f"[SIGNUP] Exception type: {type(api_error).__name__}")
+            raise
         
         if response and hasattr(response, 'user') and response.user:
             user_id = response.user.id
@@ -484,6 +491,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
             return user_id, None
             
         current_app.logger.error("Admin API returned no user data")
+        current_app.logger.error(f"[SIGNUP] Response object: {response}")
         return None, {
             'status': 'error',
             'message': 'Failed to create user',
@@ -494,6 +502,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
     except Exception as e:
         error_msg = str(e)
         current_app.logger.error(f"Admin API user creation failed: {error_msg}")
+        current_app.logger.error(f"[SIGNUP] Full exception details: {repr(e)}")
         
         # Provide better error messages for common cases
         if 'already registered' in error_msg.lower() or 'already exists' in error_msg.lower():
@@ -503,17 +512,24 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
                 'error_type': 'user_already_exists',
                 'suggestion': 'login'
             }
-        elif 'not allowed' in error_msg.lower():
+        elif 'not allowed' in error_msg.lower() or 'disabled' in error_msg.lower():
             return None, {
                 'status': 'error',
-                'message': 'User creation not allowed. This email may already be registered.',
-                'error_type': 'user_already_exists',
-                'suggestion': 'login'
+                'message': 'User registration is currently disabled. Please contact support or try again later.',
+                'error_type': 'registration_disabled',
+                'suggestion': 'contact_support'
+            }
+        elif 'timeout' in error_msg.lower() or 'connection' in error_msg.lower():
+            return None, {
+                'status': 'error',
+                'message': 'Connection error. Please check your internet connection and try again.',
+                'error_type': 'connection_error',
+                'suggestion': 'retry'
             }
         else:
             return None, {
                 'status': 'error',
-                'message': 'Failed to create user using admin API',
+                'message': 'Failed to create user. Please try again or contact support.',
                 'error_type': 'auth_error',
                 'details': error_msg
             }
@@ -607,19 +623,21 @@ def register_user():
                 'suggestion': 'login'
             }), 409
         
-        # 1. Try to create user with client auth first
-        user_id, error_response = _create_user_with_client_auth(
+        # Try admin API first (more reliable for server-side registration)
+        current_app.logger.info("Using admin API for user creation")
+        user_id, error_response = _create_user_with_admin_api(
             supabase, email, password, first_name, last_name, signup_type
         )
         
-        # 2. If client auth fails, try admin API
+        # If admin API fails, try client auth as fallback
         if not user_id:
-            current_app.logger.info("Falling back to admin API for user creation")
-            user_id, error_response = _create_user_with_admin_api(
+            current_app.logger.info("Admin API failed, trying client auth as fallback")
+            user_id, error_response = _create_user_with_client_auth(
                 supabase, email, password, first_name, last_name, signup_type
             )
             
             if not user_id:
+                current_app.logger.error(f"Both auth methods failed for {email}")
                 return jsonify(error_response), 400
         
         # 3. Profile row will be created automatically by the DB trigger after user registration.
