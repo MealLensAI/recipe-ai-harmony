@@ -214,7 +214,16 @@ class APIService {
 
         // Handle 404 Not Found
         if (response.status === 404) {
-          throw new APIError('Resource not found. Please check the URL and try again.', 404)
+          // Provide user-friendly messages based on endpoint
+          let fallbackMessage = 'The requested information could not be found.'
+          if (endpoint.includes('enterprise')) {
+            fallbackMessage = 'Organization not found. Please select a valid organization.'
+          } else if (endpoint.includes('settings-history')) {
+            fallbackMessage = 'No settings history available yet.'
+          } else if (endpoint.includes('time-restrictions')) {
+            fallbackMessage = 'Time restrictions settings not found.'
+          }
+          throw new APIError(fallbackMessage, 404, data)
         }
 
         // Handle 500+ server errors with better fallback messages
@@ -401,6 +410,10 @@ class APIService {
     return this.get(`/enterprise/${enterpriseId}/invitations`)
   }
 
+  async getEnterpriseStatistics(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/statistics`)
+  }
+
   async inviteUserToEnterprise(enterpriseId: string, data: {
     email: string;
     role: string;
@@ -438,6 +451,18 @@ class APIService {
 
   async completeInvitation(invitationId: string): Promise<APIResponse> {
     return this.post('/enterprise/invitation/complete', { invitation_id: invitationId })
+  }
+
+  async getEnterpriseSettingsHistory(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/settings-history`)
+  }
+
+  async getEnterpriseTimeRestrictions(enterpriseId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/time-restrictions`)
+  }
+
+  async updateEnterpriseTimeRestrictions(enterpriseId: string, data: any): Promise<APIResponse> {
+    return this.put(`/enterprise/${enterpriseId}/time-restrictions`, data)
   }
 }
 

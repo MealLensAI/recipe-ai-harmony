@@ -88,20 +88,20 @@ Open your browser and navigate to: **http://localhost:5173**
 ## 🎯 Features
 
 ### Core Features
-- 🍽️ **Food Detection**: AI-powered food identification from images
-- 🥘 **Recipe Suggestions**: Get cooking instructions and recipes
-- 📅 **Meal Planning**: Personalized meal plans based on health goals
-- 🏥 **Health Profiles**: Manage dietary restrictions and health conditions
-- 📊 **History Tracking**: View past detections and meal plans
-- 💳 **Subscription Management**: Flexible payment plans
+-  **Food Detection**: AI-powered food identification from images
+-  **Recipe Suggestions**: Get cooking instructions and recipes
+-  **Meal Planning**: Personalized meal plans based on health goals
+-  **Health Profiles**: Manage dietary restrictions and health conditions
+-  **History Tracking**: View past detections and meal plans
+-  **Subscription Management**: Flexible payment plans
 
 ### Enterprise Features
-- 👥 **Organization Management**: Create and manage organizations
-- 📧 **User Invitations**: Invite team members
-- 🔐 **Role-Based Access**: Admin and member roles
-- 📈 **Usage Analytics**: Track organization usage
+-  **Organization Management**: Create and manage organizations
+-  **User Invitations**: Invite team members
+-  **Role-Based Access**: Admin and member roles
+-  **Usage Analytics**: Track organization usage
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 - **Framework**: React 18 + TypeScript
@@ -118,7 +118,9 @@ Open your browser and navigate to: **http://localhost:5173**
 - **Payment**: Paystack
 - **CORS**: Flask-CORS
 
-## 📚 Documentation
+
+
+##  Documentation
 
 - **Frontend**: See [frontend/README.md](frontend/README.md)
 - **Backend**: See [backend/README.md](backend/README.md)
