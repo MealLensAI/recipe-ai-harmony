@@ -132,16 +132,30 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
       
     } catch (error: any) {
       console.error('[INVITE] Error:', error);
+      console.error('[INVITE] Error type:', typeof error);
+      console.error('[INVITE] Error keys:', Object.keys(error || {}));
       
       // Extract the actual error message from the backend
       let description = "Failed to send invitation.";
       
-      if (error?.message) {
+      // Handle APIError objects
+      if (error?.message && typeof error.message === 'string') {
         description = error.message;
-      } else if (error?.response?.data?.error) {
-        description = error.response.data.error;
-      } else if (error?.response?.data?.message) {
-        description = error.response.data.message;
+      } else if (error?.data?.error) {
+        description = error.data.error;
+      } else if (error?.data?.message) {
+        description = error.data.message;
+      } else if (error?.error) {
+        description = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+      } else if (typeof error === 'string') {
+        description = error;
+      } else {
+        // Last resort: stringify the error
+        try {
+          description = JSON.stringify(error);
+        } catch {
+          description = "Failed to send invitation. Please try again.";
+        }
       }
       
       setGeneralError(description);

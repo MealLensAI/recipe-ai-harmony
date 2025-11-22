@@ -308,7 +308,7 @@ class APIService {
   }
 
   async register(userData: { email: string; password: string; first_name?: string; last_name?: string; name?: string; signup_type?: string }): Promise<RegisterResponse> {
-    return this.post('/register', userData, { skipAuth: true })
+    return this.post('/register', userData, { skipAuth: true, timeout: 30000 })
   }
 
   async requestPasswordReset(email: string): Promise<APIResponse> {
@@ -379,6 +379,10 @@ class APIService {
     return this.delete(`/settings?settings_type=${settingsType}`)
   }
 
+  async getUserSettingsHistory(settingsType: string = 'health_profile', limit: number = 50): Promise<APIResponse> {
+    return this.get(`/settings/history?settings_type=${settingsType}&limit=${limit}`)
+  }
+
   // Enterprise/Organization methods
   async canCreateOrganization(): Promise<APIResponse> {
     return this.get('/enterprise/can-create')
@@ -419,7 +423,7 @@ class APIService {
     role: string;
     message?: string;
   }): Promise<APIResponse> {
-    return this.post(`/enterprise/${enterpriseId}/invite`, data)
+    return this.post(`/enterprise/${enterpriseId}/invite`, data, { timeout: 30000 })
   }
 
   async createEnterpriseUser(data: {

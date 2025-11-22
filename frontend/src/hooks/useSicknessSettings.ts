@@ -53,6 +53,10 @@ export const useSicknessSettings = () => {
 
   const loadSettingsFromBackend = useCallback(async () => {
     if (authLoading || !isAuthenticated) {
+      // Force reset loading state if not authenticated
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
       return;
     }
 
@@ -86,6 +90,8 @@ export const useSicknessSettings = () => {
     } catch (error) {
       if (isMountedRef.current) {
         console.error('Error loading sickness settings from API:', error);
+        // Force reset loading on error
+        setLoading(false);
       }
     } finally {
       if (isMountedRef.current) {
@@ -97,6 +103,20 @@ export const useSicknessSettings = () => {
   useEffect(() => {
     loadSettingsFromBackend();
   }, [loadSettingsFromBackend]);
+
+  // Safety mechanism: Force reset loading state after 10 seconds
+  useEffect(() => {
+    if (loading) {
+      const timeout = setTimeout(() => {
+        console.warn('⚠️ Loading state stuck, forcing reset');
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+      }, 10000); // 10 seconds
+
+      return () => clearTimeout(timeout);
+    }
+  }, [loading]);
 
   const updateSettings = (newSettings: Partial<SicknessSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));

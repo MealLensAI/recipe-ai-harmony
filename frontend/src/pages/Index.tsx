@@ -13,6 +13,7 @@ import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { APP_CONFIG } from '@/lib/config';
+import Swal from 'sweetalert2';
 
 // Countries list for the dropdown
 const countries = [
@@ -566,16 +567,51 @@ const Index = () => {
         }
       } else {
         // Regular smart plan for healthy users
-        const response = await fetch(`${APP_CONFIG.api.ai_api_url}/smart_plan`, {
-          method: 'POST',
-          body: formData,
-        });
+        let response;
+        let data;
+        
+        try {
+          // Try external AI API first with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          
+          response = await fetch(`${APP_CONFIG.api.ai_api_url}/smart_plan`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
 
-        if (!response.ok) {
-          throw new Error('Failed to generate meal plan');
+          if (!response.ok) {
+            throw new Error('Failed to generate meal plan');
+          }
+
+          data = await response.json();
+        } catch (aiError: any) {
+          // If external AI fails, use local mock endpoint
+          console.warn('External AI API failed, using local mock endpoint:', aiError);
+          
+          Swal.fire({
+            icon: 'info',
+            title: 'Using Demo Mode',
+            text: 'The AI service is temporarily unavailable. Generating a sample meal plan for demonstration.',
+            confirmButtonColor: '#f97316',
+            timer: 3000
+          });
+          
+          response = await fetch(`${APP_CONFIG.api.base_url}/smart_plan`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to generate meal plan from mock service');
+          }
+
+          data = await response.json();
         }
-
-        const data = await response.json();
+        
         console.log('[Index] Smart Plan Response:', data);
         console.log('[Index] Meal Plan Data:', data.meal_plan);
 
@@ -596,9 +632,12 @@ const Index = () => {
         setBudget('');
         setIsAutoGenerateEnabled(false);
 
-        toast({
-          title: "Success!",
-          description: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
+        Swal.fire({
+          icon: 'success',
+          title: 'Meal Plan Created!',
+          text: `Your meal plan for ${savedPlan?.name} has been created and saved!`,
+          confirmButtonColor: '#f97316',
+          timer: 2500
         });
       }
     } catch (error: any) {
@@ -629,16 +668,18 @@ const Index = () => {
         errorMessage.includes('duplicate key value') &&
         errorMessage.includes('unique_user_week')
       ) {
-        toast({
-          title: "Duplicate Plan",
-          description: "A meal plan for this week already exists. Please choose a different week or edit the existing plan.",
-          variant: "destructive",
+        Swal.fire({
+          icon: 'warning',
+          title: 'Duplicate Plan',
+          text: 'A meal plan for this week already exists. Please choose a different week or edit the existing plan.',
+          confirmButtonColor: '#f97316'
         });
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to generate meal plan. Please try again.",
-          variant: "destructive",
+        Swal.fire({
+          icon: 'error',
+          title: 'Generation Failed',
+          text: 'Failed to generate meal plan. Please try again.',
+          confirmButtonColor: '#f97316'
         });
       }
     } finally {

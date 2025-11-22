@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
+import Swal from 'sweetalert2'
 
 
 interface HealthMeal {
@@ -105,16 +106,27 @@ const AIResponsePage: FC = () => {
       formData.append("image_or_ingredient_list", "ingredient_list")
       formData.append("ingredient_list", ingredientList)
     } else {
-      alert("Please provide an image or ingredient list")
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing Input',
+        text: 'Please provide an image or ingredient list',
+        confirmButtonColor: '#f97316'
+      })
       setIsLoading(false)
       return
     }
 
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
       const response = await fetch(`${APP_CONFIG.api.ai_api_url}/process`, {
         method: "POST",
         body: formData,
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         throw new Error("Failed to process ingredients")
@@ -124,7 +136,12 @@ const AIResponsePage: FC = () => {
       console.log("Process response:", data)
 
       if (data.error) {
-        alert(data.error)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: data.error,
+          confirmButtonColor: '#f97316'
+        })
         return
       }
 
@@ -134,7 +151,29 @@ const AIResponsePage: FC = () => {
       setShowResults(true)
     } catch (error) {
       console.error("Error processing ingredients:", error)
-      alert("Failed to process ingredients. Please try again.")
+      
+      if (error.name === 'AbortError') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Connection Timeout',
+          text: 'The AI server is taking too long to respond. The external AI service may be temporarily unavailable. Please try again later or contact support if the issue persists.',
+          confirmButtonColor: '#f97316'
+        })
+      } else if (error.message.includes('Failed to fetch')) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Connection Failed',
+          text: 'Unable to connect to the AI server. The external AI service may be offline. Please try again later or contact support.',
+          confirmButtonColor: '#f97316'
+        })
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Processing Failed',
+          text: 'Failed to process ingredients. Please try again.',
+          confirmButtonColor: '#f97316'
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -142,7 +181,12 @@ const AIResponsePage: FC = () => {
 
   const handleHealthMealGeneration = async () => {
     if (!isHealthProfileComplete) {
-      alert("Please complete your health profile in Settings first.")
+      Swal.fire({
+        icon: 'info',
+        title: 'Health Profile Required',
+        text: 'Please complete your health profile in Settings first.',
+        confirmButtonColor: '#f97316'
+      })
       return
     }
 
@@ -174,7 +218,12 @@ const AIResponsePage: FC = () => {
       formData.append("image_or_ingredient_list", "ingredient_list")
       formData.append("ingredient_list", ingredientList)
     } else {
-      alert("Please provide an image or ingredient list")
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing Input',
+        text: 'Please provide an image or ingredient list',
+        confirmButtonColor: '#f97316'
+      })
       setIsLoading(false)
       return
     }
@@ -193,7 +242,12 @@ const AIResponsePage: FC = () => {
       console.log("Health meal response:", data)
 
       if (data.error) {
-        alert(data.error)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: data.error,
+          confirmButtonColor: '#f97316'
+        })
         return
       }
 
@@ -202,7 +256,12 @@ const AIResponsePage: FC = () => {
       setShowHealthResults(true)
     } catch (error) {
       console.error("Error generating health meals:", error)
-      alert("Failed to generate health meals. Please try again.")
+      Swal.fire({
+        icon: 'error',
+        title: 'Generation Failed',
+        text: 'Failed to generate health meals. Please try again.',
+        confirmButtonColor: '#f97316'
+      })
     } finally {
       setIsLoading(false)
     }
@@ -317,7 +376,12 @@ const AIResponsePage: FC = () => {
       console.log("Health meal instructions response:", data)
 
       if (data.error) {
-        alert(data.error)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: data.error,
+          confirmButtonColor: '#f97316'
+        })
         return
       }
 
@@ -346,7 +410,12 @@ const AIResponsePage: FC = () => {
 
     } catch (error) {
       console.error("Error fetching health meal instructions:", error)
-      alert("Failed to load health meal instructions. Please try again.")
+      Swal.fire({
+        icon: 'error',
+        title: 'Loading Failed',
+        text: 'Failed to load health meal instructions. Please try again.',
+        confirmButtonColor: '#f97316'
+      })
     } finally {
       setIsLoading(false);
       setLoadingResources(false);

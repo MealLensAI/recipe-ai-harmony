@@ -161,32 +161,35 @@ def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple
             return True, "User can create organizations"
         
         # If user doesn't own any organizations, check if they signed up as an organization user
-        # We'll check the profiles table for signup_type metadata since admin API requires special permissions
+        # Check user metadata from auth to see signup_type
         try:
-            current_app.logger.info(f"[PERMISSION CHECK] Checking signup_type from profiles table")
+            current_app.logger.info(f"[PERMISSION CHECK] Checking signup_type from user metadata")
             
-            # First, try to get from profiles table where we store user metadata
-            profile_result = supabase.table('profiles').select('*').eq('id', user_id).execute()
+            # Get user metadata from Supabase Auth
+            user_data = supabase.auth.admin.get_user_by_id(user_id)
             
-            if profile_result.data and len(profile_result.data) > 0:
-                # Check if there's a signup_type column or metadata field
-                current_app.logger.info(f"[PERMISSION CHECK] Profile data: {profile_result.data[0]}")
+            if user_data and hasattr(user_data, 'user') and user_data.user:
+                user_metadata = user_data.user.user_metadata or {}
+                signup_type = user_metadata.get('signup_type', 'individual')
                 
-                # For now, allow all new users who don't have organizations to create one
-                # This is a permissive approach - if you signed up for the first time, you can create
-                current_app.logger.info(f"[PERMISSION CHECK] ✅ New user with no existing organizations, allowing organization creation")
-                return True, "User can create organizations (first-time organization setup)"
+                current_app.logger.info(f"[PERMISSION CHECK] User signup_type: {signup_type}")
+                
+                # Only allow if user signed up as 'organization'
+                if signup_type == 'organization':
+                    current_app.logger.info(f"[PERMISSION CHECK] ✅ User signed up as organization, can create")
+                    return True, "User can create organizations (registered as organization)"
+                else:
+                    current_app.logger.info(f"[PERMISSION CHECK] ❌ User signed up as individual, cannot create")
+                    return False, "Individual users cannot create organizations. Only users who registered as organizations can create them."
             else:
-                current_app.logger.warning(f"[PERMISSION CHECK] No profile found for user")
-                # Still allow - benefit of the doubt for new users
-                return True, "User can create organizations (new user)"
+                current_app.logger.warning(f"[PERMISSION CHECK] No user metadata found")
+                # Default to not allowing - safer approach
+                return False, "Cannot verify user type. Please contact support."
                 
         except Exception as metadata_error:
-            current_app.logger.error(f"[PERMISSION CHECK]  Error checking profile: {str(metadata_error)}", exc_info=True)
-            # On error, allow creation - better to be permissive for legitimate users
-            # The alternative (checking metadata via admin API) requires special Supabase privileges
-            current_app.logger.info(f"[PERMISSION CHECK]  Allowing organization creation (cannot verify signup_type due to permissions)")
-            return True, "User can create organizations (verification unavailable, allowing by default)"
+            current_app.logger.error(f"[PERMISSION CHECK] Error checking user metadata: {str(metadata_error)}", exc_info=True)
+            # On error, default to not allowing - safer approach
+            return False, "Cannot verify user permissions. Please contact support."
         
     except Exception as e:
         current_app.logger.error(f"[PERMISSION CHECK]  Error checking user permissions: {str(e)}", exc_info=True)
@@ -462,16 +465,33 @@ def invite_user(enterprise_id):
         
         data = request.get_json()
         current_app.logger.info(f"[INVITE] Request data: {data}")
+        current_app.logger.info(f"[INVITE] Request headers: {dict(request.headers)}")
         
         # Validate enterprise_id is not None or 'undefined'
-        if not enterprise_id or enterprise_id == 'undefined':
-            current_app.logger.error(f"[INVITE] Invalid enterprise_id: {enterprise_id}")
-            return jsonify({'success': False, 'error': 'No enterprise selected — cannot invite'}), 400
+        if not enterprise_id or enterprise_id == 'undefined' or enterprise_id == 'null':
+            current_app.logger.error(f"[INVITE] ❌ Invalid enterprise_id: '{enterprise_id}'")
+            return jsonify({
+                'success': False,
+                'error': 'No organization selected. Please select an organization first.',
+                'error_code': 'INVALID_ENTERPRISE_ID'
+            }), 400
         
         # Validate required fields
-        if 'email' not in data or not data['email']:
-            current_app.logger.error(f"[INVITE] Email is missing")
-            return jsonify({'success': False, 'error': 'Email is required'}), 400
+        if not data:
+            current_app.logger.error(f"[INVITE] ❌ No data provided in request body")
+            return jsonify({
+                'success': False,
+                'error': 'Request body is empty',
+                'error_code': 'EMPTY_REQUEST'
+            }), 400
+            
+        if 'email' not in data or not data.get('email', '').strip():
+            current_app.logger.error(f"[INVITE] ❌ Email is missing or empty")
+            return jsonify({
+                'success': False,
+                'error': 'Email address is required',
+                'error_code': 'MISSING_EMAIL'
+            }), 400
         
         email = data['email'].lower().strip()
         current_app.logger.info(f"[INVITE] Inviting email: {email}")
@@ -618,18 +638,44 @@ def invite_user(enterprise_id):
         except Exception as e:
             current_app.logger.warning(f"[INVITE] Could not fetch inviter details: {str(e)}")
         
-        # Send invitation email
+        # Send invitation email with timeout protection
         email_sent = False
         try:
             current_app.logger.info(f"[INVITE] Sending invitation email to {email}")
-            email_sent = email_service.send_invitation_email(
-                to_email=email,
-                enterprise_name=enterprise_data['name'],
-                inviter_name=inviter_name,
-                invitation_link=invitation_link,
-                custom_message=data.get('message')
-            )
-            current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
+            # Use a thread to send email asynchronously with timeout
+            import threading
+            import time
+            
+            email_result = {'sent': False}
+            
+            def send_email_async():
+                try:
+                    result = email_service.send_invitation_email(
+                        to_email=email,
+                        enterprise_name=enterprise_data['name'],
+                        inviter_name=inviter_name,
+                        invitation_link=invitation_link,
+                        custom_message=data.get('message')
+                    )
+                    email_result['sent'] = result
+                except Exception as e:
+                    current_app.logger.error(f"[INVITE] Email thread error: {e}")
+                    email_result['sent'] = False
+            
+            email_thread = threading.Thread(target=send_email_async)
+            email_thread.daemon = True
+            email_thread.start()
+            
+            # Wait up to 5 seconds for email to send
+            email_thread.join(timeout=5.0)
+            
+            if email_thread.is_alive():
+                current_app.logger.warning(f"[INVITE] Email sending timed out after 5 seconds, continuing anyway")
+                email_sent = False
+            else:
+                email_sent = email_result['sent']
+                current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
+                
         except Exception as email_error:
             current_app.logger.error(f"[INVITE] Email service error: {email_error}", exc_info=True)
             email_sent = False
@@ -710,6 +756,7 @@ def cancel_invitation(invitation_id):
 def verify_invitation(token):
     """Verify an invitation token (public endpoint)"""
     try:
+        current_app.logger.info(f"[VERIFY_INVITE] Verifying invitation token: {token[:20]}...")
         supabase = get_supabase_client()
         
         # Get invitation details
@@ -722,7 +769,10 @@ def verify_invitation(token):
             )
         ''').eq('invitation_token', token).execute()
         
+        current_app.logger.info(f"[VERIFY_INVITE] Query result: {len(result.data) if result.data else 0} invitations found")
+        
         if not result.data:
+            current_app.logger.warning(f"[VERIFY_INVITE] No invitation found for token: {token[:20]}...")
             return jsonify({'error': 'Invalid invitation token'}), 404
         
         invitation = result.data[0]
