@@ -194,8 +194,8 @@ class EmailService:
             msg.attach(MIMEText(text_body, 'plain'))
             msg.attach(MIMEText(html_body, 'html'))
             
-            # Send email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            # Send email with timeout
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=5) as server:
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
@@ -293,7 +293,7 @@ class EmailService:
             
             msg.attach(MIMEText(html_body, 'html'))
             
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=5) as server:
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
@@ -444,7 +444,7 @@ class EmailService:
             msg.attach(html_part)
             
             # Send the email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=5) as server:
                 server.starttls()
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)

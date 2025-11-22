@@ -75,6 +75,20 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
+        // Check if user is an organization owner and redirect accordingly
+        try {
+          const enterprisesResponse = await api.getMyEnterprises()
+          if (enterprisesResponse.success && enterprisesResponse.enterprises && enterprisesResponse.enterprises.length > 0) {
+            // User owns at least one organization - redirect to enterprise dashboard
+            console.log('🔄 User is organization owner, redirecting to enterprise dashboard')
+            navigate('/enterprise', { replace: true })
+            return
+          }
+        } catch (error) {
+          console.error('Failed to check enterprise ownership:', error)
+          // Continue with normal redirect on error
+        }
+
         // Redirect to intended page or main app using client-side navigation only.
         // This avoids a full page reload that would clear the in-memory auth fallback
         // used on browsers that block localStorage (e.g., Opera Mini/private modes).

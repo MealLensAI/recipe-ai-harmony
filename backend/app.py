@@ -130,6 +130,13 @@ def create_app():
       supports_credentials=True
   )
   
+  # Log all incoming requests for debugging
+  @app.before_request
+  def log_request():
+      print(f"[REQUEST] {request.method} {request.path}")
+      if request.method == 'POST' and request.is_json:
+          print(f"[REQUEST BODY] {request.get_json()}")
+  
   # Add CORS headers to all responses for preflight requests
   @app.after_request
   def after_request(response):

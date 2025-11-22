@@ -200,8 +200,10 @@ class PaymentService:
             return hmac.compare_digest(expected_signature, signature)
         except Exception as e:
             print(f"Error verifying webhook signature: {str(e)}")
+            print(f"Error verrifying webhook signature: {str(e)}")
+            
             return False
-    
+
     def process_webhook(self, event_data: Dict) -> Dict:
         """Process Paystack webhook events."""
         try:
