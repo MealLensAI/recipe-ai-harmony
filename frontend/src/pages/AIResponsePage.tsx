@@ -117,6 +117,7 @@ const AIResponsePage: FC = () => {
     }
 
     try {
+      console.log('[AIResponsePage] Starting ingredient detection with API:', `${APP_CONFIG.api.ai_api_url}/process`)
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
@@ -128,8 +129,12 @@ const AIResponsePage: FC = () => {
 
       clearTimeout(timeoutId)
 
+      console.log('[AIResponsePage] API response status:', response.status, response.statusText)
+
       if (!response.ok) {
-        throw new Error("Failed to process ingredients")
+        const errorText = await response.text()
+        console.error('[AIResponsePage] API error response:', errorText)
+        throw new Error(`Failed to process ingredients: ${response.status} ${response.statusText}`)
       }
 
       const data = await response.json()

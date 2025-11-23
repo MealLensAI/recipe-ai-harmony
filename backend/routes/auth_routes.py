@@ -736,6 +736,20 @@ def get_user_profile():
 
         profile = profile_result.data
         
+        # Get user metadata from auth.users to check signup_type
+        signup_type = None
+        try:
+            # Try to get user from auth.users via admin API
+            user_auth = supabase.auth.admin.get_user_by_id(user_id)
+            if user_auth and hasattr(user_auth, 'user'):
+                user_obj = user_auth.user
+                if hasattr(user_obj, 'user_metadata'):
+                    signup_type = user_obj.user_metadata.get('signup_type')
+                elif isinstance(user_obj, dict):
+                    signup_type = user_obj.get('user_metadata', {}).get('signup_type')
+        except Exception as e:
+            current_app.logger.debug(f"Could not fetch signup_type from user metadata: {str(e)}")
+        
         return jsonify({
             'status': 'success',
             'profile': {
@@ -745,7 +759,8 @@ def get_user_profile():
                 'last_name': profile.get('last_name'),
                 'display_name': f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip(),
                 'created_at': profile.get('created_at'),
-                'updated_at': profile.get('updated_at')
+                'updated_at': profile.get('updated_at'),
+                'signup_type': signup_type
             }
         }), 200
 

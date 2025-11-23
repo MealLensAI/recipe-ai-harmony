@@ -331,23 +331,44 @@ export default function EnterpriseDashboard() {
   };
 
   // Invite: always open the modal (no org selection guard)
-  const handleInviteMemberClick = (teamName?: string) => {
-    // Validate that we have a valid enterprise before opening invite form
-    const enterpriseId = selectedEnterprise?.id ?? enterprises[0]?.id;
-    
+  const handleInviteMemberClick = async (teamName?: string) => {
     console.log('[INVITE] handleInviteMemberClick called');
     console.log('[INVITE] selectedEnterprise:', selectedEnterprise);
     console.log('[INVITE] enterprises:', enterprises);
-    console.log('[INVITE] enterpriseId:', enterpriseId);
+    console.log('[INVITE] enterprises.length:', enterprises?.length);
+    console.log('[INVITE] isLoading:', isLoading);
     
+    // If enterprises haven't loaded yet, try loading them first
+    if (isLoading || (!enterprises || enterprises.length === 0)) {
+      console.log('[INVITE] Enterprises not loaded yet, loading now...');
+      await loadEnterprises();
+    }
+    
+    // Get enterprise ID - prioritize selected, then first in list
+    let enterpriseId = selectedEnterprise?.id;
+    
+    if (!enterpriseId && enterprises && enterprises.length > 0) {
+      enterpriseId = enterprises[0]?.id;
+      // Also update selectedEnterprise if it's null
+      if (!selectedEnterprise) {
+        setSelectedEnterprise(enterprises[0]);
+      }
+      console.log('[INVITE] Using first enterprise from list:', enterpriseId);
+    }
+    
+    console.log('[INVITE] Final enterpriseId:', enterpriseId);
+    
+    // Check if we have a valid enterprise ID
     if (!enterpriseId) {
-      console.error('[INVITE] No enterprise ID available!');
+      console.error('[INVITE] No enterprise ID available after loading!');
       toast({
         title: "No Organization Found",
-        description: "You need to create an organization first before inviting users. Please create one and try again.",
+        description: "You need to create an organization first before inviting users. Please use the 'Create Organization' button to set up your organization.",
         variant: "destructive",
-        duration: 5000,
+        duration: 6000,
       });
+      // Optionally open the registration form
+      setShowRegistrationForm(true);
       return;
     }
     
@@ -406,7 +427,9 @@ export default function EnterpriseDashboard() {
 
   // Don't block - show content immediately, load data in background
 
-  const inviteEnterpriseId = selectedEnterprise?.id ?? enterprises[0]?.id ?? null;
+  // Get enterprise ID for invite form - ensure we have a valid ID
+  // This is computed at render time, but handleInviteMemberClick ensures it's set before opening the form
+  const inviteEnterpriseId = selectedEnterprise?.id ?? (enterprises && enterprises.length > 0 ? enterprises[0]?.id : null);
 
   return (
     <div className="flex min-h-screen bg-[#f6f7fb] text-slate-900">
@@ -776,21 +799,42 @@ export default function EnterpriseDashboard() {
         <EnterpriseRegistrationForm onClose={() => setShowRegistrationForm(false)} onSuccess={loadEnterprises} />
       )}
 
-      {showInviteUserForm && inviteEnterpriseId && (
+      {showInviteUserForm && (() => {
+        // Compute enterprise ID at render time to ensure we have the latest value
+        const currentEnterpriseId = selectedEnterprise?.id ?? (enterprises && enterprises.length > 0 ? enterprises[0]?.id : null);
+        
+        if (!currentEnterpriseId) {
+          // If no enterprise ID, close the form and show error
+          console.error('[INVITE] No enterprise ID when rendering form!');
+          // Use setTimeout to avoid state update during render
+          setTimeout(() => {
+            setShowInviteUserForm(false);
+            toast({
+              title: "No Organization Found",
+              description: "You need to create an organization first before inviting users. Please create one and try again.",
+              variant: "destructive",
+              duration: 5000,
+            });
+          }, 0);
+          return null;
+        }
+        
+        return (
         <InviteUserForm
-          enterpriseId={inviteEnterpriseId}
+            enterpriseId={currentEnterpriseId}
           teamName={inviteContextTeam}
           onClose={() => {
             setShowInviteUserForm(false);
             setInviteContextTeam(undefined);
           }}
           onSuccess={() => {
-            loadEnterpriseDetails(inviteEnterpriseId);
+              loadEnterpriseDetails(currentEnterpriseId);
             setShowInviteUserForm(false);
             setInviteContextTeam(undefined);
           }}
         />
-      )}
+        );
+      })()}
     </div>
   );
 }

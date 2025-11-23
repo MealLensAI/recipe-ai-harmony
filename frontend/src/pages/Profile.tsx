@@ -31,20 +31,38 @@ const Profile: React.FC = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
+                console.log('[Profile] Fetching user profile...')
                 const result = await api.getUserProfile()
+                console.log('[Profile] Profile result:', result)
+                
                 if (result.status === 'success' && result.profile) {
-                    setEmail(result.profile.email || '')
+                    // Use the email from the API response
+                    const profileEmail = result.profile.email || result.profile.user?.email
+                    if (profileEmail) {
+                        console.log('[Profile] Setting email from API:', profileEmail)
+                        setEmail(profileEmail)
+                    } else {
+                        console.warn('[Profile] No email found in profile response')
+                    }
+                } else {
+                    console.warn('[Profile] Profile fetch unsuccessful:', result)
                 }
             } catch (error) {
-                console.error('Error fetching user profile:', error)
+                console.error('[Profile] Error fetching user profile:', error)
                 // Fallback to localStorage for migration
                 try {
                     const raw = localStorage.getItem('user_data')
                     if (raw) {
                         const user = JSON.parse(raw)
-                        setEmail(user?.email || '')
+                        const fallbackEmail = user?.email
+                        if (fallbackEmail) {
+                            console.log('[Profile] Using fallback email from localStorage:', fallbackEmail)
+                            setEmail(fallbackEmail)
+                        }
                     }
-                } catch { }
+                } catch (err) {
+                    console.error('[Profile] Error reading from localStorage:', err)
+                }
             } finally {
                 setProfileLoading(false)
             }

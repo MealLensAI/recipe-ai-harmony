@@ -172,7 +172,34 @@ export function HistoryPage() {
       suggestion.toLowerCase().includes(searchLower)
   })
 
-  // Removed loading screens - show content immediately
+  // Show loading state while fetching
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">History</h1>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">View your detection and settings history</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        <div className="max-w-7xl mx-auto p-3 sm:p-6">
+          <div className="flex items-center justify-center py-12 min-h-[400px]">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+              <p className="text-gray-600">Loading history...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return (

@@ -101,8 +101,11 @@ export const useSicknessSettings = () => {
   }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
+    // Only load settings when authenticated and not loading
+    if (!authLoading && isAuthenticated) {
     loadSettingsFromBackend();
-  }, [loadSettingsFromBackend]);
+    }
+  }, [authLoading, isAuthenticated, loadSettingsFromBackend]);
 
   // Safety mechanism: Force reset loading state after 10 seconds
   useEffect(() => {

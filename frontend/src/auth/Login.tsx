@@ -75,7 +75,21 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
-        // Check if user is an organization owner and redirect accordingly
+        // Check if user is an organization user and redirect accordingly
+        // Priority 1: Check signup_type from user metadata (most reliable)
+        const userMetadata = (result as any).user_data?.metadata || {}
+        const signupType = userMetadata.signup_type || userMetadata.signupType
+        
+        console.log('[Login] User metadata:', userMetadata)
+        console.log('[Login] Signup type from metadata:', signupType)
+        
+        if (signupType === 'organization') {
+          console.log('🔄 User registered as organization, redirecting to enterprise dashboard')
+          navigate('/enterprise', { replace: true })
+          return
+        }
+        
+        // Priority 2: Check if user owns organizations (fallback for existing users)
         try {
           const enterprisesResponse = await api.getMyEnterprises()
           if (enterprisesResponse.success && enterprisesResponse.enterprises && enterprisesResponse.enterprises.length > 0) {

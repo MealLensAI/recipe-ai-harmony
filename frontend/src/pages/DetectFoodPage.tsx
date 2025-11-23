@@ -74,10 +74,19 @@ const DetectFoodPage = () => {
     formData.append("image", selectedImage)
 
     try {
+      console.log("[DetectFood] Calling API:", `${APP_CONFIG.api.ai_api_url}/food_detect`)
       const response = await fetch(`${APP_CONFIG.api.ai_api_url}/food_detect`, {
         method: "POST",
         body: formData,
       })
+      console.log("[DetectFood] Response status:", response.status, response.statusText)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("[DetectFood] API error:", errorText)
+        throw new Error(`Food detection failed: ${response.status} ${response.statusText}`)
+      }
+      
       const data = await response.json()
       console.log("[DetectFood] /food_detect response:", data)
 
@@ -162,26 +171,71 @@ const DetectFoodPage = () => {
 
             // Update history with resources
             if (token && data.analysis_id) {
-              const updatePayload = {
-                food_analysis_id: data.analysis_id,
-                youtube_link: resData?.YoutubeSearch?.[0]?.link || "",
-                google_link: resData?.GoogleSearch?.[0]?.link || "",
-                resources_link: JSON.stringify(resData || {})
-              };
+              // Only update if we have actual resources data
+              const hasResources = resData && (
+                (resData.YoutubeSearch && resData.YoutubeSearch.length > 0) ||
+                (resData.GoogleSearch && resData.GoogleSearch.length > 0)
+              );
 
-              try {
-                await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/food_detect_resources`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(updatePayload)
+              if (hasResources) {
+                const updatePayload = {
+                  food_analysis_id: data.analysis_id,
+                  youtube_link: resData?.YoutubeSearch?.[0]?.link || "",
+                  google_link: resData?.GoogleSearch?.[0]?.link || "",
+                  resources_link: JSON.stringify(resData)
+                };
+
+                console.log("[DetectFood] Updating history with resources:", {
+                  food_analysis_id: data.analysis_id,
+                  hasYoutube: !!resData?.YoutubeSearch?.[0]?.link,
+                  youtubeCount: resData?.YoutubeSearch?.length || 0,
+                  hasGoogle: !!resData?.GoogleSearch?.[0]?.link,
+                  googleCount: resData?.GoogleSearch?.length || 0,
+                  resourcesKeys: resData ? Object.keys(resData) : []
                 });
-                console.log("[DetectFood] Updated history with resources");
-              } catch (updateError) {
-                console.error("[DetectFood] Error updating history with resources:", updateError);
+
+                try {
+                  // Wait a bit to ensure the initial history save completed
+                  await new Promise(resolve => setTimeout(resolve, 500));
+
+                  const updateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/food_detect_resources`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(updatePayload)
+                  });
+
+                  const updateResult = await updateResponse.json();
+                  console.log("[DetectFood] Update response:", updateResult);
+
+                  if (!updateResponse.ok || updateResult.status !== 'success') {
+                    console.error("[DetectFood] ❌ Failed to update history with resources:", updateResult);
+                    toast({
+                      title: "Warning",
+                      description: "Resources fetched but failed to save to history. They will still be visible on this page.",
+                      variant: "destructive",
+                    });
+                  } else {
+                    console.log("[DetectFood] ✅ Successfully updated history with resources");
+                  }
+                } catch (updateError) {
+                  console.error("[DetectFood] ❌ Error updating history with resources:", updateError);
+                  toast({
+                    title: "Warning",
+                    description: "Resources fetched but failed to save to history. They will still be visible on this page.",
+                    variant: "destructive",
+                  });
+                }
+              } else {
+                console.warn("[DetectFood] No resources to save - empty YoutubeSearch and GoogleSearch");
               }
+            } else {
+              console.warn("[DetectFood] Cannot update history - missing token or analysis_id", {
+                hasToken: !!token,
+                hasAnalysisId: !!data.analysis_id
+              });
             }
           }
         } catch (resourceError) {

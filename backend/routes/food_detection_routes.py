@@ -232,16 +232,25 @@ def update_food_detect_resources():
   food_analysis_id = data.get('food_analysis_id')
   youtube_link = data.get('youtube_link')
   google_link = data.get('google_link')
-  resources_link = data.get('resources_link') # Combined HTML string
+  resources_link = data.get('resources_link') # JSON string with full resources
+
+  current_app.logger.info(f"[FOOD_DETECT_RESOURCES] Updating resources for analysis_id: {food_analysis_id}, user: {user_id}")
+  current_app.logger.info(f"[FOOD_DETECT_RESOURCES] Resources data: youtube_link={bool(youtube_link)}, google_link={bool(google_link)}, resources_link length={len(resources_link) if resources_link else 0}")
 
   if not food_analysis_id:
+      current_app.logger.error("[FOOD_DETECT_RESOURCES] Missing food_analysis_id")
       return jsonify({'status': 'error', 'message': 'Missing food_analysis_id for resources update.'}), 400
 
   updates = {
-      'youtube_link': youtube_link,
-      'google_link': google_link,
-      'resources_link': resources_link
+      'youtube_link': youtube_link or None,
+      'google_link': google_link or None,
+      'resources_link': resources_link or None
   }
+
+  # Remove None values
+  updates = {k: v for k, v in updates.items() if v is not None}
+
+  current_app.logger.info(f"[FOOD_DETECT_RESOURCES] Update payload: {list(updates.keys())}")
 
   success, error = supabase_service.update_detection_history(
       analysis_id=food_analysis_id,
@@ -249,9 +258,10 @@ def update_food_detect_resources():
       updates=updates
   )
   if not success:
-      print(f"Error updating food detection history with resources: {error}")
+      current_app.logger.error(f"[FOOD_DETECT_RESOURCES] Error updating food detection history with resources: {error}")
       return jsonify({'status': 'error', 'message': f'Failed to update resources: {error}'}), 500
 
+  current_app.logger.info(f"[FOOD_DETECT_RESOURCES] ✅ Successfully updated resources for analysis_id: {food_analysis_id}")
   return jsonify({'status': 'success', 'message': 'Food detection resources updated successfully.'}), 200
 
 @food_detection_bp.route('/share_recipe', methods=['POST'])
