@@ -730,19 +730,37 @@ def get_invitations(enterprise_id):
 def cancel_invitation(invitation_id):
     """Cancel a pending invitation"""
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_admin=True)
         
-        # Get invitation and verify ownership
-        invitation = supabase.table('invitations').select('*, enterprises!inner(created_by)').eq('id', invitation_id).execute()
+        # Get invitation and related enterprise info using admin client (bypasses RLS)
+        invitation_result = supabase.table('invitations').select('''
+            id,
+            enterprise_id,
+            status,
+            enterprises!inner (
+                id,
+                name,
+                created_by
+            )
+        ''').eq('id', invitation_id).execute()
         
-        if not invitation.data:
+        if not invitation_result.data:
             return jsonify({'error': 'Invitation not found'}), 404
         
-        if invitation.data[0]['enterprises']['created_by'] != request.user_id:
-            return jsonify({'error': 'Access denied'}), 403
+        invitation = invitation_result.data[0]
+        enterprise_id = invitation['enterprise_id']
+        
+        # Verify user has permission (owner or admin) to manage invitations
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Only pending invitations can be cancelled
+        if invitation.get('status') != 'pending':
+            return jsonify({'error': f"Cannot cancel invitation with status '{invitation.get('status')}'"}), 400
         
         # Cancel invitation
-        result = supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
+        supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
         
         return jsonify({
             'success': True,
@@ -750,6 +768,7 @@ def cancel_invitation(invitation_id):
         }), 200
         
     except Exception as e:
+        current_app.logger.error(f"[INVITE] Failed to cancel invitation {invitation_id}: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to cancel invitation: {str(e)}'}), 500
 
 
