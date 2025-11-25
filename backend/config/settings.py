@@ -28,6 +28,7 @@ class Config:
         "http://localhost:5174",
         "https://meallensai.com",
         "https://www.meallensai.com",
+        "https://recipe-ai-harmony-2bbq.vercel.app",
     ]
     
     # Add custom origins from environment
