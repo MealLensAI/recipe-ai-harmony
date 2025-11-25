@@ -8,7 +8,7 @@
 - **Framework**: React + Vite + TypeScript
 
 ### ✅ Backend  
-- **URL**: http://127.0.0.1:5001/
+- **URL**: http://127.0.0.1:5000/
 - **Status**: Running
 - **Framework**: Flask (Python 3.11.9)
 - **Database**: Supabase
@@ -23,7 +23,7 @@
 1. ✅ Downloaded and installed Python 3.11.9
 2. ✅ Created virtual environment with Python 3.11
 3. ✅ Installed all dependencies successfully
-4. ✅ Started backend server on port 5001
+4. ✅ Started backend server on port 5000
 
 ## 📊 Backend Services Status
 
@@ -73,14 +73,14 @@ All backend-dependent features should now work:
 ### Method 1: Check Terminal
 Look for this output in the backend terminal:
 ```
-* Running on http://127.0.0.1:5001
+* Running on http://127.0.0.1:5000
 * Debugger is active!
 ```
 
 ### Method 2: Test API Endpoint
 Open browser and visit:
 ```
-http://127.0.0.1:5001/api/profile
+http://127.0.0.1:5000/api/profile
 ```
 
 Should see:
@@ -177,7 +177,7 @@ You'll know everything is working when:
 | Component | URL | Port |
 |-----------|-----|------|
 | Frontend | http://localhost:5173/ | 5173 |
-| Backend | http://127.0.0.1:5001/ | 5001 |
+| Backend | http://127.0.0.1:5000/ | 5000 |
 | Supabase | https://pklqumlzpklzroafmtrs.supabase.co | - |
 
 ## 🎓 What You Learned

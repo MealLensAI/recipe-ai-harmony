@@ -15,7 +15,7 @@ cd frontend
 npm run dev
 ```
 
-**Result:** Frontend → Vite Proxy → `localhost:5001`
+**Result:** Frontend → Vite Proxy → `localhost:5000`
 
 ---
 

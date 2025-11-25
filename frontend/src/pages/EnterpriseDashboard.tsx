@@ -1,6 +1,5 @@
 // src/pages/EnterpriseDashboard.tsx
-import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent } from "react";
-import { Card, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,13 +7,8 @@ import {
   Building2,
   Users,
   Mail,
-  Plus,
-  Trash2,
   Search,
   Settings,
-  Activity,
-  FileText,
-  LayoutDashboard,
   ChevronDown,
   RefreshCw,
 } from "lucide-react";
@@ -45,7 +39,24 @@ interface ImportedMember {
 
 export default function EnterpriseDashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user, signOut } = useAuth();
+
+  const handleSidebarSettings = () => {
+    setActiveSidebarItem("settings");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error: any) {
+      toast({
+        title: "Sign out failed",
+        description: error?.message || "Unable to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Core state
   const [enterprises, setEnterprises] = useState<any[]>([]);
@@ -55,26 +66,23 @@ export default function EnterpriseDashboard() {
   const [settingsHistory, setSettingsHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [statistics, setStatistics] = useState<any>(null);
-  const [loadingStatistics, setLoadingStatistics] = useState(false);
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [showInviteUserForm, setShowInviteUserForm] = useState(false);
   const [inviteContextTeam, setInviteContextTeam] = useState<string | undefined>(undefined);
-  const [permissionReason, setPermissionReason] = useState("");
-  const [canCreateOrganizations, setCanCreateOrganizations] = useState(true);
 
   // misc
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "notes">("overview");
+  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings">("overview");
   const [activeTab, setActiveTab] = useState<"users" | "invitations">("invitations");
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
   const periodMenuRef = useRef<HTMLDivElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [importingTeam, setImportingTeam] = useState<string | null>(null);
-  const [importedMembers, setImportedMembers] = useState<Record<string, Record<string, ImportedMember[]>>>({});
+  const [, setImportedMembers] = useState<Record<string, Record<string, ImportedMember[]>>>({});
 
   // Derived state
   const filteredUsers = useMemo(
@@ -94,15 +102,12 @@ export default function EnterpriseDashboard() {
   
   // Use statistics from API if available, otherwise calculate from local data
   const totalUsers = statistics?.total_users ?? filteredUsers.length;
-  const activeUsers = statistics?.active_users ?? filteredUsers.filter((u) => (u.status ?? "").toLowerCase() === "active").length;
   const pendingInvitationsCount = statistics?.pending_invitations ?? pendingInvites.length;
-  const capacityRate = statistics?.capacity_percentage ?? 0;
 
   // Fetch enterprises and permissions on auth ready
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       loadEnterprises();
-      checkUserPermissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated]);
@@ -138,18 +143,6 @@ export default function EnterpriseDashboard() {
   }, [isPeriodMenuOpen]);
 
   // --- API helpers ---
-  async function checkUserPermissions() {
-    try {
-      const res: any = await api.canCreateOrganization();
-      if (res.success) {
-        setCanCreateOrganizations(Boolean(res.can_create));
-        setPermissionReason(res.reason || "");
-      }
-    } catch {
-      setCanCreateOrganizations(true);
-    }
-  }
-
   async function loadEnterprises() {
     console.log('[DASHBOARD] Loading enterprises...');
     setIsLoading(true);
@@ -252,20 +245,6 @@ export default function EnterpriseDashboard() {
     }
   }
 
-  async function removeUser(relationId: string) {
-    try {
-      const r: any = await api.deleteEnterpriseUser(relationId);
-      if (r.success) {
-        toast({ title: "Success", description: "User removed" });
-        if (selectedEnterprise?.id) await loadEnterpriseDetails(selectedEnterprise.id);
-      } else {
-        toast({ title: "Error", description: r.message || "Failed to remove user", variant: "destructive" });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err?.message || "Failed to remove user", variant: "destructive" });
-    }
-  }
-
   async function loadSettingsHistory(enterpriseId: string) {
     if (!enterpriseId) {
       setSettingsHistory([]);
@@ -302,8 +281,6 @@ export default function EnterpriseDashboard() {
     } catch {}
     return `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   };
-
-  const getMemberRelationId = (m: any) => m?.relation_id ?? m?.membership_id ?? m?.enterprise_user_id ?? m?.id ?? m?.user_id;
 
   // Import parsing helper (kept minimal)
   const parseImportedMembers = (contents: string, teamName: string) => {
@@ -377,17 +354,6 @@ export default function EnterpriseDashboard() {
     setShowInviteUserForm(true);
   };
 
-  const handleImportClick = (teamName: string) => {
-    // still prefer an org to import into, but we only warn rather than block
-    if (!selectedEnterprise && enterprises.length === 0) {
-      toast({ title: "No organization", description: "Create an organization to import members into.", variant: "destructive" });
-      return;
-    }
-    setImportingTeam(teamName);
-    importInputRef.current && (importInputRef.current.value = "");
-    importInputRef.current?.click();
-  };
-
   // file change
   const handleImportFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -429,8 +395,6 @@ export default function EnterpriseDashboard() {
 
   // Get enterprise ID for invite form - ensure we have a valid ID
   // This is computed at render time, but handleInviteMemberClick ensures it's set before opening the form
-  const inviteEnterpriseId = selectedEnterprise?.id ?? (enterprises && enterprises.length > 0 ? enterprises[0]?.id : null);
-
   return (
     <div className="flex min-h-screen bg-[#f6f7fb] text-slate-900">
       <input
@@ -447,6 +411,10 @@ export default function EnterpriseDashboard() {
           onItemChange={setActiveSidebarItem}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
+          userName={user?.displayName}
+          userEmail={user?.email}
+          onSettingsClick={handleSidebarSettings}
+          onSignOut={handleSignOut}
         />
       </aside>
 

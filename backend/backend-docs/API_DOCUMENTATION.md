@@ -14,7 +14,7 @@
 |------------|----------|----------|
 | **Production** | `https://api.meallensai.com` | HTTPS |
 | **Staging** | `https://staging-api.meallensai.com` | HTTPS |
-| **Development** | `http://localhost:5001` | HTTP |
+| **Development** | `http://localhost:5000` | HTTP |
 
 ### URL Structure
 

@@ -188,7 +188,9 @@ const Signup = () => {
 
           toast({
             title: "Account Created!",
-            description: "Welcome to MealLensAI! Your account has been successfully created.",
+            description: isOrganizationSignup
+              ? "Welcome! Preparing your organization workspace..."
+              : "Welcome to MealLensAI! Your account has been successfully created.",
           })
 
           // If organization signup, register the organization after user creation
@@ -199,8 +201,10 @@ const Signup = () => {
               if (orgResult.success) {
                 toast({
                   title: "Organization Registered!",
-                  description: "Your organization has been successfully registered.",
+                  description: "Redirecting you to the organization dashboard...",
                 })
+                navigate('/enterprise', { replace: true })
+                return
               } else {
                 // Show error to user - this is critical!
                 toast({
@@ -225,9 +229,9 @@ const Signup = () => {
           }
 
           if (isOrganizationSignup) {
-            window.location.assign("/enterprise")
+            navigate('/enterprise', { replace: true })
           } else {
-            navigate("/onboarding", { replace: true })
+            navigate("/", { replace: true })
           }
         } else {
           toast({

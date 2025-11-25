@@ -27,10 +27,23 @@ def save_user_settings():
         success, error = supabase_service.save_user_settings(user_id, settings_type, settings_data)
         
         if success:
-            return jsonify({
+            saved_record, fetch_error = supabase_service.get_user_settings(user_id, settings_type)
+            if fetch_error:
+                log_error(f"Settings saved but failed to reload for user {user_id}", Exception(fetch_error))
+            response_payload = {
                 'status': 'success',
                 'message': 'Settings saved successfully'
-            }), 200
+            }
+            if saved_record:
+                response_payload.update({
+                    'settings': saved_record.get('settings_data', {}),
+                    'settings_type': saved_record.get('settings_type'),
+                    'updated_at': saved_record.get('updated_at')
+                })
+            else:
+                response_payload['settings'] = settings_data
+                response_payload['settings_type'] = settings_type
+            return jsonify(response_payload), 200
         else:
             log_error(f"Failed to save settings for user {user_id}", Exception(error or 'Unknown error'))
             return jsonify({'status': 'error', 'message': f'Failed to save settings: {error}'}), 500

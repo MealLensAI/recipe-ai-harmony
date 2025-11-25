@@ -105,14 +105,14 @@ The development server proxies API requests to the backend:
 // vite.config.ts
 server: {
   proxy: {
-    '/api': 'http://127.0.0.1:5001',
+    '/api': 'http://127.0.0.1:5000',
   },
 }
 ```
 
 This means:
 - Frontend: `http://localhost:5173/api/settings`
-- Proxies to: `http://127.0.0.1:5001/api/settings`
+- Proxies to: `http://127.0.0.1:5000/api/settings`
 
 ## 📦 Available Scripts
 
@@ -262,7 +262,7 @@ npm run dev
 
 For issues or questions:
 1. Check browser console for errors (F12)
-2. Verify backend is running on port 5001
+2. Verify backend is running on port 5000
 3. Check network tab for failed API requests
 4. Review error messages in toast notifications
 

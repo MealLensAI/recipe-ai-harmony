@@ -73,7 +73,7 @@ python app.py
 ```
 Payment service initialized successfully.
 Supabase AuthService initialized successfully.
-* Running on http://127.0.0.1:5001
+* Running on http://127.0.0.1:5000
 ```
 
 **Test in Browser**:
@@ -124,7 +124,7 @@ Custom Hook (useSicknessSettings)
     ↓
 API Service (api.ts)
     ↓
-Vite Proxy (/api/* → http://127.0.0.1:5001)
+Vite Proxy (/api/* → http://127.0.0.1:5000)
     ↓
 Flask Backend (app.py)
     ↓
@@ -182,7 +182,7 @@ pip list | findstr pydantic
 **Check Backend is Running**:
 ```cmd
 # Visit in browser:
-http://127.0.0.1:5001/api/profile
+http://127.0.0.1:5000/api/profile
 # Should return JSON, not error
 ```
 
@@ -234,7 +234,7 @@ FRONTEND_URL=http://localhost:5173
 - [ ] Python 3.11 or 3.12 installed
 - [ ] Virtual environment created and activated
 - [ ] Backend dependencies installed
-- [ ] Backend server running on port 5001
+- [ ] Backend server running on port 5000
 - [ ] Frontend server running on port 5173
 - [ ] Settings page can save data
 - [ ] History page can load data
@@ -259,7 +259,7 @@ FRONTEND_URL=http://localhost:5173
    - Start backend first
    - Then start frontend
 
-4. **Check firewall**: Ensure ports 5001 and 5173 are not blocked
+4. **Check firewall**: Ensure ports 5000 and 5173 are not blocked
 
 ## 📚 Additional Resources
 

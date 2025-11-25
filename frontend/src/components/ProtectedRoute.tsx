@@ -4,6 +4,7 @@ import type React from "react"
 import { Navigate, useLocation } from "react-router-dom"
 import { Loader2, Utensils } from "lucide-react"
 import { useAuth } from "@/lib/utils"
+import { useEnterpriseRole } from "@/hooks/useEnterpriseRole"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -12,9 +13,12 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, fallback }) => {
   const { isAuthenticated, loading } = useAuth()
+  const { role, isLoading: roleLoading } = useEnterpriseRole()
   const location = useLocation()
 
-  if (loading) {
+  const waitingOnRole = isAuthenticated && (roleLoading || role === null)
+
+  if (loading || waitingOnRole) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
         <div className="text-center space-y-6">

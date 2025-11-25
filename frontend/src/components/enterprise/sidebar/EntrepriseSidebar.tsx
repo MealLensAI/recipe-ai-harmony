@@ -5,20 +5,18 @@ import {
   Activity,
   Building2,
   ChevronDown,
-  FileText,
   LayoutDashboard,
   Search,
   Settings,
   Users,
 } from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'members', label: 'Members', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
-  { id: 'notes', label: 'Notes', icon: FileText },
 ] as const;
 
 type NavId = typeof navItems[number]['id'];
@@ -28,18 +26,34 @@ interface EnterpriseSidebarProps {
   onItemChange?: (item: NavId) => void;
   searchTerm?: string;
   onSearchChange?: (term: string) => void;
+  userName?: string;
+  userEmail?: string;
+  onSettingsClick?: () => void;
+  onSignOut?: () => void;
 }
 
 export default function EnterpriseSidebar({ 
   activeItem: controlledActiveItem, 
   onItemChange,
   searchTerm: controlledSearchTerm,
-  onSearchChange
+  onSearchChange,
+  userName,
+  userEmail,
+  onSettingsClick,
+  onSignOut
 }: EnterpriseSidebarProps = {}) {
   const [internalActiveItem, setInternalActiveItem] = useState<NavId>('overview');
   const [internalSearchTerm, setInternalSearchTerm] = useState('');
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const resolvedName = userName?.trim() || userEmail?.split("@")[0] || "Team Member";
+  const initials = resolvedName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "ML";
 
   const activeItem = controlledActiveItem ?? internalActiveItem;
   const searchTerm = controlledSearchTerm ?? internalSearchTerm;
@@ -125,18 +139,36 @@ export default function EnterpriseSidebar({
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
         >
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-            MM
+            {initials}
           </div>
-          <span className="flex-1 text-left">Mfon Mfon</span>
+          <div className="flex-1 text-left">
+            <span className="block text-sm font-medium text-slate-900">{resolvedName}</span>
+            {userEmail && <span className="text-xs text-slate-500">{userEmail}</span>}
+          </div>
           <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isUserMenuOpen && (
           <div className="absolute bottom-20 left-4 right-4 rounded-lg border border-slate-200 bg-white shadow-lg p-2">
-            <button className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-md">Profile</button>
-            <button className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-md">Settings</button>
+            <button
+              onClick={() => {
+                setIsUserMenuOpen(false);
+                onSettingsClick?.();
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 rounded-md"
+            >
+              Settings
+            </button>
             <hr className="my-1 border-slate-200" />
-            <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-md">Sign out</button>
+            <button
+              onClick={() => {
+                setIsUserMenuOpen(false);
+                onSignOut?.();
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-md"
+            >
+              Sign out
+            </button>
           </div>
         )}
       </div>

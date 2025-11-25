@@ -32,7 +32,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The server will start on: **http://127.0.0.1:5001**
+The server will start on: **http://127.0.0.1:5000**
 
 ## 📁 Project Structure
 
@@ -190,7 +190,7 @@ Authorization: Bearer <access_token>
 
 ```bash
 # Test health endpoint
-curl http://127.0.0.1:5001/api/profile
+curl http://127.0.0.1:5000/api/profile
 
 # Should return authentication error (expected)
 ```
@@ -199,12 +199,12 @@ curl http://127.0.0.1:5001/api/profile
 
 ```bash
 # Login first to get token
-curl -X POST http://127.0.0.1:5001/api/login \
+curl -X POST http://127.0.0.1:5000/api/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"password"}'
 
 # Use token in subsequent requests
-curl http://127.0.0.1:5001/api/profile \
+curl http://127.0.0.1:5000/api/profile \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -246,12 +246,12 @@ python --version
 ### Port Already in Use
 
 ```bash
-# Windows: Find and kill process on port 5001
-netstat -ano | findstr :5001
+# Windows: Find and kill process on port 5000
+netstat -ano | findstr :5000
 taskkill /PID <process_id> /F
 
 # Linux/Mac:
-lsof -ti:5001 | xargs kill -9
+lsof -ti:5000 | xargs kill -9
 ```
 
 ### Module Not Found
@@ -333,7 +333,7 @@ Check terminal output for debugging information.
 pip install gunicorn
 
 # Run with Gunicorn
-gunicorn -w 4 -b 0.0.0.0:5001 app:app
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
 
 ## 🔒 Security
@@ -384,4 +384,4 @@ gunicorn -w 4 -b 0.0.0.0:5001 app:app
 
 **Python Version**: 3.11.9 (in virtual environment)
 **Flask Version**: 3.1.2
-**Port**: 5001
+**Port**: 5000

@@ -11,7 +11,7 @@ app = create_app(config_name=os.environ.get('FLASK_ENV', 'development'))
 if __name__ == '__main__':
     # Get configuration from app
     host = app.config.get('HOST', '127.0.0.1')
-    port = app.config.get('PORT', 5001)
+    port = app.config.get('PORT', 5000)
     debug = app.config.get('DEBUG', True)
     
     print(f"\n{'='*60}")

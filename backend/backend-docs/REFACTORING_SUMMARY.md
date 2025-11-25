@@ -107,7 +107,7 @@ cd backend
 python app_new.py
 ```
 
-Visit: `http://127.0.0.1:5001/health`
+Visit: `http://127.0.0.1:5000/health`
 
 Expected response:
 ```json
@@ -233,10 +233,10 @@ The new architecture is **additive**, not **destructive**.
 python -c "from core.app_factory import create_app; app = create_app(); print('✅ Works!')"
 
 # Test health endpoint
-curl http://127.0.0.1:5001/health
+curl http://127.0.0.1:5000/health
 
 # Test existing endpoints
-curl http://127.0.0.1:5001/api/profile
+curl http://127.0.0.1:5000/api/profile
 ```
 
 ### Run Both Versions

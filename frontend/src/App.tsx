@@ -29,6 +29,7 @@ import { ROUTE_SEO, updateMeta } from "@/lib/seo";
 import EnterpriseDashboard from "./pages/EnterpriseDashboard";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import OrganizationAccessGuard from "./components/OrganizationAccessGuard";
+import RoleAwareRedirect from "./components/RoleAwareRedirect";
 import LogoutAndLogin from "./pages/LogoutAndLogin";
 
 // Create router with future flags to eliminate deprecation warnings
@@ -61,7 +62,7 @@ const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute fallback={<WelcomePage />}>
-        <Navigate to="/ai-kitchen" replace />
+        <RoleAwareRedirect />
       </ProtectedRoute>
     )
   },

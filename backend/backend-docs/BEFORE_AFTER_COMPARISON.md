@@ -291,7 +291,7 @@ def test_full_flow():
 ┌─────────────────┐
 │   Flask App     │  ← Single point of failure
 │  (All Services) │  ← Limited by one machine
-│   Port 5001     │  ← Can't scale specific parts
+│   Port 5000     │  ← Can't scale specific parts
 └─────────────────┘
 
 Max Capacity: 100 req/s
@@ -310,7 +310,7 @@ Downtime: High risk
     │            │            │
 ┌───▼───┐    ┌───▼───┐    ┌───▼───┐
 │ App 1 │    │ App 2 │    │ App 3 │  ← Multiple instances
-│ 5001  │    │ 5002  │    │ 5003  │  ← Auto-scaling
+│ 5000  │    │ 5001  │    │ 5002  │  ← Auto-scaling
 └───────┘    └───────┘    └───────┘  ← High availability
 
 Max Capacity: 450 req/s (3x instances)

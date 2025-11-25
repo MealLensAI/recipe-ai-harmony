@@ -262,7 +262,7 @@ A:
 ✅ Fixed: timezone issues (12 files)
 
 Test:
-curl -X POST http://localhost:5001/api/api/store-session ...
+curl -X POST http://localhost:5000/api/api/store-session ...
 ```
 
 ---

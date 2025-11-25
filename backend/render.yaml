@@ -9,5 +9,5 @@ services:
       - key: PYTHON_VERSION
         value: 3.11
       - key: PORT
-        value: 5001
+        value: 5000
 

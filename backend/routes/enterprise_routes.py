@@ -72,6 +72,7 @@ def require_auth(f):
                 return jsonify({'error': 'Invalid token'}), 401
             request.user_id = user.user.id
             request.user_email = user.user.email
+            request.user_metadata = getattr(user.user, 'user_metadata', {}) or {}
         except Exception as e:
             return jsonify({'error': f'Authentication failed: {str(e)}'}), 401
         
@@ -129,7 +130,7 @@ def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) 
         return False, f"Error checking user permissions: {str(e)}"
 
 
-def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple[bool, str]:
+def check_user_can_create_organizations(user_id: str, supabase: Client, user_metadata: dict | None = None) -> tuple[bool, str]:
     """
     Check if a user can create organizations.
     Users can create organizations if:
@@ -165,30 +166,30 @@ def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple
         try:
             current_app.logger.info(f"[PERMISSION CHECK] Checking signup_type from user metadata")
             
-            # Get user metadata from Supabase Auth
-            user_data = supabase.auth.admin.get_user_by_id(user_id)
+            metadata_source = user_metadata or {}
+            signup_type = metadata_source.get('signup_type')
             
-            if user_data and hasattr(user_data, 'user') and user_data.user:
-                user_metadata = user_data.user.user_metadata or {}
-                signup_type = user_metadata.get('signup_type', 'individual')
-                
+            if signup_type is None:
+                current_app.logger.info("[PERMISSION CHECK] No signup_type in request metadata, querying admin API")
+                admin_client = get_supabase_client(use_admin=True)
+                user_data = admin_client.auth.admin.get_user_by_id(user_id)
+                if user_data and getattr(user_data, 'user', None):
+                    metadata_source = user_data.user.user_metadata or {}
+                    signup_type = metadata_source.get('signup_type', 'individual')
+            
+            if signup_type:
                 current_app.logger.info(f"[PERMISSION CHECK] User signup_type: {signup_type}")
-                
-                # Only allow if user signed up as 'organization'
                 if signup_type == 'organization':
                     current_app.logger.info(f"[PERMISSION CHECK] ✅ User signed up as organization, can create")
                     return True, "User can create organizations (registered as organization)"
-                else:
-                    current_app.logger.info(f"[PERMISSION CHECK] ❌ User signed up as individual, cannot create")
-                    return False, "Individual users cannot create organizations. Only users who registered as organizations can create them."
-            else:
-                current_app.logger.warning(f"[PERMISSION CHECK] No user metadata found")
-                # Default to not allowing - safer approach
-                return False, "Cannot verify user type. Please contact support."
+                current_app.logger.info(f"[PERMISSION CHECK] ❌ User signed up as individual, cannot create")
+                return False, "Individual users cannot create organizations. Only users who registered as organizations can create them."
+            
+            current_app.logger.warning(f"[PERMISSION CHECK] No user metadata found after fallback")
+            return False, "Cannot verify user type. Please contact support."
                 
         except Exception as metadata_error:
             current_app.logger.error(f"[PERMISSION CHECK] Error checking user metadata: {str(metadata_error)}", exc_info=True)
-            # On error, default to not allowing - safer approach
             return False, "Cannot verify user permissions. Please contact support."
         
     except Exception as e:
@@ -216,7 +217,7 @@ def register_enterprise():
         
         # Check if user can create organizations
         current_app.logger.info(f"[ORG REGISTER] Checking if user {request.user_id} can create organizations")
-        can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
         current_app.logger.info(f"[ORG REGISTER] Permission check result: can_create={can_create}, reason={reason}")
         
         if not can_create:
@@ -264,7 +265,7 @@ def can_create_organization():
     """Check if the current user can create organizations"""
     try:
         supabase = get_supabase_client()
-        can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
         
         return jsonify({
             'success': True,

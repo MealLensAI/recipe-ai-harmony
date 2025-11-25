@@ -20,7 +20,7 @@ class Config:
     
     # Server Configuration
     HOST = os.environ.get('FLASK_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('FLASK_PORT', 5001))
+    PORT = int(os.environ.get('FLASK_PORT', 5000))
     
     # CORS Configuration
     ALLOWED_ORIGINS = [

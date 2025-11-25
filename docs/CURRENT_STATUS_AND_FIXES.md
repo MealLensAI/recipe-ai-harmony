@@ -4,7 +4,7 @@
 
 1. **Frontend Development Server**: Running successfully on `http://localhost:5173/`
 2. **Frontend Code**: All React/TypeScript code is properly structured
-3. **Vite Proxy Configuration**: Configured to proxy `/api` requests to `http://127.0.0.1:5001`
+3. **Vite Proxy Configuration**: Configured to proxy `/api` requests to `http://127.0.0.1:5000`
 4. **Backend Configuration**: `.env` file is properly configured with Supabase credentials
 
 ## ❌ What's Not Working
@@ -90,7 +90,7 @@ python app.py
 
 The backend should start and show:
 ```
-* Running on http://127.0.0.1:5001
+* Running on http://127.0.0.1:5000
 ```
 
 You should see output like:
@@ -106,7 +106,7 @@ Enterprise routes registered.
 ### Step 4: Test the Application
 
 1. **Frontend**: Already running on `http://localhost:5173/`
-2. **Backend**: Should be running on `http://127.0.0.1:5001`
+2. **Backend**: Should be running on `http://127.0.0.1:5000`
 3. **Test Settings**: Go to Settings page and try saving health profile
 4. **Test History**: Go to History page and check if it loads
 
@@ -119,7 +119,7 @@ Frontend (localhost:5173)
     ↓
 Vite Proxy (/api/*)
     ↓
-Backend (127.0.0.1:5001/api/*)
+Backend (127.0.0.1:5000/api/*)
     ↓
 Supabase Database
 ```
@@ -183,6 +183,6 @@ Supabase: shared_recipes table
 
 If you encounter any issues:
 1. Check Python version: `python --version`
-2. Check if backend is running: Visit `http://127.0.0.1:5001/api/profile` in browser
+2. Check if backend is running: Visit `http://127.0.0.1:5000/api/profile` in browser
 3. Check browser console for errors (F12)
 4. Check backend terminal for error messages

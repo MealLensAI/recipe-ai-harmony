@@ -8,7 +8,7 @@ cd C:\Projects\meallens-ai\recipe-ai-harmony\backend
 .\venv\Scripts\activate
 python app.py
 ```
-✅ Should see: `Running on http://127.0.0.1:5001`
+✅ Should see: `Running on http://127.0.0.1:5000`
 
 ### Frontend (Terminal 2)
 ```cmd
@@ -49,19 +49,19 @@ python --version
 ```
 
 ### Connection Errors?
-- Check backend is running on port 5001
+- Check backend is running on port 5000
 - Check frontend is running on port 5173
 - No firewall blocking ports
 
 ### Still Having Issues?
 1. Stop both servers (Ctrl+C)
 2. Start backend first
-3. Wait for "Running on http://127.0.0.1:5001"
+3. Wait for "Running on http://127.0.0.1:5000"
 4. Then start frontend
 5. Clear browser cache (Ctrl+Shift+Delete)
 
 ---
 
-**Quick Check**: Visit http://127.0.0.1:5001/api/profile
+**Quick Check**: Visit http://127.0.0.1:5000/api/profile
 - Should see JSON response (even if error) = Backend is working ✅
 - Connection refused = Backend not running ❌

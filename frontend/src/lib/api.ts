@@ -45,6 +45,12 @@ export interface RegisterResponse {
   email?: string
 }
 
+export interface SaveSettingsResponse extends APIResponse {
+  settings?: Record<string, any>
+  settings_type?: string
+  updated_at?: string
+}
+
 // Request options type
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -364,7 +370,7 @@ class APIService {
   }
 
   // User Settings methods
-  async saveUserSettings(settingsType: string, settingsData: any): Promise<APIResponse> {
+  async saveUserSettings(settingsType: string, settingsData: any): Promise<SaveSettingsResponse> {
     return this.post('/settings', {
       settings_type: settingsType,
       settings_data: settingsData

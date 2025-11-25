@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTrial } from '@/hooks/useTrial';
 import { Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,14 +17,26 @@ const Settings = () => {
     settings,
     loading,
     updateSettings,
-    saveSettings
+    saveSettings,
+    error,
+    reloadSettings
   } = useSicknessSettings();
 
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
 
   const [localLoading, setLocalLoading] = useState(false);
 
-  // FIXED — Only disable while actually saving
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Unable to load health settings',
+        description: error,
+        variant: 'destructive'
+      });
+    }
+  }, [error, toast]);
+
+  // Only disable button when an explicit save is in-flight
   const isActuallyLoading = localLoading;
 
   const handleSicknessChange = (value: string) => {
@@ -167,6 +179,21 @@ const Settings = () => {
           <p className="text-muted-foreground mt-2">
             Manage your account settings and preferences
           </p>
+
+          {error && (
+            <div className="mt-4 flex flex-col gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-red-700 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-medium">{error}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={reloadSettings}
+                disabled={loading}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
 
           {!hasActiveSubscription && (
             <div

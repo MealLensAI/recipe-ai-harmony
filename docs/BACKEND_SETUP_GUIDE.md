@@ -46,7 +46,7 @@ Then run:
 ```cmd
 cd recipe-ai-harmony\backend
 docker build -t meallens-backend .
-docker run -p 5001:5001 --env-file .env meallens-backend
+docker run -p 5000:5000 --env-file .env meallens-backend
 ```
 
 ## Current Status
@@ -72,4 +72,4 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The backend should start on http://127.0.0.1:5001/
+The backend should start on http://127.0.0.1:5000/

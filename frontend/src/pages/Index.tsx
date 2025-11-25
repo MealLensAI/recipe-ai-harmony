@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Search, Plus, Calendar, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, List, Upload, Utensils, ChefHat, Search, Plus, Calendar, Settings, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
@@ -13,6 +14,7 @@ import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { APP_CONFIG } from '@/lib/config';
+import { useAuth } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
 // Countries list for the dropdown
@@ -39,6 +41,36 @@ const countries = [
   'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
 ];
 
+const EmptyMealPlanState: React.FC<{
+  onCreate: () => void;
+  onReload: () => Promise<void> | void;
+  isBusy: boolean;
+  error?: string | null;
+}> = ({ onCreate, onReload, isBusy, error }) => (
+  <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 text-center">
+    <div className="rounded-3xl border border-orange-100 bg-white/80 p-10 shadow-xl">
+      <Utensils className="mx-auto h-12 w-12 text-orange-500" />
+      <h2 className="mt-4 text-2xl font-semibold text-slate-800">Let’s create your first meal plan</h2>
+      <p className="mt-2 text-sm text-slate-500">
+        We couldn’t find any saved plans yet. Start by creating one or reload if you already have existing plans.
+      </p>
+      {error && (
+        <p className="mt-3 text-sm font-medium text-red-600">
+          {error}
+        </p>
+      )}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <Button onClick={onCreate} disabled={isBusy}>
+          Create Meal Plan
+        </Button>
+        <Button variant="outline" onClick={onReload} disabled={isBusy}>
+          Reload Plans
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
 const Index = () => {
   const [inputType, setInputType] = useState<'image' | 'ingredient_list' | 'auto_medical' | 'auto_sick' | 'auto_healthy'>('ingredient_list');
   const [ingredientList, setIngredientList] = useState('');
@@ -58,7 +90,14 @@ const Index = () => {
   const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
 
   const { toast } = useToast();
-  const { getSicknessInfo, getHealthProfilePayload, isHealthProfileComplete, settings: sicknessSettings } = useSicknessSettings();
+  const { loading: authLoading } = useAuth();
+  const {
+    getSicknessInfo,
+    getHealthProfilePayload,
+    isHealthProfileComplete,
+    settings: sicknessSettings,
+    loading: sicknessSettingsLoading
+  } = useSicknessSettings();
 
   const {
     currentPlan,
@@ -68,8 +107,21 @@ const Index = () => {
     savedPlans,
     selectMealPlan,
     clearAllPlans,
-    refreshMealPlans
+    refreshMealPlans,
+    loading: mealPlansLoading,
+    initialized: mealPlansInitialized,
+    error: mealPlansError
   } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
+  useEffect(() => {
+    if (mealPlansError) {
+      toast({
+        title: 'Meal plans unavailable',
+        description: mealPlansError,
+        variant: 'destructive'
+      });
+    }
+  }, [mealPlansError, toast]);
+
 
   const prevShowPlanManager = useRef(showPlanManager);
   const isInitialMount = useRef(true);
@@ -115,7 +167,48 @@ const Index = () => {
     }
   }, [showPlanManager, currentPlan, savedPlans]);
 
-  // Removed skeleton loading screen - show content immediately
+  const isMealPlanLoading = authLoading || sicknessSettingsLoading || mealPlansLoading;
+
+  const handleCreateFirstPlan = () => setShowPlanManager(true);
+
+  const planManagerModal = showPlanManager ? (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
+          <button
+            onClick={() => setShowPlanManager(false)}
+            className="text-[#1e293b] hover:text-[#FF6B6B] transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+        <MealPlanManager
+          onNewPlan={() => {
+            setShowPlanManager(false);
+            setShowInputModal(true);
+          }}
+          onEditPlan={handleEditPlan}
+          onSelectPlan={handleSelectPlan}
+          filterBySickness={sicknessSettings.hasSickness}
+        />
+      </div>
+    </div>
+  ) : null;
+
+  if (!currentPlan) {
+    return (
+      <>
+        {planManagerModal}
+        <EmptyMealPlanState
+          onCreate={handleCreateFirstPlan}
+          onReload={refreshMealPlans}
+          isBusy={mealPlansLoading}
+          error={mealPlansError}
+        />
+      </>
+    );
+  }
 
   const weekDates = generateWeekDates(selectedDate);
 
@@ -1078,30 +1171,7 @@ const Index = () => {
       </div>
 
       {/* Plan Manager Modal */}
-      {showPlanManager && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
-              <button
-                onClick={() => setShowPlanManager(false)}
-                className="text-[#1e293b] hover:text-[#FF6B6B] transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <MealPlanManager
-              onNewPlan={() => {
-                setShowPlanManager(false);
-                setShowInputModal(true);
-              }}
-              onEditPlan={handleEditPlan}
-              onSelectPlan={handleSelectPlan}
-              filterBySickness={sicknessSettings.hasSickness}
-            />
-          </div>
-        </div>
-      )}
+      {planManagerModal}
 
       {/* Input Modal */}
       {showInputModal && (

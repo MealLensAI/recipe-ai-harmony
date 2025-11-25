@@ -217,7 +217,7 @@ def test_route_integration():
 ┌─────────────────┐
 │   Flask App     │
 │  (All Services) │
-│   Port 5001     │
+│   Port 5000     │
 └─────────────────┘
 ```
 
@@ -232,7 +232,7 @@ def test_route_integration():
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │   Flask App 1   │  │   Flask App 2   │  │   Flask App 3   │
 │  (All Services) │  │  (All Services) │  │  (All Services) │
-│   Port 5001     │  │   Port 5002     │  │   Port 5003     │
+│   Port 5000     │  │   Port 5001     │  │   Port 5002     │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
          │                    │                    │
          └────────────────────┴────────────────────┘
