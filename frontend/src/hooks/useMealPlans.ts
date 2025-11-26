@@ -66,6 +66,8 @@ export const useMealPlans = (filterBySickness?: boolean) => {
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch all meal plans from backend API on mount
   // BUT ONLY when authentication is ready!
@@ -73,11 +75,18 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     // Don't fetch if not authenticated or auth still loading
     if (!isAuthenticated || authLoading) {
       console.log('⏸️ useMealPlans: Skipping fetch (not authenticated or auth loading)');
+      setSavedPlans([]);
+      setCurrentPlan(null);
+      setInitialized(false);
+      setLoading(false);
+      setError(null);
       return;
     }
 
     const fetchPlans = async () => {
       setLoading(true);
+      setError(null);
+      setInitialized(false);
       try {
         console.log('🔍 useMealPlans: Fetching meal plans');
         const token = safeGetItem('access_token');
@@ -159,8 +168,10 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         console.error('Error fetching meal plans:', error);
         setSavedPlans([]);
         setCurrentPlan(null);
+        setError(error instanceof Error ? error.message : 'Failed to load meal plans');
       }
       setLoading(false);
+      setInitialized(true);
     };
     fetchPlans();
   }, [filterBySickness, isAuthenticated, authLoading]);
@@ -178,6 +189,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
 
   const saveMealPlan = async (mealPlan: MealPlan[], startDate?: Date, healthAssessment?: HealthAssessment, userInfo?: any, sicknessSettings?: { hasSickness: boolean; sicknessType: string }) => {
     setLoading(true);
+    setError(null);
     try {
       const now = new Date();
       const weekDates = startDate ? generateWeekDates(startDate) : generateWeekDates(now);
@@ -248,14 +260,17 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       }
     } catch (error) {
       console.error('Error saving meal plan:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save meal plan');
       throw error;
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
   };
 
   const updateMealPlan = async (id: string, mealPlan: MealPlan[]) => {
     setLoading(true);
+    setError(null);
     try {
       const now = new Date();
       const token = safeGetItem('access_token');
@@ -295,14 +310,17 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       }
     } catch (error) {
       console.error('Error updating meal plan:', error);
+      setError(error instanceof Error ? error.message : 'Failed to update meal plan');
       throw error;
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
   };
 
   const deleteMealPlan = async (id: string) => {
     setLoading(true);
+    setError(null);
     try {
       const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/${id}`, {
@@ -331,9 +349,11 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       }
     } catch (error) {
       console.error('Error deleting meal plan:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete meal plan');
       throw error;
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
   };
 
@@ -410,6 +430,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
 
   const clearAllPlans = async () => {
     setLoading(true);
+    setError(null);
     try {
       const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plans/clear`, {
@@ -435,14 +456,17 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       }
     } catch (error) {
       console.error('Error clearing all meal plans:', error);
+      setError(error instanceof Error ? error.message : 'Failed to clear meal plans');
       throw error;
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
   };
 
   const refreshMealPlans = async () => {
     setLoading(true);
+    setError(null);
     try {
       const token = safeGetItem('access_token');
       const response = await fetch(`${APP_CONFIG.api.base_url}/api/meal_plan`, {
@@ -494,14 +518,18 @@ export const useMealPlans = (filterBySickness?: boolean) => {
       console.error('Error refreshing meal plans:', error);
       setSavedPlans([]);
       setCurrentPlan(null);
+      setError(error instanceof Error ? error.message : 'Failed to refresh meal plans');
     }
     setLoading(false);
+    setInitialized(true);
   };
 
   return {
     savedPlans,
     currentPlan,
     loading,
+    initialized,
+    error,
     saveMealPlan,
     updateMealPlan,
     deleteMealPlan,

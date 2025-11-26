@@ -44,7 +44,7 @@ cd backend
 python app.py
 ```
 
-Visit `http://127.0.0.1:5001/health` - should return error (no health endpoint in old version)
+Visit `http://127.0.0.1:5000/health` - should return error (no health endpoint in old version)
 
 ### Step 2: Run New Architecture (Side by Side)
 
@@ -56,7 +56,7 @@ cd backend
 python app_new.py
 ```
 
-Visit `http://127.0.0.1:5001/health` - should return:
+Visit `http://127.0.0.1:5000/health` - should return:
 ```json
 {
   "status": "healthy",
@@ -144,7 +144,7 @@ python app.py  # Same command, but uses new architecture
 
 Or with Gunicorn:
 ```bash
-gunicorn "core.app_factory:create_app()" --bind 0.0.0.0:5001
+gunicorn "core.app_factory:create_app()" --bind 0.0.0.0:5000
 ```
 
 ## Route Migration Examples

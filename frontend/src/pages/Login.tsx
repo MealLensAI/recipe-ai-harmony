@@ -88,7 +88,41 @@ const Login = () => {
           })
         })
 
-        // Redirect to intended page
+        // Check if user is an organization user and redirect accordingly
+        // Priority 1: Check signup_type from user metadata (most reliable)
+        const userMetadata = loginResult.user_data?.metadata || {}
+        const signupType = userMetadata.signup_type || userMetadata.signupType
+        
+        console.log('[Login] User metadata:', userMetadata)
+        console.log('[Login] Signup type from metadata:', signupType)
+        
+        if (signupType === 'organization') {
+          console.log('🔄 User registered as organization, redirecting to enterprise dashboard')
+          navigate('/enterprise', { replace: true })
+          return
+        }
+        
+        // Priority 2: Check if user owns organizations (fallback for existing users)
+        try {
+          console.log('[Login] Checking for organization ownership...')
+          const enterprisesResponse = await api.getMyEnterprises()
+          console.log('[Login] Enterprises response:', enterprisesResponse)
+          
+          // Check if user owns organizations (enterprises array with items)
+          if (enterprisesResponse.success && enterprisesResponse.enterprises && Array.isArray(enterprisesResponse.enterprises) && enterprisesResponse.enterprises.length > 0) {
+            // User owns at least one organization - redirect to enterprise dashboard
+            console.log('🔄 User is organization owner, redirecting to enterprise dashboard')
+            navigate('/enterprise', { replace: true })
+            return
+          } else {
+            console.log('[Login] User does not own any organizations, redirecting to user dashboard')
+          }
+        } catch (error) {
+          console.error('[Login] Failed to check enterprise ownership:', error)
+          // Continue with normal redirect on error - don't block login
+        }
+
+        // Redirect to intended page (for regular users)
         const from = location.state?.from?.pathname || "/ai-kitchen"
         console.log('🔄 Redirecting after login to:', from)
         navigate(from, { replace: true })

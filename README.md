@@ -64,7 +64,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-✅ Backend running at: **http://127.0.0.1:5001**
+✅ Backend running at: **http://127.0.0.1:5000**
 
 #### 2. Frontend Setup (Terminal 2)
 
@@ -88,20 +88,20 @@ Open your browser and navigate to: **http://localhost:5173**
 ## 🎯 Features
 
 ### Core Features
-- 🍽️ **Food Detection**: AI-powered food identification from images
-- 🥘 **Recipe Suggestions**: Get cooking instructions and recipes
-- 📅 **Meal Planning**: Personalized meal plans based on health goals
-- 🏥 **Health Profiles**: Manage dietary restrictions and health conditions
-- 📊 **History Tracking**: View past detections and meal plans
-- 💳 **Subscription Management**: Flexible payment plans
+-  **Food Detection**: AI-powered food identification from images
+-  **Recipe Suggestions**: Get cooking instructions and recipes
+-  **Meal Planning**: Personalized meal plans based on health goals
+-  **Health Profiles**: Manage dietary restrictions and health conditions
+-  **History Tracking**: View past detections and meal plans
+-  **Subscription Management**: Flexible payment plans
 
 ### Enterprise Features
-- 👥 **Organization Management**: Create and manage organizations
-- 📧 **User Invitations**: Invite team members
-- 🔐 **Role-Based Access**: Admin and member roles
-- 📈 **Usage Analytics**: Track organization usage
+-  **Organization Management**: Create and manage organizations
+-  **User Invitations**: Invite team members
+-  **Role-Based Access**: Admin and member roles
+-  **Usage Analytics**: Track organization usage
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 - **Framework**: React 18 + TypeScript
@@ -118,7 +118,9 @@ Open your browser and navigate to: **http://localhost:5173**
 - **Payment**: Paystack
 - **CORS**: Flask-CORS
 
-## 📚 Documentation
+
+
+##  Documentation
 
 - **Frontend**: See [frontend/README.md](frontend/README.md)
 - **Backend**: See [backend/README.md](backend/README.md)
@@ -153,7 +155,7 @@ The `backend/.env` file is already configured with:
 │             │         │  (Vite Dev) │         │   (Flask)   │
 │ localhost:  │◀────────│             │◀────────│             │
 │    5173     │         │ localhost:  │         │ 127.0.0.1:  │
-└─────────────┘         │    5173     │         │    5001     │
+└─────────────┘         │    5173     │         │    5000     │
                         └─────────────┘         └──────┬──────┘
                                                        │
                                                        ▼
@@ -220,7 +222,7 @@ python --version
 
 ### Frontend Can't Connect to Backend
 
-1. Verify backend is running on port 5001
+1. Verify backend is running on port 5000
 2. Check browser console for errors
 3. Verify Vite proxy configuration
 4. Check CORS settings in backend
@@ -231,13 +233,13 @@ python --version
 # Frontend (5173)
 npx kill-port 5173
 
-# Backend (5001)
+# Backend (5000)
 # Windows:
-netstat -ano | findstr :5001
+netstat -ano | findstr :5000
 taskkill /PID <pid> /F
 
 # Linux/Mac:
-lsof -ti:5001 | xargs kill -9
+lsof -ti:5000 | xargs kill -9
 ```
 
 ## 🧪 Development
@@ -279,7 +281,7 @@ npm run build
 ```bash
 cd backend
 # Use Gunicorn for production
-gunicorn -w 4 -b 0.0.0.0:5001 app:app
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
 
 ## 📊 Project Status

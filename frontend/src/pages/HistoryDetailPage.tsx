@@ -66,19 +66,32 @@ const HistoryDetailPage = () => {
 
         if (result.status === 'success') {
           let historyData = []
-          if (result.detection_history) {
-            historyData = result.detection_history
-          } else if (result.data?.detection_history) {
-            historyData = result.data.detection_history
-          } else if (Array.isArray(result.data)) {
-            historyData = result.data
-          } else if (result.data) {
-            historyData = [result.data]
+          const resultAny = result as any
+          if (resultAny.detection_history) {
+            historyData = resultAny.detection_history
+          } else if (resultAny.data?.detection_history) {
+            historyData = resultAny.data.detection_history
+          } else if (Array.isArray(resultAny.data)) {
+            historyData = resultAny.data
+          } else if (resultAny.data) {
+            historyData = [resultAny.data]
           }
 
           const raw = historyData.find((item: any) => item.id === id)
 
           if (raw) {
+            console.log('[HistoryDetail] Found history entry:', {
+              id: raw.id,
+              recipe_type: raw.recipe_type,
+              has_resources_link: !!raw.resources_link,
+              has_resources: !!raw.resources,
+              has_youtube_link: !!raw.youtube_link,
+              has_google_link: !!raw.google_link,
+              has_youtube: !!raw.youtube,
+              has_google: !!raw.google,
+              analysis_id: raw.analysis_id
+            });
+
             // Normalize field names: map legacy youtube/google/resources -> *_link
             const detail: HistoryDetail = {
               ...raw,
@@ -89,13 +102,39 @@ const HistoryDetailPage = () => {
             setHistoryDetail(detail)
             // Parse resources JSON if present
             try {
-              if (detail.resources_link && typeof detail.resources_link === 'string') {
+              if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
                 const parsed = JSON.parse(detail.resources_link)
+                console.log('[HistoryDetail] ✅ Parsed resources from resources_link:', {
+                  hasYoutube: !!parsed?.YoutubeSearch,
+                  youtubeCount: parsed?.YoutubeSearch?.length || 0,
+                  hasGoogle: !!parsed?.GoogleSearch,
+                  googleCount: parsed?.GoogleSearch?.length || 0
+                })
+                setResources(parsed)
+              } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
+                // Try parsing resources field as well (legacy)
+                const parsed = JSON.parse(detail.resources)
+                console.log('[HistoryDetail] ✅ Parsed resources from legacy resources field:', {
+                  hasYoutube: !!parsed?.YoutubeSearch,
+                  youtubeCount: parsed?.YoutubeSearch?.length || 0,
+                  hasGoogle: !!parsed?.GoogleSearch,
+                  googleCount: parsed?.GoogleSearch?.length || 0
+                })
                 setResources(parsed)
               } else {
+                console.log('[HistoryDetail] ⚠️ No valid resources_link found. Available fields:', {
+                  resources_link: detail.resources_link,
+                  resources: detail.resources,
+                  youtube_link: detail.youtube_link,
+                  google_link: detail.google_link
+                })
                 setResources(null)
               }
-            } catch {
+            } catch (parseError) {
+              console.error('[HistoryDetail] ❌ Error parsing resources:', parseError, {
+                resources_link: detail.resources_link,
+                resources: detail.resources
+              })
               setResources(null)
             }
           } else {
@@ -124,7 +163,22 @@ const HistoryDetailPage = () => {
     return (match && match[2] && match[2].length === 11) ? match[2] : null
   }
 
-  // Removed loading screens - show content immediately
+  // Show loading state while fetching
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
+            <Utensils className="h-8 w-8 text-white" />
+          </div>
+          <div className="space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+            <p className="text-gray-600">Loading history entry...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated && !authLoading) {
     return (
@@ -150,7 +204,8 @@ const HistoryDetailPage = () => {
     )
   }
 
-  if (error || !historyDetail) {
+  // Only show error if we're done loading and there's actually an error
+  if (!isLoading && (error || !historyDetail)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
@@ -172,6 +227,11 @@ const HistoryDetailPage = () => {
         </div>
       </div>
     )
+  }
+
+  // Don't render content if still loading or no data
+  if (isLoading || !historyDetail) {
+    return null
   }
 
   return (
@@ -283,7 +343,8 @@ const HistoryDetailPage = () => {
           )}
 
           {/* Resources from stored JSON (formatted like Detect Food page) */}
-          {resources && (
+          {/* Always show resources section for food_detection type */}
+          {(historyDetail.recipe_type === "food_detection" || resources || historyDetail.youtube_link || historyDetail.google_link) && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* YouTube Resources */}
               <div
@@ -294,7 +355,7 @@ const HistoryDetailPage = () => {
                     Youtube Resources
                   </h5>
                   <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                  {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
+                  {resources?.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
                     <div className="space-y-6">
                       {(resources.YoutubeSearch as any[]).flat().map((item: any, idx: number) => {
                         if (!item || !item.link) return null
@@ -332,6 +393,49 @@ const HistoryDetailPage = () => {
                         )
                       }).filter(Boolean)}
                     </div>
+                  ) : historyDetail.youtube_link ? (
+                    // Fallback: Show YouTube link if resources aren't available
+                    <div className="space-y-6">
+                      <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                        {(() => {
+                          const vid = getYouTubeVideoId(historyDetail.youtube_link)
+                          return vid ? (
+                            <>
+                              <div className="relative w-full aspect-video bg-black">
+                                <iframe
+                                  src={`https://www.youtube.com/embed/${vid}`}
+                                  title="YouTube Video"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  className="w-full h-full rounded-t-2xl"
+                                />
+                              </div>
+                              <div className="p-6">
+                                <a
+                                  href={historyDetail.youtube_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
+                                >
+                                  Watch on YouTube
+                                </a>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="p-6">
+                              <a
+                                href={historyDetail.youtube_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
+                              >
+                                🎥 Watch Tutorial on YouTube
+                              </a>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-center text-gray-600">No video tutorials available.</p>
                   )}
@@ -347,7 +451,7 @@ const HistoryDetailPage = () => {
                     Google Resources
                   </h5>
                   <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                  {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
+                  {resources?.GoogleSearch && resources.GoogleSearch.length > 0 ? (
                     <div className="space-y-6">
                       {(resources.GoogleSearch as any[]).flat().map((item: any, idx: number) => (
                         <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
@@ -366,6 +470,22 @@ const HistoryDetailPage = () => {
                         </div>
                       ))}
                     </div>
+                  ) : historyDetail.google_link ? (
+                    // Fallback: Show Google link if resources aren't available
+                    <div className="space-y-6">
+                      <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                        <div className="p-6">
+                          <a
+                            href={historyDetail.google_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
+                          >
+                            🔍 View Google Search Results
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-center text-gray-600">No articles available.</p>
                   )}
@@ -374,38 +494,6 @@ const HistoryDetailPage = () => {
             </div>
           )}
 
-          {/* Resource Links */}
-          {(historyDetail.youtube_link || historyDetail.google_link) && !resources && (
-            <div className="mb-6 p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-              <div className="p-4 mt-2.5">
-                <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                  External Resources
-                </h5>
-                <div className="flex flex-wrap gap-4">
-                  {historyDetail.youtube_link && (
-                    <a
-                      href={historyDetail.youtube_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg font-medium hover:bg-red-200 transition-colors"
-                    >
-                      🎥 YouTube Tutorial
-                    </a>
-                  )}
-                  {historyDetail.google_link && (
-                    <a
-                      href={historyDetail.google_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 transition-colors"
-                    >
-                      🔍 Google Search
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

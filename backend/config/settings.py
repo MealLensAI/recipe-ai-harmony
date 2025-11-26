@@ -20,7 +20,7 @@ class Config:
     
     # Server Configuration
     HOST = os.environ.get('FLASK_HOST', '127.0.0.1')
-    PORT = int(os.environ.get('FLASK_PORT', 5001))
+    PORT = int(os.environ.get('FLASK_PORT', 5000))
     
     # CORS Configuration
     ALLOWED_ORIGINS = [
@@ -28,6 +28,7 @@ class Config:
         "http://localhost:5174",
         "https://meallensai.com",
         "https://www.meallensai.com",
+        "https://recipe-ai-harmony-2bbq.vercel.app",
     ]
     
     # Add custom origins from environment
@@ -49,7 +50,7 @@ class Config:
     
     # Email Configuration
     SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
     SMTP_USER = os.environ.get("SMTP_USER")
     SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
     FROM_EMAIL = os.environ.get("FROM_EMAIL")

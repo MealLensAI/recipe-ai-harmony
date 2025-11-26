@@ -422,12 +422,23 @@ def _create_user_with_client_auth(supabase: Client, email: str, password: str,
         }
         
     except Exception as e:
-        current_app.logger.warning(f"Client auth signup failed: {str(e)}")
+        error_msg = str(e)
+        current_app.logger.warning(f"Client auth signup failed: {error_msg}")
+        
+        # Check if user already exists
+        if 'already registered' in error_msg.lower() or 'already exists' in error_msg.lower():
+            return None, {
+                'status': 'error',
+                'message': 'An account with this email already exists. Please login instead.',
+                'error_type': 'user_already_exists',
+                'suggestion': 'login'
+            }
+        
         return None, {
             'status': 'error',
-            'message': 'Failed to create user using client auth',
+            'message': f'Failed to create user: {error_msg}',
             'error_type': 'auth_error',
-            'details': str(e)
+            'details': error_msg
         }
 
 
@@ -496,7 +507,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
         current_app.logger.error(f"Admin API user creation failed: {error_msg}")
         
         # Provide better error messages for common cases
-        if 'already registered' in error_msg.lower() or 'already exists' in error_msg.lower():
+        if 'already registered' in error_msg.lower() or 'already exists' in error_msg.lower() or 'already been registered' in error_msg.lower():
             return None, {
                 'status': 'error',
                 'message': 'An account with this email already exists. Please login instead.',
@@ -513,7 +524,7 @@ def _create_user_with_admin_api(supabase: Client, email: str, password: str,
         else:
             return None, {
                 'status': 'error',
-                'message': 'Failed to create user using admin API',
+                'message': f'Failed to create user: {error_msg}',
                 'error_type': 'auth_error',
                 'details': error_msg
             }
@@ -596,16 +607,22 @@ def register_user():
         current_app.logger.info(f"Processing registration for email: {email}")
         current_app.logger.info(f"[SIGNUP] signup_type received: '{signup_type}'")
         
-        # Check if user already exists before attempting creation
-        existing_user = _check_user_exists(supabase, email)
-        if existing_user:
-            current_app.logger.info(f"User already exists: {email}")
-            return jsonify({
-                'status': 'error',
-                'message': 'An account with this email already exists. Please login instead.',
-                'error_type': 'user_already_exists',
-                'suggestion': 'login'
-            }), 409
+        # Quick check if user already exists in profiles table
+        # This is much faster than checking via admin API
+        try:
+            profile_check = supabase.table('profiles').select('id').ilike('email', email).limit(1).execute()
+            if profile_check.data:
+                current_app.logger.info(f"User already exists in profiles: {email}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'An account with this email already exists. Please login instead.',
+                    'error_type': 'user_already_exists',
+                    'suggestion': 'login'
+                }), 409
+        except Exception as profile_err:
+            # If profile check fails, continue with user creation
+            # The auth API will catch duplicates anyway
+            current_app.logger.debug(f"Profile check skipped: {str(profile_err)}")
         
         # 1. Try to create user with client auth first
         user_id, error_response = _create_user_with_client_auth(
@@ -620,23 +637,35 @@ def register_user():
             )
             
             if not user_id:
-                return jsonify(error_response), 400
+                # Return 409 for user already exists, 400 for other errors
+                status_code = 409 if error_response.get('error_type') == 'user_already_exists' else 400
+                return jsonify(error_response), status_code
         
         # 3. Profile row will be created automatically by the DB trigger after user registration.
         # If you want to update profile fields (e.g., after registration), you can do so here.
         # For initial registration, do not manually insert into profiles.
 
         current_app.logger.info(f"Successfully completed registration for user {user_id}")
-        # Create a trial for the new user in Supabase (non-blocking best-effort)
-        try:
-            subscription_service = SubscriptionService()
-            trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=30)
-            if not trial_result.get('success'):
-                current_app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")
-            else:
-                current_app.logger.info(f"Trial created for user {user_id}: {trial_result}")
-        except Exception as trial_err:
-            current_app.logger.warning(f"Error creating trial for user {user_id}: {str(trial_err)}")
+        
+        # Create a trial for the new user in Supabase (async, non-blocking)
+        # Use a background thread to avoid blocking the response
+        import threading
+        
+        def create_trial_async():
+            try:
+                subscription_service = SubscriptionService()
+                trial_result = subscription_service.create_user_trial(user_id=user_id, duration_days=30)
+                if not trial_result.get('success'):
+                    current_app.logger.warning(f"Failed to create trial for user {user_id}: {trial_result.get('error')}")
+                else:
+                    current_app.logger.info(f"Trial created for user {user_id}: {trial_result}")
+            except Exception as trial_err:
+                current_app.logger.warning(f"Error creating trial for user {user_id}: {str(trial_err)}")
+        
+        # Start trial creation in background thread
+        trial_thread = threading.Thread(target=create_trial_async)
+        trial_thread.daemon = True
+        trial_thread.start()
 
         return jsonify({
             'status': 'success',
@@ -707,6 +736,20 @@ def get_user_profile():
 
         profile = profile_result.data
         
+        # Get user metadata from auth.users to check signup_type
+        signup_type = None
+        try:
+            # Try to get user from auth.users via admin API
+            user_auth = supabase.auth.admin.get_user_by_id(user_id)
+            if user_auth and hasattr(user_auth, 'user'):
+                user_obj = user_auth.user
+                if hasattr(user_obj, 'user_metadata'):
+                    signup_type = user_obj.user_metadata.get('signup_type')
+                elif isinstance(user_obj, dict):
+                    signup_type = user_obj.get('user_metadata', {}).get('signup_type')
+        except Exception as e:
+            current_app.logger.debug(f"Could not fetch signup_type from user metadata: {str(e)}")
+        
         return jsonify({
             'status': 'success',
             'profile': {
@@ -716,7 +759,8 @@ def get_user_profile():
                 'last_name': profile.get('last_name'),
                 'display_name': f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip(),
                 'created_at': profile.get('created_at'),
-                'updated_at': profile.get('updated_at')
+                'updated_at': profile.get('updated_at'),
+                'signup_type': signup_type
             }
         }), 200
 

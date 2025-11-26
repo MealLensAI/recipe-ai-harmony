@@ -72,6 +72,7 @@ def require_auth(f):
                 return jsonify({'error': 'Invalid token'}), 401
             request.user_id = user.user.id
             request.user_email = user.user.email
+            request.user_metadata = getattr(user.user, 'user_metadata', {}) or {}
         except Exception as e:
             return jsonify({'error': f'Authentication failed: {str(e)}'}), 401
         
@@ -82,41 +83,54 @@ def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) 
     """
     Check if a user is an admin or owner of an organization.
     
+    CRITICAL: Owner is identified by enterprises.created_by and is NOT in organization_users table.
+    
     Returns:
         tuple: (is_admin, reason)
     """
     try:
-        # Check if user created this organization (owner)
+        current_app.logger.info(f"[PERMISSION] Checking permissions for user {user_id} on enterprise {enterprise_id}")
+        
+        # FIRST: Check if enterprise exists
         enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
         
         if not enterprise_result.data:
+            current_app.logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found")
             return False, "Organization not found"
         
         enterprise = enterprise_result.data[0]
         
-        # If user is the creator, they're automatically an admin
+        # SECOND: Check if user is the owner (created_by)
+        # Owner has FULL access and is NOT in organization_users table
         if enterprise['created_by'] == user_id:
-            return True, "User is organization owner"
+            current_app.logger.info(f"[PERMISSION] ✅ User {user_id} is the owner of enterprise {enterprise_id}")
+            return True, "owner"
         
-        # Check if user is an admin member of this organization
+        # THIRD: Fallback - Check if user is an admin member in organization_users table
+        current_app.logger.info(f"[PERMISSION] User is not owner, checking organization_users table")
         membership_result = supabase.table('organization_users').select('role').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
         
         if not membership_result.data:
+            current_app.logger.warning(f"[PERMISSION] ❌ User {user_id} is not a member of enterprise {enterprise_id}")
             return False, "User is not a member of this organization"
         
         role = membership_result.data[0]['role']
+        current_app.logger.info(f"[PERMISSION] User has role: {role}")
         
-        # Allow admins and owners to invite/manage users
-        if role in ['admin', 'owner']:
-            return True, f"User has {role} role"
+        # Only allow admin role from organization_users (not regular members)
+        if role == 'admin':
+            current_app.logger.info(f"[PERMISSION] ✅ User has admin role")
+            return True, f"admin"
         
+        current_app.logger.warning(f"[PERMISSION] ❌ User role '{role}' does not have permission")
         return False, f"User role '{role}' does not have permission to manage users"
         
     except Exception as e:
+        current_app.logger.error(f"[PERMISSION] ❌ Exception: {str(e)}", exc_info=True)
         return False, f"Error checking user permissions: {str(e)}"
 
 
-def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple[bool, str]:
+def check_user_can_create_organizations(user_id: str, supabase: Client, user_metadata: dict | None = None) -> tuple[bool, str]:
     """
     Check if a user can create organizations.
     Users can create organizations if:
@@ -148,35 +162,38 @@ def check_user_can_create_organizations(user_id: str, supabase: Client) -> tuple
             return True, "User can create organizations"
         
         # If user doesn't own any organizations, check if they signed up as an organization user
-        # We'll check the profiles table for signup_type metadata since admin API requires special permissions
+        # Check user metadata from auth to see signup_type
         try:
-            current_app.logger.info(f"[PERMISSION CHECK] Checking signup_type from profiles table")
+            current_app.logger.info(f"[PERMISSION CHECK] Checking signup_type from user metadata")
             
-            # First, try to get from profiles table where we store user metadata
-            profile_result = supabase.table('profiles').select('*').eq('id', user_id).execute()
+            metadata_source = user_metadata or {}
+            signup_type = metadata_source.get('signup_type')
             
-            if profile_result.data and len(profile_result.data) > 0:
-                # Check if there's a signup_type column or metadata field
-                current_app.logger.info(f"[PERMISSION CHECK] Profile data: {profile_result.data[0]}")
-                
-                # For now, allow all new users who don't have organizations to create one
-                # This is a permissive approach - if you signed up for the first time, you can create
-                current_app.logger.info(f"[PERMISSION CHECK] ✅ New user with no existing organizations, allowing organization creation")
-                return True, "User can create organizations (first-time organization setup)"
-            else:
-                current_app.logger.warning(f"[PERMISSION CHECK] No profile found for user")
-                # Still allow - benefit of the doubt for new users
-                return True, "User can create organizations (new user)"
+            if signup_type is None:
+                current_app.logger.info("[PERMISSION CHECK] No signup_type in request metadata, querying admin API")
+                admin_client = get_supabase_client(use_admin=True)
+                user_data = admin_client.auth.admin.get_user_by_id(user_id)
+                if user_data and getattr(user_data, 'user', None):
+                    metadata_source = user_data.user.user_metadata or {}
+                    signup_type = metadata_source.get('signup_type', 'individual')
+            
+            if signup_type:
+                current_app.logger.info(f"[PERMISSION CHECK] User signup_type: {signup_type}")
+                if signup_type == 'organization':
+                    current_app.logger.info(f"[PERMISSION CHECK] ✅ User signed up as organization, can create")
+                    return True, "User can create organizations (registered as organization)"
+                current_app.logger.info(f"[PERMISSION CHECK] ❌ User signed up as individual, cannot create")
+                return False, "Individual users cannot create organizations. Only users who registered as organizations can create them."
+            
+            current_app.logger.warning(f"[PERMISSION CHECK] No user metadata found after fallback")
+            return False, "Cannot verify user type. Please contact support."
                 
         except Exception as metadata_error:
-            current_app.logger.error(f"[PERMISSION CHECK] ❌ Error checking profile: {str(metadata_error)}", exc_info=True)
-            # On error, allow creation - better to be permissive for legitimate users
-            # The alternative (checking metadata via admin API) requires special Supabase privileges
-            current_app.logger.info(f"[PERMISSION CHECK] ✅ Allowing organization creation (cannot verify signup_type due to permissions)")
-            return True, "User can create organizations (verification unavailable, allowing by default)"
+            current_app.logger.error(f"[PERMISSION CHECK] Error checking user metadata: {str(metadata_error)}", exc_info=True)
+            return False, "Cannot verify user permissions. Please contact support."
         
     except Exception as e:
-        current_app.logger.error(f"[PERMISSION CHECK] ❌ Error checking user permissions: {str(e)}", exc_info=True)
+        current_app.logger.error(f"[PERMISSION CHECK]  Error checking user permissions: {str(e)}", exc_info=True)
         return False, f"Error checking user permissions: {str(e)}"
 
 
@@ -200,7 +217,7 @@ def register_enterprise():
         
         # Check if user can create organizations
         current_app.logger.info(f"[ORG REGISTER] Checking if user {request.user_id} can create organizations")
-        can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
         current_app.logger.info(f"[ORG REGISTER] Permission check result: can_create={can_create}, reason={reason}")
         
         if not can_create:
@@ -238,7 +255,7 @@ def register_enterprise():
         }), 201
         
     except Exception as e:
-        current_app.logger.error(f"[ORG REGISTER] ❌ Exception during organization registration: {str(e)}", exc_info=True)
+        current_app.logger.error(f"[ORG REGISTER]  Exception during organization registration: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to register enterprise: {str(e)}'}), 500
 
 
@@ -248,7 +265,7 @@ def can_create_organization():
     """Check if the current user can create organizations"""
     try:
         supabase = get_supabase_client()
-        can_create, reason = check_user_can_create_organizations(request.user_id, supabase)
+        can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
         
         return jsonify({
             'success': True,
@@ -264,8 +281,10 @@ def can_create_organization():
 @require_auth
 def get_my_enterprises():
     """Get all enterprises owned by the current user"""
+    print(f"[MY_ENTERPRISES] Getting enterprises for user: {request.user_id}")
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
         
         # Get enterprises owned by user with retry logic for connection issues
         max_retries = 3
@@ -274,10 +293,13 @@ def get_my_enterprises():
         
         while retry_count < max_retries:
             try:
+                print(f"[MY_ENTERPRISES] Querying enterprises table for created_by={request.user_id}")
                 result = supabase.table('enterprises').select('*').eq('created_by', request.user_id).execute()
+                print(f"[MY_ENTERPRISES] Query result: {result.data}")
                 
                 # Return enterprises without stats for now
                 enterprises = result.data or []
+                print(f"[MY_ENTERPRISES] Returning {len(enterprises)} enterprises")
                 
                 return jsonify({
                     'success': True,
@@ -361,16 +383,29 @@ def update_enterprise(enterprise_id):
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/users', methods=['GET'])
 @require_auth
 def get_enterprise_users(enterprise_id):
-    """Get all users in an enterprise"""
+    """
+    Get all users in an enterprise (organization_users table only).
+    
+    Note: The enterprise owner is NOT included in this list.
+    Only invited/added users are stored in organization_users table.
+    
+    Returns:
+        - List of users with their details
+        - Each user has: id, user_id, email, role, status, joined_at
+    """
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
         
         # Verify user has permission (must be admin or owner)
         is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
         if not is_admin:
-            return jsonify({'error': f'Access denied: {reason}'}), 403
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
         
-        # Get organization users
+        # Get organization users (excludes owner - they're not in this table)
         result = supabase.table('organization_users').select('*').eq('enterprise_id', enterprise_id).execute()
         
         # Format response with user details from auth
@@ -396,7 +431,7 @@ def get_enterprise_users(enterprise_id):
                 'last_name': last_name,
                 'email': email,
                 'role': org_user['role'],
-                'status': org_user['status'],
+                'status': org_user.get('status', 'active'),
                 'joined_at': org_user['joined_at'],
                 'notes': org_user.get('notes'),
                 'metadata': org_user.get('metadata', {})
@@ -405,51 +440,154 @@ def get_enterprise_users(enterprise_id):
         
         return jsonify({
             'success': True,
-            'users': users
+            'users': users,
+            'total_count': len(users)
         }), 200
         
     except Exception as e:
-        return jsonify({'error': f'Failed to fetch users: {str(e)}'}), 500
+        current_app.logger.error(f'Failed to fetch enterprise users: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch users: {str(e)}'
+        }), 500
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/invite', methods=['POST'])
 @require_auth
 def invite_user(enterprise_id):
     """Invite a user to the enterprise"""
+    print(f"[INVITE] ========== ROUTE HANDLER CALLED ==========")
+    print(f"[INVITE] Enterprise ID: {enterprise_id}")
+    print(f"[INVITE] User ID: {request.user_id}")
     try:
+        current_app.logger.info(f"[INVITE] ========== Starting invitation process ==========")
+        current_app.logger.info(f"[INVITE] Enterprise ID: {enterprise_id}")
+        current_app.logger.info(f"[INVITE] User ID: {request.user_id}")
+        
         data = request.get_json()
+        current_app.logger.info(f"[INVITE] Request data: {data}")
+        current_app.logger.info(f"[INVITE] Request headers: {dict(request.headers)}")
+        
+        # Validate enterprise_id is not None or 'undefined'
+        if not enterprise_id or enterprise_id == 'undefined' or enterprise_id == 'null':
+            current_app.logger.error(f"[INVITE] ❌ Invalid enterprise_id: '{enterprise_id}'")
+            return jsonify({
+                'success': False,
+                'error': 'No organization selected. Please select an organization first.',
+                'error_code': 'INVALID_ENTERPRISE_ID'
+            }), 400
         
         # Validate required fields
-        if 'email' not in data:
-            return jsonify({'error': 'Email is required'}), 400
+        if not data:
+            current_app.logger.error(f"[INVITE] ❌ No data provided in request body")
+            return jsonify({
+                'success': False,
+                'error': 'Request body is empty',
+                'error_code': 'EMPTY_REQUEST'
+            }), 400
+            
+        if 'email' not in data or not data.get('email', '').strip():
+            current_app.logger.error(f"[INVITE] ❌ Email is missing or empty")
+            return jsonify({
+                'success': False,
+                'error': 'Email address is required',
+                'error_code': 'MISSING_EMAIL'
+            }), 400
         
         email = data['email'].lower().strip()
-        supabase = get_supabase_client()
+        current_app.logger.info(f"[INVITE] Inviting email: {email}")
         
-        # Verify user has permission to invite users (must be admin or owner)
+        # Validate role
+        ALLOWED_ROLES = ['client', 'patient', 'doctor', 'nutritionist']
+        role = data.get('role', 'patient').lower().strip()
+        
+        # Normalize "doctors" to "doctor"
+        if role == 'doctors':
+            role = 'doctor'
+            current_app.logger.info(f"[INVITE] Normalized 'doctors' to 'doctor'")
+        
+        if role not in ALLOWED_ROLES:
+            current_app.logger.error(f"[INVITE] Invalid role: {role}")
+            return jsonify({'success': False, 'error': f'Invalid role. Must be one of: {", ".join(ALLOWED_ROLES)}'}), 400
+        
+        current_app.logger.info(f"[INVITE] Role validated: {role}")
+        
+        # Use admin client to bypass RLS for permission checks
+        # This is necessary because the owner is NOT in organization_users table
+        supabase = get_supabase_client(use_admin=True)
+        
+        # FIRST: Verify enterprise exists
+        current_app.logger.info(f"[INVITE] Checking if enterprise {enterprise_id} exists")
+        enterprise_check = supabase.table('enterprises').select('*').eq('id', enterprise_id).execute()
+        if not enterprise_check.data:
+            current_app.logger.error(f"[INVITE] Enterprise {enterprise_id} not found")
+            return jsonify({'success': False, 'error': 'Organization not found'}), 404
+        
+        current_app.logger.info(f"[INVITE] Enterprise exists: {enterprise_check.data[0]['name']}")
+        
+        # SECOND: Verify user has permission to invite users (must be owner or admin)
+        # Check if user is the owner (enterprises.created_by)
+        current_app.logger.info(f"[INVITE] Checking permissions for user {request.user_id}")
         is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        current_app.logger.info(f"[INVITE] Permission check result: is_admin={is_admin}, reason={reason}")
+        
         if not is_admin:
-            return jsonify({'error': f'Access denied: {reason}'}), 403
+            current_app.logger.error(f"[INVITE] Access denied: {reason}")
+            return jsonify({'success': False, 'error': f'Access denied: {reason}'}), 403
         
-        # Get enterprise details
-        enterprise = supabase.table('enterprises').select('*').eq('id', enterprise_id).execute()
-        if not enterprise.data:
-            return jsonify({'error': 'Enterprise not found'}), 404
-        
-        enterprise_data = enterprise.data[0]
+        # Get enterprise details (already fetched above, use that data)
+        enterprise_data = enterprise_check.data[0]
+        current_app.logger.info(f"[INVITE] Enterprise max_users: {enterprise_data.get('max_users', 100)}")
         
         # Check user limit
+        current_app.logger.info(f"[INVITE] Checking user limit")
         current_users = supabase.table('organization_users').select('id', count='exact').eq('enterprise_id', enterprise_id).execute()
-        if current_users.count >= enterprise_data['max_users']:
-            return jsonify({'error': f"Maximum user limit ({enterprise_data['max_users']}) reached"}), 400
+        current_count = current_users.count if current_users.count is not None else 0
+        max_users = enterprise_data.get('max_users', 100)
+        
+        current_app.logger.info(f"[INVITE] Current users: {current_count}, Max users: {max_users}")
+        
+        if current_count >= max_users:
+            current_app.logger.error(f"[INVITE] User limit reached")
+            return jsonify({'success': False, 'error': f"Maximum user limit ({max_users}) reached"}), 400
         
         # Check if user is already invited or a member
+        current_app.logger.info(f"[INVITE] Checking for existing invitation")
         existing_invitation = supabase.table('invitations').select('id').eq('enterprise_id', enterprise_id).eq('email', email).eq('status', 'pending').execute()
         if existing_invitation.data:
-            return jsonify({'error': 'User already has a pending invitation'}), 400
+            current_app.logger.warning(f"[INVITE] User already has pending invitation")
+            return jsonify({'success': False, 'error': 'User already has a pending invitation'}), 400
+        
+        # Check if user with this email is already a member
+        # First, try to find if a user with this email exists in auth
+        current_app.logger.info(f"[INVITE] Checking if user with email {email} is already a member")
+        try:
+            # Try to get user by email from auth
+            # Note: This will only work if the user already has an account
+            # If they don't have an account yet, they can't be a member, so we skip this check
+            user_list = supabase.auth.admin.list_users()
+            existing_user = None
+            if user_list and hasattr(user_list, 'users'):
+                for user in user_list.users:
+                    if user.email and user.email.lower() == email.lower():
+                        existing_user = user
+                        break
+            
+            if existing_user:
+                # Check if this user is already a member
+                existing_member = supabase.table('organization_users').select('id').eq('enterprise_id', enterprise_id).eq('user_id', existing_user.id).execute()
+                if existing_member.data:
+                    current_app.logger.warning(f"[INVITE] User is already a member")
+                    return jsonify({'success': False, 'error': 'User is already a member of this organization'}), 400
+        except Exception as member_check_error:
+            # If we can't check (e.g., rate limit), just log and continue
+            # Better to allow a duplicate invitation than block legitimate invites
+            current_app.logger.warning(f"[INVITE] Could not check existing membership: {str(member_check_error)}")
+            pass
         
         # Generate unique invitation token
         invitation_token = secrets.token_urlsafe(32)
+        current_app.logger.info(f"[INVITE] Generated invitation token")
         
         # Create invitation
         invitation_data = {
@@ -457,21 +595,39 @@ def invite_user(enterprise_id):
             'email': email,
             'invited_by': request.user_id,
             'invitation_token': invitation_token,
-            'role': data.get('role', 'patient'),
+            'role': role,  # Use validated role
             'message': data.get('message'),
             'expires_at': (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         }
         
-        result = supabase.table('invitations').insert(invitation_data).execute()
+        current_app.logger.info(f"[INVITE] Creating invitation with data: {invitation_data}")
         
-        if not result.data:
-            return jsonify({'error': 'Failed to create invitation'}), 500
-        
-        invitation = result.data[0]
+        # Wrap in try/except for unique constraint violations
+        try:
+            result = supabase.table('invitations').insert(invitation_data).execute()
+            current_app.logger.info(f"[INVITE] Invitation insert result: {result}")
+            
+            if not result.data:
+                current_app.logger.error(f"[INVITE] Failed to create invitation - no data returned")
+                return jsonify({'success': False, 'error': 'Failed to create invitation'}), 500
+            
+            invitation = result.data[0]
+            current_app.logger.info(f"[INVITE] ✅ Invitation created successfully: {invitation['id']}")
+            
+        except Exception as insert_error:
+            current_app.logger.error(f"[INVITE] ❌ Invitation insert failed: {str(insert_error)}", exc_info=True)
+            
+            # Check for unique constraint violation
+            error_msg = str(insert_error).lower()
+            if 'unique' in error_msg or 'duplicate' in error_msg:
+                return jsonify({'success': False, 'error': 'An invitation for this email already exists'}), 400
+            
+            return jsonify({'success': False, 'error': f'Failed to create invitation: {str(insert_error)}'}), 500
         
         # Create invitation link using dynamic URL detection
         frontend_url = get_frontend_url()
         invitation_link = f"{frontend_url}/accept-invitation?token={invitation_token}"
+        current_app.logger.info(f"[INVITE] Invitation link: {invitation_link}")
         
         # Get inviter name from user (with error handling for rate limits)
         inviter_name = 'A team member'
@@ -479,23 +635,53 @@ def invite_user(enterprise_id):
             inviter_user = supabase.auth.admin.get_user_by_id(request.user_id)
             if inviter_user and hasattr(inviter_user, 'user'):
                 inviter_name = inviter_user.user.email
+            current_app.logger.info(f"[INVITE] Inviter name: {inviter_name}")
         except Exception as e:
-            print(f"⚠️ Could not fetch inviter details (non-critical): {str(e)}")
-            # Continue with default name
+            current_app.logger.warning(f"[INVITE] Could not fetch inviter details: {str(e)}")
         
-        # Send invitation email
+        # Send invitation email with timeout protection
+        email_sent = False
         try:
-            email_sent = email_service.send_invitation_email(
-                to_email=email,
-                enterprise_name=enterprise_data['name'],
-                inviter_name=inviter_name,
-                invitation_link=invitation_link,
-                custom_message=data.get('message')
-            )
-            print(f"✉️ Email sent status: {email_sent}")
+            current_app.logger.info(f"[INVITE] Sending invitation email to {email}")
+            # Use a thread to send email asynchronously with timeout
+            import threading
+            import time
+            
+            email_result = {'sent': False}
+            
+            def send_email_async():
+                try:
+                    result = email_service.send_invitation_email(
+                        to_email=email,
+                        enterprise_name=enterprise_data['name'],
+                        inviter_name=inviter_name,
+                        invitation_link=invitation_link,
+                        custom_message=data.get('message')
+                    )
+                    email_result['sent'] = result
+                except Exception as e:
+                    current_app.logger.error(f"[INVITE] Email thread error: {e}")
+                    email_result['sent'] = False
+            
+            email_thread = threading.Thread(target=send_email_async)
+            email_thread.daemon = True
+            email_thread.start()
+            
+            # Wait up to 5 seconds for email to send
+            email_thread.join(timeout=5.0)
+            
+            if email_thread.is_alive():
+                current_app.logger.warning(f"[INVITE] Email sending timed out after 5 seconds, continuing anyway")
+                email_sent = False
+            else:
+                email_sent = email_result['sent']
+                current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
+                
         except Exception as email_error:
-            print(f"⚠️ Email service error (non-blocking): {email_error}")
+            current_app.logger.error(f"[INVITE] Email service error: {email_error}", exc_info=True)
             email_sent = False
+        
+        current_app.logger.info(f"[INVITE] ✅ Invitation process completed successfully")
         
         return jsonify({
             'success': True,
@@ -506,10 +692,12 @@ def invite_user(enterprise_id):
         }), 201
         
     except Exception as e:
-        print(f"❌ Error in invite_user: {str(e)}")
+        print(f"[INVITE] ❌ CRITICAL ERROR: {str(e)}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Failed to invite user: {str(e)}'}), 500
+        print(f"[INVITE] Traceback: {traceback.format_exc()}")
+        current_app.logger.error(f"[INVITE] ❌ CRITICAL ERROR: {str(e)}", exc_info=True)
+        current_app.logger.error(f"[INVITE] Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/invitations', methods=['GET'])
@@ -517,7 +705,8 @@ def invite_user(enterprise_id):
 def get_invitations(enterprise_id):
     """Get all invitations for an enterprise"""
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
         
         # Verify user has permission (must be admin or owner)
         is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
@@ -541,19 +730,37 @@ def get_invitations(enterprise_id):
 def cancel_invitation(invitation_id):
     """Cancel a pending invitation"""
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_client(use_admin=True)
         
-        # Get invitation and verify ownership
-        invitation = supabase.table('invitations').select('*, enterprises!inner(created_by)').eq('id', invitation_id).execute()
+        # Get invitation and related enterprise info using admin client (bypasses RLS)
+        invitation_result = supabase.table('invitations').select('''
+            id,
+            enterprise_id,
+            status,
+            enterprises!inner (
+                id,
+                name,
+                created_by
+            )
+        ''').eq('id', invitation_id).execute()
         
-        if not invitation.data:
+        if not invitation_result.data:
             return jsonify({'error': 'Invitation not found'}), 404
         
-        if invitation.data[0]['enterprises']['created_by'] != request.user_id:
-            return jsonify({'error': 'Access denied'}), 403
+        invitation = invitation_result.data[0]
+        enterprise_id = invitation['enterprise_id']
+        
+        # Verify user has permission (owner or admin) to manage invitations
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Only pending invitations can be cancelled
+        if invitation.get('status') != 'pending':
+            return jsonify({'error': f"Cannot cancel invitation with status '{invitation.get('status')}'"}), 400
         
         # Cancel invitation
-        result = supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
+        supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
         
         return jsonify({
             'success': True,
@@ -561,6 +768,7 @@ def cancel_invitation(invitation_id):
         }), 200
         
     except Exception as e:
+        current_app.logger.error(f"[INVITE] Failed to cancel invitation {invitation_id}: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to cancel invitation: {str(e)}'}), 500
 
 
@@ -568,6 +776,7 @@ def cancel_invitation(invitation_id):
 def verify_invitation(token):
     """Verify an invitation token (public endpoint)"""
     try:
+        current_app.logger.info(f"[VERIFY_INVITE] Verifying invitation token: {token[:20]}...")
         supabase = get_supabase_client()
         
         # Get invitation details
@@ -580,7 +789,10 @@ def verify_invitation(token):
             )
         ''').eq('invitation_token', token).execute()
         
+        current_app.logger.info(f"[VERIFY_INVITE] Query result: {len(result.data) if result.data else 0} invitations found")
+        
         if not result.data:
+            current_app.logger.warning(f"[VERIFY_INVITE] No invitation found for token: {token[:20]}...")
             return jsonify({'error': 'Invalid invitation token'}), 404
         
         invitation = result.data[0]
@@ -1085,3 +1297,261 @@ def get_user_enterprises():
     except Exception as e:
         return jsonify({'error': f'Failed to fetch enterprises: {str(e)}'}), 500
 
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/settings-history', methods=['GET'])
+@require_auth
+def get_enterprise_settings_history(enterprise_id):
+    """Get settings change history for an enterprise"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Get settings history from user_settings table for all users in this enterprise
+        # First get all user IDs in this enterprise
+        org_users = supabase.table('organization_users').select('user_id').eq('enterprise_id', enterprise_id).execute()
+        
+        if not org_users.data:
+            return jsonify({
+                'success': True,
+                'history': []
+            }), 200
+        
+        user_ids = [user['user_id'] for user in org_users.data]
+        
+        # Get settings history for these users
+        history_result = supabase.table('user_settings').select('*').in_('user_id', user_ids).order('created_at', desc=True).limit(100).execute()
+        
+        # Enrich with user details
+        history = []
+        for record in history_result.data:
+            try:
+                user_details = supabase.auth.admin.get_user_by_id(record['user_id'])
+                if user_details and user_details.user:
+                    user_metadata = user_details.user.user_metadata or {}
+                    user_name = f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip()
+                    user_email = user_details.user.email
+                else:
+                    user_name = 'Unknown'
+                    user_email = 'Unknown'
+            except:
+                user_name = 'Unknown'
+                user_email = 'Unknown'
+            
+            # Calculate changed fields by comparing with previous version
+            changed_fields = []
+            previous_data = {}
+            
+            # Get previous settings for this user and settings type
+            prev_result = supabase.table('user_settings').select('*').eq('user_id', record['user_id']).eq('settings_type', record['settings_type']).lt('created_at', record['created_at']).order('created_at', desc=True).limit(1).execute()
+            
+            if prev_result.data:
+                previous_data = prev_result.data[0].get('settings_data', {})
+                current_data = record.get('settings_data', {})
+                
+                # Find changed fields
+                all_keys = set(list(previous_data.keys()) + list(current_data.keys()))
+                for key in all_keys:
+                    if previous_data.get(key) != current_data.get(key):
+                        changed_fields.append(key)
+            else:
+                # First time settings, all fields are "changed"
+                current_data = record.get('settings_data', {})
+                changed_fields = list(current_data.keys())
+            
+            history.append({
+                'id': record['id'],
+                'user_id': record['user_id'],
+                'user_name': user_name,
+                'user_email': user_email,
+                'settings_type': record['settings_type'],
+                'settings_data': record.get('settings_data', {}),
+                'previous_settings_data': previous_data,
+                'changed_fields': changed_fields,
+                'created_at': record['created_at']
+            })
+        
+        return jsonify({
+            'success': True,
+            'history': history
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch settings history: {str(e)}')
+        return jsonify({'error': f'Failed to fetch settings history: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/time-restrictions', methods=['GET'])
+@require_auth
+def get_enterprise_time_restrictions(enterprise_id):
+    """Get time restrictions for an enterprise"""
+    try:
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Get enterprise settings
+        result = supabase.table('enterprises').select('settings').eq('id', enterprise_id).execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Enterprise not found'}), 404
+        
+        settings = result.data[0].get('settings', {})
+        time_restrictions = settings.get('time_restrictions', {
+            'enabled': False,
+            'timezone': 'UTC',
+            'windows': []
+        })
+        
+        return jsonify({
+            'success': True,
+            'time_restrictions': time_restrictions
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch time restrictions: {str(e)}')
+        return jsonify({'error': f'Failed to fetch time restrictions: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/time-restrictions', methods=['PUT'])
+@require_auth
+def update_enterprise_time_restrictions(enterprise_id):
+    """Update time restrictions for an enterprise"""
+    try:
+        data = request.get_json()
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Get current settings
+        result = supabase.table('enterprises').select('settings').eq('id', enterprise_id).execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Enterprise not found'}), 404
+        
+        current_settings = result.data[0].get('settings', {})
+        
+        # Update time restrictions
+        current_settings['time_restrictions'] = {
+            'enabled': data.get('enabled', False),
+            'timezone': data.get('timezone', 'UTC'),
+            'windows': data.get('windows', [])
+        }
+        
+        # Save updated settings
+        update_result = supabase.table('enterprises').update({
+            'settings': current_settings
+        }).eq('id', enterprise_id).execute()
+        
+        if not update_result.data:
+            return jsonify({'error': 'Failed to update time restrictions'}), 500
+        
+        return jsonify({
+            'success': True,
+            'message': 'Time restrictions updated successfully',
+            'time_restrictions': current_settings['time_restrictions']
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to update time restrictions: {str(e)}')
+        return jsonify({'error': f'Failed to update time restrictions: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/statistics', methods=['GET'])
+@require_auth
+def get_enterprise_statistics(enterprise_id):
+    """
+    Get comprehensive statistics for an enterprise.
+    
+    Returns:
+        - total_users: Total number of users in organization_users table (excludes owner)
+        - active_users: Number of users with status='active'
+        - pending_invitations: Number of pending invitations
+        - total_invitations: Total number of invitations (all statuses)
+        - owner_info: Information about the enterprise owner
+    """
+    try:
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
+        
+        # Get enterprise details including owner
+        enterprise_result = supabase.table('enterprises').select('*').eq('id', enterprise_id).execute()
+        if not enterprise_result.data:
+            return jsonify({
+                'success': False,
+                'error': 'Enterprise not found'
+            }), 404
+        
+        enterprise = enterprise_result.data[0]
+        owner_id = enterprise['created_by']
+        
+        # Get owner information
+        owner_info = {'id': owner_id, 'email': 'Unknown', 'name': 'Unknown'}
+        try:
+            owner_details = supabase.auth.admin.get_user_by_id(owner_id)
+            if owner_details and owner_details.user:
+                owner_metadata = owner_details.user.user_metadata or {}
+                owner_info = {
+                    'id': owner_id,
+                    'email': owner_details.user.email,
+                    'name': f"{owner_metadata.get('first_name', '')} {owner_metadata.get('last_name', '')}".strip() or 'Owner'
+                }
+        except Exception as e:
+            current_app.logger.warning(f'Could not fetch owner details: {str(e)}')
+        
+        # Get all users (excludes owner)
+        users_result = supabase.table('organization_users').select('status').eq('enterprise_id', enterprise_id).execute()
+        total_users = len(users_result.data)
+        active_users = sum(1 for user in users_result.data if user.get('status', 'active') == 'active')
+        
+        # Get invitation statistics
+        invitations_result = supabase.table('invitations').select('status').eq('enterprise_id', enterprise_id).execute()
+        total_invitations = len(invitations_result.data)
+        pending_invitations = sum(1 for inv in invitations_result.data if inv.get('status') == 'pending')
+        accepted_invitations = sum(1 for inv in invitations_result.data if inv.get('status') == 'accepted')
+        
+        statistics = {
+            'total_users': total_users,
+            'active_users': active_users,
+            'inactive_users': total_users - active_users,
+            'pending_invitations': pending_invitations,
+            'accepted_invitations': accepted_invitations,
+            'total_invitations': total_invitations,
+            'max_users': enterprise.get('max_users', 100),
+            'capacity_percentage': round((total_users / enterprise.get('max_users', 100)) * 100, 1) if enterprise.get('max_users', 100) > 0 else 0,
+            'owner_info': owner_info,
+            'enterprise_name': enterprise.get('name', 'Unknown'),
+            'organization_type': enterprise.get('organization_type', 'Unknown')
+        }
+        
+        return jsonify({
+            'success': True,
+            'statistics': statistics
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch enterprise statistics: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Failed to fetch statistics: {str(e)}'
+        }), 500

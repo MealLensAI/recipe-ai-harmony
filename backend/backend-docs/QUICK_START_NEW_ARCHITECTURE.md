@@ -16,9 +16,9 @@ You should see:
 🚀 MealLens AI Backend Server
 ============================================================
 Environment: development
-Server: http://127.0.0.1:5001
+Server: http://127.0.0.1:5000
 Debug Mode: True
-Health Check: http://127.0.0.1:5001/health
+Health Check: http://127.0.0.1:5000/health
 ============================================================
 ```
 
@@ -26,7 +26,7 @@ Health Check: http://127.0.0.1:5001/health
 
 Open your browser or use curl:
 ```bash
-curl http://127.0.0.1:5001/health
+curl http://127.0.0.1:5000/health
 ```
 
 Expected response:
@@ -50,7 +50,7 @@ All your existing endpoints work exactly the same:
 
 ```bash
 # Test profile endpoint (requires auth)
-curl http://127.0.0.1:5001/api/profile
+curl http://127.0.0.1:5000/api/profile
 
 # Test with frontend
 # Frontend is already running on http://localhost:5173/
@@ -77,7 +77,7 @@ Your backend is now running with the new modular architecture!
 ### Health Check Endpoint
 ```bash
 # Check if all services are healthy
-curl http://127.0.0.1:5001/health
+curl http://127.0.0.1:5000/health
 
 # Returns service status
 {
@@ -95,7 +95,7 @@ curl http://127.0.0.1:5001/health
 ### Better Error Handling
 ```bash
 # If a service is unavailable
-curl http://127.0.0.1:5001/api/settings
+curl http://127.0.0.1:5000/api/settings
 
 # Returns clear error
 {

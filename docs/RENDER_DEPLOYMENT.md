@@ -3,7 +3,7 @@
 ## 🚀 Current Status
 - **Backend URL:** https://meallensai.onrender.com
 - **Status:** ✅ Live
-- **Port:** 5001 (configured in Render)
+- **Port:** 5000 (configured in Render)
 
 ---
 
@@ -65,7 +65,7 @@ web: gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 app:app
    - `SUPABASE_URL`
    - `SUPABASE_KEY`
    - `OPENAI_API_KEY`
-   - `PORT` (auto-set by Render, typically 5001 or 10000)
+   - `PORT` (auto-set by Render)
    - `FLASK_ENV=production`
    - Other API keys and secrets
 

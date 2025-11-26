@@ -31,6 +31,20 @@ const Login = () => {
     }
   }, [isAuthenticated, navigate, location])
 
+  const hydratePostLogin = async () => {
+    const results = await Promise.allSettled([
+      api.getUserProfile(),
+      api.getMealPlans(),
+      api.getUserSettings('health_profile')
+    ])
+
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.warn('[Login] Prefetch step failed', { step: index, reason: result.reason })
+      }
+    })
+  }
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) {
@@ -75,12 +89,40 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
-        // Redirect to intended page or main app using client-side navigation only.
-        // This avoids a full page reload that would clear the in-memory auth fallback
-        // used on browsers that block localStorage (e.g., Opera Mini/private modes).
-        const from = location.state?.from?.pathname || "/ai-kitchen"
-        console.log('🔄 Redirecting after login to:', from)
-        navigate(from, { replace: true })
+        // Warm up essential user data (profile, meal plans, settings) before navigation
+        await hydratePostLogin()
+
+        const userMetadata = (result as any).user_data?.metadata || {}
+        const signupType = userMetadata.signup_type || userMetadata.signupType
+        let isOrganizationUser = signupType === 'organization'
+
+        if (!isOrganizationUser) {
+          try {
+            const enterprisesResponse = await api.getMyEnterprises()
+            if (enterprisesResponse.success && enterprisesResponse.enterprises && enterprisesResponse.enterprises.length > 0) {
+              isOrganizationUser = true
+            }
+          } catch (error) {
+            console.error('Failed to check enterprise ownership:', error)
+          }
+        }
+
+        await hydratePostLogin()
+
+        if (isOrganizationUser) {
+          console.log('🔄 Redirecting organization user to enterprise dashboard')
+          navigate('/enterprise', { replace: true })
+          return
+        }
+
+        const from = location.state?.from?.pathname
+        if (from && from !== '/') {
+          console.log('🔄 Redirecting after login to previous route:', from)
+          navigate(from, { replace: true })
+        } else {
+          console.log('🔄 Redirecting after login to root route')
+          navigate('/', { replace: true })
+        }
       } else {
         toast({
           title: "Login Failed",

@@ -4,6 +4,8 @@ Email Service for sending invitations and notifications
 
 import os
 import smtplib
+import ssl
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
@@ -17,17 +19,78 @@ class EmailService:
     def _load_config(self):
         """Load email configuration from environment variables"""
         self.smtp_host = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-        self.smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+        self.smtp_port = int(os.environ.get('SMTP_PORT', '465'))
         self.smtp_user = os.environ.get('SMTP_USER')
         self.smtp_password = os.environ.get('SMTP_PASSWORD')
         self.from_email = os.environ.get('FROM_EMAIL', self.smtp_user)
         self.from_name = os.environ.get('FROM_NAME', 'MeallensAI')
+        timeout_env = os.environ.get('SMTP_TIMEOUT', '30')
+        retry_env = os.environ.get('SMTP_RETRY_ATTEMPTS', '3')
+        use_ssl_env = os.environ.get('SMTP_USE_SSL')
+
+        try:
+            self.smtp_timeout = max(5, int(timeout_env))
+        except ValueError:
+            self.smtp_timeout = 30
+
+        try:
+            self.smtp_retry_attempts = max(1, int(retry_env))
+        except ValueError:
+            self.smtp_retry_attempts = 3
+
+        if use_ssl_env is not None:
+            self.smtp_use_ssl = use_ssl_env.strip().lower() in ('1', 'true', 'yes', 'on')
+        else:
+            self.smtp_use_ssl = self.smtp_port == 465
+
+        if not self.from_email:
+            self.from_email = self.smtp_user
         
         # Check if email is configured
         self.is_configured = bool(self.smtp_user and self.smtp_password)
         
         if not self.is_configured:
             print("Warning: Email service not configured. Set SMTP_USER and SMTP_PASSWORD environment variables.")
+
+    def _send_email_message(self, msg: MIMEMultipart, to_email: str) -> bool:
+        """
+        Send an email message with retry and timeout safeguards.
+        """
+        if not self.is_configured:
+            return False
+
+        last_error: Optional[Exception] = None
+        context = ssl.create_default_context()
+
+        for attempt in range(1, self.smtp_retry_attempts + 1):
+            try:
+                if self.smtp_use_ssl:
+                    with smtplib.SMTP_SSL(
+                        self.smtp_host,
+                        self.smtp_port,
+                        timeout=self.smtp_timeout,
+                        context=context
+                    ) as server:
+                        server.login(self.smtp_user, self.smtp_password)
+                        server.send_message(msg)
+                else:
+                    with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=self.smtp_timeout) as server:
+                        server.ehlo()
+                        server.starttls(context=context)
+                        server.ehlo()
+                        server.login(self.smtp_user, self.smtp_password)
+                        server.send_message(msg)
+
+                print(f"Email sent to {to_email} (attempt {attempt})")
+                return True
+            except Exception as exc:
+                last_error = exc
+                print(f"Attempt {attempt} to send email to {to_email} failed: {exc}")
+                if attempt < self.smtp_retry_attempts:
+                    time.sleep(min(2 * attempt, 5))
+
+        print(f"Failed to send email to {to_email}: {last_error}")
+        return False
     
     def send_invitation_email(
         self, 
@@ -194,17 +257,10 @@ class EmailService:
             msg.attach(MIMEText(text_body, 'plain'))
             msg.attach(MIMEText(html_body, 'html'))
             
-            # Send email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
-            
-            print(f"Invitation email sent to {to_email}")
-            return True
+            return self._send_email_message(msg, to_email)
             
         except Exception as e:
-            print(f"Failed to send email to {to_email}: {str(e)}")
+            print(f"Failed to prepare invitation email to {to_email}: {str(e)}")
             return False
     
     def send_welcome_email(self, to_email: str, enterprise_name: str) -> bool:
@@ -293,16 +349,10 @@ class EmailService:
             
             msg.attach(MIMEText(html_body, 'html'))
             
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
-            
-            print(f"Welcome email sent to {to_email}")
-            return True
+            return self._send_email_message(msg, to_email)
             
         except Exception as e:
-            print(f"Failed to send welcome email to {to_email}: {str(e)}")
+            print(f"Failed to prepare welcome email to {to_email}: {str(e)}")
             return False
 
     def send_user_creation_email(
@@ -443,17 +493,10 @@ class EmailService:
             html_part = MIMEText(html_body, 'html')
             msg.attach(html_part)
             
-            # Send the email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
-            
-            print(f"User creation email sent to {to_email}")
-            return True
+            return self._send_email_message(msg, to_email)
             
         except Exception as e:
-            print(f"Error sending user creation email: {e}")
+            print(f"Error preparing user creation email: {e}")
             return False
 
 

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X, Copy, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import Swal from 'sweetalert2';
 
 interface InviteUserFormProps {
   enterpriseId: string;
@@ -20,7 +21,7 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     email: "",
-    role: "member",
+    role: "patient",
     message: "",
   });
   const [formErrors, setFormErrors] = useState<{ email?: string; role?: string }>({});
@@ -41,7 +42,7 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
   }, [teamName]);
 
   const resetForm = () => {
-    setFormData({ email: "", role: "member", message: "" });
+    setFormData({ email: "", role: "patient", message: "" });
     setFormErrors({});
     setGeneralError(null);
   };
@@ -68,6 +69,19 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
     e.preventDefault();
     setGeneralError(null);
 
+    // CRITICAL: Validate enterpriseId before proceeding
+    if (!enterpriseId || enterpriseId === 'undefined') {
+      const errorMsg = "No enterprise selected — cannot invite. Please select an organization first.";
+      setGeneralError(errorMsg);
+      toast({
+        title: "No Organization Selected",
+        description: errorMsg,
+        variant: "destructive",
+        duration: 5000,
+      });
+      return;
+    }
+
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -79,12 +93,14 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
         message: formData.message.trim() || undefined,
       };
 
+      console.log('[INVITE] Sending invitation with enterpriseId:', enterpriseId, 'payload:', payload);
       const result = await api.inviteUserToEnterprise(enterpriseId, payload);
+
+      console.log('[INVITE] Result:', result);
 
       if (result.success) {
         resetForm();
-        onSuccess();
-
+        
         if (!result.email_sent && result.invitation_link) {
           setInvitationLink(result.invitation_link);
           setShowLinkModal(true);
@@ -93,31 +109,58 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
             description: "Email service unavailable. Share the link manually.",
           });
         } else {
-          toast({
-            title: "Success",
-            description: "Invitation email sent successfully.",
+          // Show SweetAlert2 success message
+          Swal.fire({
+            title: "Invitation Sent!",
+            text: `Successfully sent invitation to ${formData.email}`,
+            icon: "success",
+            draggable: true,
+            confirmButtonColor: "#0f172a",
+            timer: 3000,
+            timerProgressBar: true,
           });
           onClose();
         }
+        
+        onSuccess();
         return;
       }
 
-      let errorMessage = result.message || result.error || "Failed to send invitation.";
-      if (errorMessage.includes("not a member")) {
-        errorMessage =
-          "You do not have permission to invite users to this organization. Only organization owners and admins can send invitations.";
-      } else if (errorMessage.includes("already invited")) {
-        errorMessage = "This user already has a pending invitation.";
-      } else if (errorMessage.includes("Maximum user limit")) {
-        errorMessage =
-          "Organization has reached its maximum user limit. Please contact support to increase capacity.";
-      }
+      // If success is false, show the backend error message
+      const errorMessage = result.error || result.message || "Failed to send invitation.";
       throw new Error(errorMessage);
+      
     } catch (error: any) {
-      const description = error?.message || "Failed to send invitation.";
+      console.error('[INVITE] Error:', error);
+      console.error('[INVITE] Error type:', typeof error);
+      console.error('[INVITE] Error keys:', Object.keys(error || {}));
+      
+      // Extract the actual error message from the backend
+      let description = "Failed to send invitation.";
+      
+      // Handle APIError objects
+      if (error?.message && typeof error.message === 'string') {
+        description = error.message;
+      } else if (error?.data?.error) {
+        description = error.data.error;
+      } else if (error?.data?.message) {
+        description = error.data.message;
+      } else if (error?.error) {
+        description = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+      } else if (typeof error === 'string') {
+        description = error;
+      } else {
+        // Last resort: stringify the error
+        try {
+          description = JSON.stringify(error);
+        } catch {
+          description = "Failed to send invitation. Please try again.";
+        }
+      }
+      
       setGeneralError(description);
       toast({
-        title: "Invitation failed",
+        title: "Invitation Failed",
         description,
         variant: "destructive",
         duration: 5000,
@@ -257,13 +300,16 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="doctor">Doctor</SelectItem>
+                  <SelectItem value="patient">Patient</SelectItem>
+                  <SelectItem value="client">Client</SelectItem>
+                  <SelectItem value="nutritionist">Nutritionist</SelectItem>
                 </SelectContent>
               </Select>
               {formErrors.role && <p className="text-xs text-red-600">{formErrors.role}</p>}
+              <p className="text-xs text-slate-500">
+                Select the role that defines this user's access and permissions in your organization
+              </p>
             </div>
 
             <div className="space-y-2">

@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Utensils, BookOpen, CalendarDays, Clock, Search, Play } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Utensils, BookOpen, CalendarDays, Clock, Search, Play, Settings as SettingsIcon } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 
@@ -50,9 +51,12 @@ const getStatusText = (recipeType: string) => {
 export function HistoryPage() {
   const navigate = useNavigate()
   const [history, setHistory] = useState<SharedRecipe[]>([])
+  const [settingsHistory, setSettingsHistory] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [activeTab, setActiveTab] = useState("detections")
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
 
@@ -133,6 +137,29 @@ export function HistoryPage() {
     fetchHistory()
   }, [isAuthenticated, authLoading, api])
 
+  // Fetch settings history when tab is switched
+  useEffect(() => {
+    const fetchSettingsHistory = async () => {
+      if (activeTab !== "settings" || !isAuthenticated || authLoading) {
+        return
+      }
+
+      setIsLoadingSettings(true)
+      try {
+        const result = await api.getUserSettingsHistory('health_profile', 50)
+        if ((result as any).status === 'success') {
+          setSettingsHistory((result as any).history || [])
+        }
+      } catch (err) {
+        console.error("Error fetching settings history:", err)
+      } finally {
+        setIsLoadingSettings(false)
+      }
+    }
+
+    fetchSettingsHistory()
+  }, [activeTab, isAuthenticated, authLoading, api])
+
   // Filter history based on search term
   const filteredHistory = history.filter(item => {
     if (!searchTerm) return true
@@ -145,7 +172,34 @@ export function HistoryPage() {
       suggestion.toLowerCase().includes(searchLower)
   })
 
-  // Removed loading screens - show content immediately
+  // Show loading state while fetching
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">History</h1>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">View your detection and settings history</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        <div className="max-w-7xl mx-auto p-3 sm:p-6">
+          <div className="flex items-center justify-center py-12 min-h-[400px]">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+              <p className="text-gray-600">Loading history...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return (
@@ -160,6 +214,17 @@ export function HistoryPage() {
     )
   }
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -168,38 +233,134 @@ export function HistoryPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">History</h1>
-              <p className="text-xs sm:text-sm text-gray-600 mt-1">Showing your all histories with a clear view.</p>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1">View your detection and settings history</p>
             </div>
-            <div className="flex items-center">
-              <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                <Input
-                  placeholder="Search history..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 sm:pl-10 w-full sm:w-64 text-sm"
-                />
+            {activeTab === "detections" && (
+              <div className="flex items-center">
+                <div className="relative w-full sm:w-auto">
+                  <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search detections..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 sm:pl-10 w-full sm:w-64 text-sm"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content with Tabs */}
       <div className="max-w-7xl mx-auto p-3 sm:p-6">
-        {filteredHistory.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
-            <Utensils className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
-            <p className="text-lg sm:text-xl font-semibold">No detection history yet.</p>
-            <p className="text-sm sm:text-md mt-2">Start scanning to see your results here.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-            {filteredHistory.map((item) => (
-              <HistoryCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+            <TabsTrigger value="detections" className="flex items-center gap-2">
+              <Utensils className="h-4 w-4" />
+              Detections
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Settings History
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Detections Tab */}
+          <TabsContent value="detections">
+            {filteredHistory.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
+                <Utensils className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
+                <p className="text-lg sm:text-xl font-semibold">No detection history yet.</p>
+                <p className="text-sm sm:text-md mt-2">Start scanning to see your results here.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+                {filteredHistory.map((item) => (
+                  <HistoryCard key={item.id} item={item} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Settings History Tab */}
+          <TabsContent value="settings">
+            {isLoadingSettings ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+              </div>
+            ) : settingsHistory.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
+                <SettingsIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
+                <p className="text-lg sm:text-xl font-semibold">No settings history yet</p>
+                <p className="text-sm sm:text-md mt-2">Changes to your health profile will appear here</p>
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-b">
+                        <tr className="text-left">
+                          <th className="pb-3 font-semibold text-gray-700">Date & Time</th>
+                          <th className="pb-3 font-semibold text-gray-700">Changes Made</th>
+                          <th className="pb-3 font-semibold text-gray-700">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {settingsHistory.map((record, index) => (
+                          <tr key={record.id || index} className="hover:bg-gray-50">
+                            <td className="py-3 text-gray-600 whitespace-nowrap">
+                              {formatDate(record.created_at)}
+                            </td>
+                            <td className="py-3">
+                              {record.changed_fields && record.changed_fields.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {record.changed_fields.map((field: string, idx: number) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
+                                    >
+                                      {field}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 italic">Initial setup</span>
+                              )}
+                            </td>
+                            <td className="py-3">
+                              <details className="cursor-pointer">
+                                <summary className="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                  View details
+                                </summary>
+                                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
+                                  {record.settings_data && Object.entries(record.settings_data).map(([key, value]: [string, any]) => (
+                                    <div key={key} className="flex justify-between gap-4">
+                                      <span className="font-medium text-gray-700">{key}:</span>
+                                      <span className="text-gray-600 text-right">
+                                        {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {settingsHistory.length >= 50 && (
+                    <p className="text-xs text-gray-500 text-center pt-4 border-t mt-4">
+                      Showing last 50 changes
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

@@ -27,10 +27,23 @@ def save_user_settings():
         success, error = supabase_service.save_user_settings(user_id, settings_type, settings_data)
         
         if success:
-            return jsonify({
+            saved_record, fetch_error = supabase_service.get_user_settings(user_id, settings_type)
+            if fetch_error:
+                log_error(f"Settings saved but failed to reload for user {user_id}", Exception(fetch_error))
+            response_payload = {
                 'status': 'success',
                 'message': 'Settings saved successfully'
-            }), 200
+            }
+            if saved_record:
+                response_payload.update({
+                    'settings': saved_record.get('settings_data', {}),
+                    'settings_type': saved_record.get('settings_type'),
+                    'updated_at': saved_record.get('updated_at')
+                })
+            else:
+                response_payload['settings'] = settings_data
+                response_payload['settings_type'] = settings_type
+            return jsonify(response_payload), 200
         else:
             log_error(f"Failed to save settings for user {user_id}", Exception(error or 'Unknown error'))
             return jsonify({'status': 'error', 'message': f'Failed to save settings: {error}'}), 500
@@ -102,4 +115,54 @@ def delete_user_settings():
 
     except Exception as e:
         log_error("Unexpected error in delete_user_settings", e)
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+
+@user_settings_bp.route('/settings/history', methods=['GET'])
+def get_user_settings_history():
+    """
+    Retrieves user settings history from the database. Requires authentication.
+    Shows all changes made to user settings over time.
+    """
+    try:
+        user_id, error = get_user_id_from_token()
+        if error:
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        settings_type = request.args.get('settings_type', 'health_profile')
+        limit = request.args.get('limit', 50, type=int)  # Default to last 50 changes
+        
+        current_app.logger.info(f"[SETTINGS_HISTORY] Fetching history for user {user_id}, type: {settings_type}")
+        
+        supabase_service = current_app.supabase_service
+        supabase = supabase_service.supabase
+        
+        # Query settings history
+        result = supabase.table('user_settings_history')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .eq('settings_type', settings_type)\
+            .order('created_at', desc=True)\
+            .limit(limit)\
+            .execute()
+        
+        if result.data:
+            current_app.logger.info(f"[SETTINGS_HISTORY] Found {len(result.data)} history records")
+            return jsonify({
+                'status': 'success',
+                'history': result.data,
+                'count': len(result.data)
+            }), 200
+        else:
+            current_app.logger.info(f"[SETTINGS_HISTORY] No history found")
+            return jsonify({
+                'status': 'success',
+                'history': [],
+                'count': 0,
+                'message': 'No settings history found'
+            }), 200
+
+    except Exception as e:
+        log_error("Unexpected error in get_user_settings_history", e)
+        current_app.logger.error(f"[SETTINGS_HISTORY] Error: {str(e)}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

@@ -1,4 +1,4 @@
-import os
+    import os
 import json
 from supabase import create_client, Client
 from werkzeug.datastructures import FileStorage
@@ -490,6 +490,7 @@ class SupabaseService:
         Returns:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
+        fallback_error = None
         try:
             result = self.supabase.rpc('save_session', {
                 'p_user_id': user_id,
@@ -501,10 +502,28 @@ class SupabaseService:
             if result.data and result.data[0].get('status') == 'success':
                 return True, None
             else:
-                error = result.data[0].get('message') if result.data else 'Failed to save session'
-                return False, error
+                fallback_error = result.data[0].get('message') if result.data else 'Failed to save session'
         except Exception as e:
-            return False, str(e)
+            fallback_error = str(e)
+
+        # Fallback to direct table insert if RPC is unavailable or failed
+        try:
+            payload = {
+                'id': session_id,
+                'user_id': user_id,
+                'login_at': created_at,
+            }
+            if session_data:
+                try:
+                    payload['device_info'] = json.dumps(session_data)
+                except Exception:
+                    payload['device_info'] = str(session_data)
+            result = self.supabase.table('user_sessions').insert(payload).execute()
+            if result.data:
+                return True, None
+            return False, fallback_error or 'Failed to save session'
+        except Exception as insert_error:
+            return False, fallback_error or f'Failed to save session via fallback: {str(insert_error)}'
 
     def get_session(self, user_id: str, session_id: str) -> tuple[dict | None, str | None]:
         """
@@ -746,86 +765,72 @@ class SupabaseService:
                 print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct insert")
                 # Fall through to direct insert
             
-            # Fallback: Direct table insert/update
-            print(f"[DEBUG] Using direct table insert for user_id={user_id}, type={settings_type}")
+            # Fallback: Direct table upsert to guarantee persistence
+            print(f"[DEBUG] Using direct table upsert for user_id={user_id}, type={settings_type}")
             
-            # Check if record exists
             print(f"[DEBUG] Checking if settings record exists...")
             existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
             print(f"[DEBUG] Existing records: {existing.data}")
+            record_exists = bool(existing.data and len(existing.data) > 0)
+            existing_settings = existing.data[0].get('settings_data', {}) if record_exists else None
             
-            if existing.data and len(existing.data) > 0:
-                # Save previous settings to history before updating
-                existing_settings = existing.data[0].get('settings_data', {})
-                try:
-                    # Detect changed fields
-                    changed_fields = []
-                    if isinstance(existing_settings, dict) and isinstance(settings_data, dict):
-                        all_keys = set(list(existing_settings.keys()) + list(settings_data.keys()))
-                        for key in all_keys:
-                            old_val = existing_settings.get(key)
-                            new_val = settings_data.get(key)
-                            if old_val != new_val:
-                                changed_fields.append(key)
-                    
-                    # Save to history
-                    history_data = {
-                        'user_id': user_id,
-                        'settings_type': settings_type,
-                        'settings_data': settings_data,
-                        'previous_settings_data': existing_settings,
-                        'changed_fields': changed_fields,
-                        'created_at': datetime.utcnow().isoformat() + 'Z',
-                        'created_by': user_id
-                    }
-                    self.supabase.table('user_settings_history').insert(history_data).execute()
-                    print(f"[DEBUG] Saved settings history with {len(changed_fields)} changed fields")
-                except Exception as history_error:
-                    # Don't fail the update if history save fails
-                    print(f"[WARNING] Failed to save settings history: {history_error}")
-                
-                # Update existing
-                print(f"[DEBUG] Updating existing record...")
-                result = self.supabase.table('user_settings').update({
-                    'settings_data': settings_data,
-                    'updated_at': datetime.utcnow().isoformat() + 'Z'
-                }).eq('user_id', user_id).eq('settings_type', settings_type).execute()
-                print(f"[DEBUG] Update result: {result.data}")
-            else:
-                # Insert new
-                print(f"[DEBUG] Inserting new record...")
-                result = self.supabase.table('user_settings').insert({
+            normalized_settings = settings_data
+            if isinstance(settings_data, dict):
+                # Ensure the payload is JSON serializable and detached from React proxies
+                normalized_settings = json.loads(json.dumps(settings_data))
+            
+            timestamp = datetime.utcnow().isoformat() + 'Z'
+            upsert_payload = {
+                'user_id': user_id,
+                'settings_type': settings_type,
+                'settings_data': normalized_settings,
+                'updated_at': timestamp
+            }
+            if not record_exists:
+                upsert_payload['created_at'] = timestamp
+            
+            result = (
+                self.supabase
+                    .table('user_settings')
+                    .upsert(upsert_payload, on_conflict='user_id,settings_type')
+                    .select('*')
+                    .execute()
+            )
+            print(f"[DEBUG] Upsert result: {result.data}")
+            
+            if not result.data:
+                print(f"[ERROR] No data returned from upsert operation")
+                return False, 'Failed to save settings via upsert'
+            
+            persisted_record = result.data[0]
+            changed_fields = []
+            if isinstance(existing_settings, dict) and isinstance(normalized_settings, dict):
+                for key in normalized_settings.keys():
+                    if existing_settings.get(key) != normalized_settings.get(key):
+                        changed_fields.append(key)
+                for key in existing_settings.keys():
+                    if key not in normalized_settings:
+                        changed_fields.append(f"{key} (removed)")
+            elif isinstance(normalized_settings, dict):
+                changed_fields = list(normalized_settings.keys())
+            
+            try:
+                history_data = {
                     'user_id': user_id,
                     'settings_type': settings_type,
-                    'settings_data': settings_data,
-                    'created_at': datetime.utcnow().isoformat() + 'Z',
-                    'updated_at': datetime.utcnow().isoformat() + 'Z'
-                }).execute()
-                print(f"[DEBUG] Insert result: {result.data}")
-                
-                # Save to history (first insert)
-                try:
-                    history_data = {
-                        'user_id': user_id,
-                        'settings_type': settings_type,
-                        'settings_data': settings_data,
-                        'previous_settings_data': None,
-                        'changed_fields': list(settings_data.keys()) if isinstance(settings_data, dict) else [],
-                        'created_at': datetime.utcnow().isoformat() + 'Z',
-                        'created_by': user_id
-                    }
-                    self.supabase.table('user_settings_history').insert(history_data).execute()
-                    print(f"[DEBUG] Saved initial settings to history")
-                except Exception as history_error:
-                    # Don't fail the insert if history save fails
-                    print(f"[WARNING] Failed to save settings history: {history_error}")
+                    'settings_data': persisted_record.get('settings_data', normalized_settings),
+                    'previous_settings_data': existing_settings,
+                    'changed_fields': changed_fields,
+                    'created_at': timestamp,
+                    'created_by': user_id
+                }
+                self.supabase.table('user_settings_history').insert(history_data).execute()
+                print(f"[DEBUG] Saved settings history with {len(changed_fields)} changed fields")
+            except Exception as history_error:
+                print(f"[WARNING] Failed to save settings history: {history_error}")
             
-            if result.data:
-                print(f"[SUCCESS] Settings saved via direct table operation")
-                return True, None
-            else:
-                print(f"[ERROR] No data returned from table operation")
-                return False, 'Failed to save settings via direct insert'
+            print(f"[SUCCESS] Settings saved via direct table upsert")
+            return True, None
                 
         except Exception as e:
             error_msg = str(e)
