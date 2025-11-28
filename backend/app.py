@@ -107,6 +107,8 @@ def create_app():
       "http://localhost:5174",
       "https://meallensai.com",
       "https://www.meallensai.com",
+      # Hosted frontend(s)
+      "https://meallens.vercel.app",
   ]
   if env_allowed:
       # Support comma-separated list in env
@@ -114,6 +116,10 @@ def create_app():
           origin = item.strip()
           if origin:
               allowed_origins.append(origin)
+
+  # Remove duplicates while preserving order
+  seen = set()
+  allowed_origins = [o for o in allowed_origins if not (o in seen or seen.add(o))]
 
   CORS(
       app,
