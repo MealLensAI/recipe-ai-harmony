@@ -308,46 +308,98 @@ export function HistoryPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {settingsHistory.map((record, index) => (
-                          <tr key={record.id || index} className="hover:bg-gray-50">
-                            <td className="py-3 text-gray-600 whitespace-nowrap">
-                              {formatDate(record.created_at)}
-                            </td>
-                            <td className="py-3">
-                              {record.changed_fields && record.changed_fields.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {record.changed_fields.map((field: string, idx: number) => (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
-                                    >
-                                      {field}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-gray-500 italic">Initial setup</span>
-                              )}
-                            </td>
-                            <td className="py-3">
-                              <details className="cursor-pointer">
-                                <summary className="text-blue-600 hover:text-blue-800 text-xs font-medium">
-                                  View details
-                                </summary>
-                                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
-                                  {record.settings_data && Object.entries(record.settings_data).map(([key, value]: [string, any]) => (
-                                    <div key={key} className="flex justify-between gap-4">
-                                      <span className="font-medium text-gray-700">{key}:</span>
-                                      <span className="text-gray-600 text-right">
-                                        {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                        {settingsHistory.map((record, index) => {
+                          // Filter out numbered removed items (like "0 (removed)", "1 (removed)", etc.)
+                          const meaningfulFields = record.changed_fields 
+                            ? record.changed_fields.filter((field: string) => {
+                                // Filter out fields that are just numbers followed by " (removed)"
+                                const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(field);
+                                return !isNumberedRemoved;
+                              })
+                            : [];
+
+                          // Get only the meaningful saved data (exclude empty/null values and array indices)
+                          const meaningfulData = record.settings_data 
+                            ? Object.entries(record.settings_data).filter(([key, value]) => {
+                                // Filter out numbered keys (array indices)
+                                const isNumberKey = /^\d+$/.test(key);
+                                // Filter out null, undefined, or empty string values
+                                const hasValue = value !== null && value !== undefined && value !== '';
+                                return !isNumberKey && hasValue;
+                              })
+                            : [];
+
+                          return (
+                            <tr key={record.id || index} className="hover:bg-gray-50">
+                              <td className="py-3 text-gray-600 whitespace-nowrap">
+                                {formatDate(record.created_at)}
+                              </td>
+                              <td className="py-3">
+                                {meaningfulFields.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {meaningfulFields.map((field: string, idx: number) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
+                                      >
+                                        {field.replace(' (removed)', '')}
                                       </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </details>
-                            </td>
-                          </tr>
-                        ))}
+                                    ))}
+                                  </div>
+                                ) : meaningfulData.length > 0 ? (
+                                  <span className="text-gray-500 italic">Settings updated</span>
+                                ) : (
+                                  <span className="text-gray-500 italic">Initial setup</span>
+                                )}
+                              </td>
+                              <td className="py-3">
+                                <details className="cursor-pointer">
+                                  <summary className="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                    ► View details
+                                  </summary>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
+                                    {meaningfulData.length > 0 ? (
+                                      meaningfulData.map(([key, value]: [string, any]) => {
+                                        // Format field names for display
+                                        const formattedKey = key
+                                          .replace(/([A-Z])/g, ' $1')
+                                          .replace(/^./, str => str.toUpperCase())
+                                          .trim();
+                                        
+                                        // Format values for display
+                                        let formattedValue = String(value);
+                                        if (typeof value === 'boolean') {
+                                          formattedValue = value ? 'Yes' : 'No';
+                                        } else if (key === 'gender') {
+                                          formattedValue = String(value).charAt(0).toUpperCase() + String(value).slice(1);
+                                        } else if (key === 'activityLevel') {
+                                          formattedValue = String(value)
+                                            .split('_')
+                                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                            .join(' ');
+                                        } else if (key === 'goal') {
+                                          formattedValue = String(value)
+                                            .split('_')
+                                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                            .join(' ');
+                                        }
+
+                                        return (
+                                          <div key={key} className="flex justify-between gap-4">
+                                            <span className="font-medium text-gray-700">{formattedKey}:</span>
+                                            <span className="text-gray-600 text-right">{formattedValue}</span>
+                                          </div>
+                                        );
+                                      })
+                                    ) : (
+                                      <p className="text-gray-500 italic">No saved data</p>
+                                    )}
+                                  </div>
+                                </details>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
