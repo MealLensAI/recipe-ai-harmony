@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Utensils, BookOpen, CalendarDays, Clock, Search, Play, Settings as SettingsIcon } from "lucide-react"
+import { Utensils, BookOpen, CalendarDays, Clock, Search, Play, Settings as SettingsIcon, Trash2 } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 
@@ -57,6 +57,7 @@ export function HistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("detections")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
 
@@ -159,6 +160,32 @@ export function HistoryPage() {
 
     fetchSettingsHistory()
   }, [activeTab, isAuthenticated, authLoading, api])
+
+  const handleDeleteHistory = async (recordId: string) => {
+    if (!window.confirm('Are you sure you want to delete this settings history entry? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingId(recordId)
+    try {
+      const result = await api.deleteSettingsHistory(recordId)
+      if ((result as any).status === 'success') {
+        // Remove the deleted record from the list
+        setSettingsHistory(prev => prev.filter(record => record.id !== recordId))
+      } else {
+        alert((result as any).message || 'Failed to delete history entry')
+      }
+    } catch (err) {
+      console.error("Error deleting settings history:", err)
+      if (err instanceof APIError) {
+        alert(err.message)
+      } else {
+        alert('Failed to delete history entry. Please try again.')
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   // Filter history based on search term
   const filteredHistory = history.filter(item => {
@@ -305,6 +332,7 @@ export function HistoryPage() {
                           <th className="pb-3 font-semibold text-gray-700">Date & Time</th>
                           <th className="pb-3 font-semibold text-gray-700">Changes Made</th>
                           <th className="pb-3 font-semibold text-gray-700">Details</th>
+                          <th className="pb-3 font-semibold text-gray-700">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -396,6 +424,22 @@ export function HistoryPage() {
                                     )}
                                   </div>
                                 </details>
+                              </td>
+                              <td className="py-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteHistory(record.id)}
+                                  disabled={deletingId === record.id}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="Delete this entry"
+                                >
+                                  {deletingId === record.id ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
                               </td>
                             </tr>
                           );

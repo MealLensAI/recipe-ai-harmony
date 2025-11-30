@@ -102,22 +102,37 @@ export const InviteUserForm = ({ enterpriseId, onClose, onSuccess, teamName }: I
       if (result.success) {
         resetForm();
         
+        // Always show success - invitation was created even if email failed
         if (!result.email_sent && result.invitation_link) {
+          // Email failed but invitation was created - show link modal
           const fallbackReason =
             result.email_error ||
-            "Email service unavailable. Share the link manually.";
+            "Email service unavailable. The invitation was created successfully - please share the link manually.";
           setManualShareReason(fallbackReason);
           setInvitationLink(result.invitation_link);
           setShowLinkModal(true);
           toast({
-            title: "Invitation created",
-            description: fallbackReason,
+            title: "Invitation Created",
+            description: "Invitation was created but email could not be sent. Please share the link manually.",
+            variant: "default",
           });
-        } else {
-          // Show SweetAlert2 success message
+        } else if (result.email_sent) {
+          // Email sent successfully
           Swal.fire({
             title: "Invitation Sent!",
             text: `Successfully sent invitation to ${formData.email}`,
+            icon: "success",
+            draggable: true,
+            confirmButtonColor: "#0f172a",
+            timer: 3000,
+            timerProgressBar: true,
+          });
+          onClose();
+        } else {
+          // Invitation created but no link returned (shouldn't happen, but handle gracefully)
+          Swal.fire({
+            title: "Invitation Created!",
+            text: `Invitation created for ${formData.email}. ${result.email_error || 'Please check the invitations list.'}`,
             icon: "success",
             draggable: true,
             confirmButtonColor: "#0f172a",

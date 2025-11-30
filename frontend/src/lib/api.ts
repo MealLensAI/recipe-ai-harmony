@@ -2,9 +2,12 @@ import { useAuth, safeGetItem, safeRemoveItem } from './utils'
 import { APP_CONFIG } from '@/lib/config'
 
 // API base URL
-// In production, always target the backend base URL from config (Render)
-// In development, you may still use the Vite proxy by overriding VITE_API_URL, otherwise this will still work hitting Render directly
-const API_BASE_URL = `${APP_CONFIG.api.base_url}/api`
+// In development: uses Vite proxy (empty string = relative URL = uses proxy)
+// In production: uses VITE_API_URL env variable
+// If VITE_API_URL is not set, defaults to empty string which uses Vite proxy to localhost:5001
+const API_BASE_URL = APP_CONFIG.api.base_url 
+  ? `${APP_CONFIG.api.base_url}/api` 
+  : '/api'  // Use relative URL to leverage Vite proxy
 
 // Custom error class for API errors
 export class APIError extends Error {
@@ -389,6 +392,10 @@ class APIService {
     return this.get(`/settings/history?settings_type=${settingsType}&limit=${limit}`)
   }
 
+  async deleteSettingsHistory(recordId: string): Promise<APIResponse> {
+    return this.delete(`/settings/history/${recordId}`)
+  }
+
   // Enterprise/Organization methods
   async canCreateOrganization(): Promise<APIResponse> {
     return this.get('/enterprise/can-create')
@@ -422,6 +429,22 @@ class APIService {
 
   async getEnterpriseStatistics(enterpriseId: string): Promise<APIResponse> {
     return this.get(`/enterprise/${enterpriseId}/statistics`)
+  }
+
+  async getEnterpriseUserSettings(enterpriseId: string, userId: string): Promise<APIResponse> {
+    return this.get(`/enterprise/${enterpriseId}/user/${userId}/settings`)
+  }
+
+  async updateEnterpriseUserSettings(enterpriseId: string, userId: string, settingsData: any): Promise<APIResponse> {
+    return this.put(`/enterprise/${enterpriseId}/user/${userId}/settings`, { settings_data: settingsData, settings_type: 'health_profile' })
+  }
+
+  async deleteEnterpriseUserSettings(enterpriseId: string, userId: string): Promise<APIResponse> {
+    return this.delete(`/enterprise/${enterpriseId}/user/${userId}/settings?settings_type=health_profile`)
+  }
+
+  async testEmail(email: string): Promise<APIResponse> {
+    return this.post('/test-email', { email })
   }
 
   async inviteUserToEnterprise(enterpriseId: string, data: {

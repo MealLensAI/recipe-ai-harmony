@@ -15,11 +15,13 @@ interface InvitationDetails {
     email: string;
     role: string;
     message?: string;
-    enterprise: {
+    enterprise?: {
         id: string;
         name: string;
         organization_type: string;
-    };
+    } | null;
+    enterprise_name?: string;
+    organization_type?: string;
 }
 
 export default function AcceptInvitation() {
@@ -104,10 +106,10 @@ export default function AcceptInvitation() {
                 // Clear the stored invitation token
                 localStorage.removeItem('invitation_token');
 
-                // Redirect to meal planner (user's account dashboard)
+                // Redirect to dashboard (user's account dashboard)
                 setTimeout(() => {
-                    navigate('/planner');
-                }, 2000);
+                    navigate('/ai-kitchen', { replace: true });
+                }, 1500);
             }
         } catch (error: any) {
             toast({
@@ -154,10 +156,10 @@ export default function AcceptInvitation() {
             // Clear the stored invitation token
             localStorage.removeItem('invitation_token');
 
-            // Redirect to meal planner (user's account dashboard)
+            // Redirect to dashboard (user's account dashboard)
             setTimeout(() => {
-                navigate('/planner');
-            }, 2000);
+                navigate('/ai-kitchen', { replace: true });
+            }, 1500);
         } catch (error: any) {
             toast({
                 title: 'Error',
@@ -236,7 +238,9 @@ export default function AcceptInvitation() {
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600">Organization</p>
-                                        <p className="font-semibold text-lg">{invitation.enterprise.name}</p>
+                                        <p className="font-semibold text-lg">
+                                            {invitation.enterprise?.name || invitation.enterprise_name || 'Unknown Organization'}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -251,12 +255,16 @@ export default function AcceptInvitation() {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                    <Badge variant="outline" className="capitalize">
-                                        {invitation.enterprise.organization_type}
-                                    </Badge>
-                                    <Badge variant="secondary" className="capitalize">
-                                        {invitation.role}
-                                    </Badge>
+                                    {(invitation.enterprise?.organization_type || invitation.organization_type) && (
+                                        <Badge variant="outline" className="capitalize">
+                                            {invitation.enterprise?.organization_type || invitation.organization_type}
+                                        </Badge>
+                                    )}
+                                    {invitation.role && (
+                                        <Badge variant="secondary" className="capitalize">
+                                            {invitation.role}
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
 

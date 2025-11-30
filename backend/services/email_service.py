@@ -14,6 +14,14 @@ class EmailService:
     """Service for sending emails"""
     
     def __init__(self):
+        # Ensure .env is loaded (in case service is imported before app.py loads it)
+        try:
+            from dotenv import load_dotenv
+            import os
+            env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+            load_dotenv(env_path)
+        except:
+            pass  # If dotenv fails, assume env vars are already loaded
         self._load_config()
         self.last_error_message: Optional[str] = None
         self.last_error_port: Optional[int] = None
@@ -26,6 +34,15 @@ class EmailService:
         self.smtp_password = os.environ.get('SMTP_PASSWORD')
         self.from_email = os.environ.get('FROM_EMAIL', self.smtp_user)
         self.from_name = os.environ.get('FROM_NAME', 'MeallensAI')
+        
+        # Debug logging
+        print(f"[EmailService] Config loaded:")
+        print(f"  SMTP_HOST: {self.smtp_host}")
+        print(f"  SMTP_PORT: {self.smtp_port}")
+        print(f"  SMTP_USER: {'SET' if self.smtp_user else 'NOT SET'}")
+        print(f"  SMTP_PASSWORD: {'SET' if self.smtp_password else 'NOT SET'} (length: {len(self.smtp_password) if self.smtp_password else 0})")
+        print(f"  FROM_EMAIL: {self.from_email}")
+        print(f"  FROM_NAME: {self.from_name}")
         timeout_env = os.environ.get('SMTP_TIMEOUT', '30')
         retry_env = os.environ.get('SMTP_RETRY_ATTEMPTS', '3')
         use_ssl_env = os.environ.get('SMTP_USE_SSL')
@@ -129,15 +146,38 @@ class EmailService:
                             server.login(self.smtp_user, self.smtp_password)
                             server.send_message(msg)
 
-                    print(f"Email sent to {to_email} via port {port} (attempt {attempt})")
+                    print(f"[EmailService] ✅ Email sent to {to_email} via port {port} (attempt {attempt})")
                     self.last_error_message = None
                     self.last_error_port = None
                     return True
+                except smtplib.SMTPAuthenticationError as auth_exc:
+                    last_error = auth_exc
+                    self.last_error_message = f"SMTP Authentication failed on port {port}: {str(auth_exc)}"
+                    self.last_error_port = port
+                    print(f"[EmailService] ❌ Authentication failed on port {port} (attempt {attempt}): {auth_exc}")
+                    # Don't retry on auth errors - they won't succeed
+                    break
+                except smtplib.SMTPConnectError as conn_exc:
+                    last_error = conn_exc
+                    self.last_error_message = f"SMTP Connection failed on port {port}: {str(conn_exc)}"
+                    self.last_error_port = port
+                    print(f"[EmailService] ❌ Connection failed on port {port} (attempt {attempt}): {conn_exc}")
+                    if attempt < self.smtp_retry_attempts:
+                        time.sleep(min(2 * attempt, 5))
+                except smtplib.SMTPException as smtp_exc:
+                    last_error = smtp_exc
+                    self.last_error_message = f"SMTP error on port {port}: {str(smtp_exc)}"
+                    self.last_error_port = port
+                    print(f"[EmailService] ❌ SMTP error on port {port} (attempt {attempt}): {smtp_exc}")
+                    if attempt < self.smtp_retry_attempts:
+                        time.sleep(min(2 * attempt, 5))
                 except Exception as exc:
                     last_error = exc
-                    self.last_error_message = str(exc)
+                    self.last_error_message = f"Unexpected error on port {port}: {str(exc)}"
                     self.last_error_port = port
-                    print(f"Attempt {attempt} on port {port} to send email to {to_email} failed: {exc}")
+                    print(f"[EmailService] ❌ Attempt {attempt} on port {port} to send email to {to_email} failed: {exc}")
+                    import traceback
+                    print(f"[EmailService] Traceback: {traceback.format_exc()}")
                     if attempt < self.smtp_retry_attempts:
                         time.sleep(min(2 * attempt, 5))
 
@@ -549,6 +589,184 @@ class EmailService:
             
         except Exception as e:
             print(f"Error preparing user creation email: {e}")
+            return False
+    
+    def send_invitation_accepted_notification(
+        self,
+        admin_email: str,
+        admin_name: str,
+        accepted_user_email: str,
+        accepted_user_name: str,
+        enterprise_name: str,
+        role: str,
+        dashboard_url: str = None
+    ) -> bool:
+        """
+        Send email notification to admin when someone accepts an invitation.
+        
+        Args:
+            admin_email: Email of the admin/owner to notify
+            admin_name: Name of the admin/owner
+            accepted_user_email: Email of the user who accepted
+            accepted_user_name: Name of the user who accepted
+            enterprise_name: Name of the organization
+            role: Role assigned to the user
+            dashboard_url: Optional URL to the enterprise dashboard
+            
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        
+        # Reload config in case environment variables were set after initialization
+        self._load_config()
+        
+        if not self.is_configured:
+            print(f"Email not configured. Cannot send acceptance notification to {admin_email}")
+            return False
+        
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f'✅ {accepted_user_name or accepted_user_email} accepted your invitation to {enterprise_name}'
+            msg['From'] = f'{self.from_name} <{self.from_email}>'
+            msg['To'] = admin_email
+            
+            dashboard_link = dashboard_url or (os.environ.get('FRONTEND_URL', 'https://www.meallensai.com') + '/enterprise')
+            
+            # Create HTML email body
+            html_body = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }}
+                    .container {{
+                        background-color: #ffffff;
+                        border: 1px solid #e0e0e0;
+                        padding: 30px;
+                    }}
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 30px;
+                    }}
+                    .logo {{
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #4CAF50;
+                    }}
+                    .success-badge {{
+                        background-color: #4CAF50;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        display: inline-block;
+                        margin: 20px 0;
+                        font-weight: bold;
+                    }}
+                    .content {{
+                        margin-bottom: 30px;
+                    }}
+                    .user-info {{
+                        background-color: #f5f5f5;
+                        border-left: 4px solid #4CAF50;
+                        padding: 15px;
+                        margin: 20px 0;
+                    }}
+                    .button {{
+                        display: inline-block;
+                        padding: 15px 30px;
+                        background-color: #4CAF50;
+                        color: white !important;
+                        text-decoration: none;
+                        font-weight: bold;
+                        text-align: center;
+                        margin: 20px 0;
+                        border-radius: 5px;
+                    }}
+                    .footer {{
+                        margin-top: 30px;
+                        padding-top: 20px;
+                        border-top: 1px solid #e0e0e0;
+                        font-size: 12px;
+                        color: #666;
+                        text-align: center;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">MeallensAI</div>
+                    </div>
+                    
+                    <div class="content">
+                        <div class="success-badge">✓ Invitation Accepted</div>
+                        
+                        <h2>Great news, {admin_name}!</h2>
+                        
+                        <p>A user has accepted your invitation to join <strong>{enterprise_name}</strong>.</p>
+                        
+                        <div class="user-info">
+                            <p><strong>User Details:</strong></p>
+                            <p><strong>Name:</strong> {accepted_user_name or 'Not provided'}</p>
+                            <p><strong>Email:</strong> {accepted_user_email}</p>
+                            <p><strong>Role:</strong> {role}</p>
+                        </div>
+                        
+                        <p>You can now view and manage this user's settings from your enterprise dashboard.</p>
+                        
+                        <p style="text-align: center; margin-top: 30px;">
+                            <a href="{dashboard_link}" class="button">View in Dashboard</a>
+                        </p>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>This is an automated notification from MeallensAI</p>
+                        <p>You received this email because you are an administrator of {enterprise_name}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            text_body = f"""
+            Invitation Accepted
+            
+            Great news, {admin_name}!
+            
+            A user has accepted your invitation to join {enterprise_name}.
+            
+            User Details:
+            Name: {accepted_user_name or 'Not provided'}
+            Email: {accepted_user_email}
+            Role: {role}
+            
+            You can now view and manage this user's settings from your enterprise dashboard.
+            
+            View Dashboard: {dashboard_link}
+            
+            ---
+            This is an automated notification from MeallensAI
+            You received this email because you are an administrator of {enterprise_name}
+            """
+            
+            # Attach both HTML and plain text versions
+            msg.attach(MIMEText(text_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            return self._send_email_message(msg, admin_email)
+            
+        except Exception as e:
+            print(f"Error sending invitation accepted notification: {e}")
             return False
 
 

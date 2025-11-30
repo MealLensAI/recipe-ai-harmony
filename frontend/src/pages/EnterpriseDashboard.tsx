@@ -3,6 +3,9 @@ import { useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Building2,
   Users,
@@ -11,7 +14,21 @@ import {
   Settings,
   ChevronDown,
   RefreshCw,
+  Edit,
+  Trash2,
+  X,
+  CheckCircle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { EnterpriseRegistrationForm } from "@/components/enterprise/EnterpriseRegistrationForm";
 import { InviteUserForm } from "@/components/enterprise/InviteUserForm";
@@ -66,6 +83,15 @@ export default function EnterpriseDashboard() {
   const [settingsHistory, setSettingsHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [statistics, setStatistics] = useState<any>(null);
+  const [editingUserSettings, setEditingUserSettings] = useState<{
+    userId: string;
+    userName: string;
+    userEmail: string;
+  } | null>(null);
+  const [userSettingsData, setUserSettingsData] = useState<any>(null);
+  const [loadingUserSettings, setLoadingUserSettings] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +156,18 @@ export default function EnterpriseDashboard() {
     }
   }, [activeSidebarItem, selectedEnterprise]);
 
+  // Auto-refresh invitations and users every 15 seconds when on overview tab
+  useEffect(() => {
+    if (activeSidebarItem === "overview" && selectedEnterprise?.id) {
+      const interval = setInterval(() => {
+        console.log('[EnterpriseDashboard] Auto-refreshing invitations and users...');
+        loadEnterpriseDetails(selectedEnterprise.id);
+      }, 15000); // Refresh every 15 seconds for faster updates
+
+      return () => clearInterval(interval);
+    }
+  }, [activeSidebarItem, selectedEnterprise]);
+
   // click outside to close period menu
   useEffect(() => {
     if (!isPeriodMenuOpen) return;
@@ -189,7 +227,21 @@ export default function EnterpriseDashboard() {
       // Handle users response
       if (uRes.status === "fulfilled") {
         const r: any = uRes.value;
-        setUsers(r.success ? r.users || [] : []);
+        const newUsers = r.success ? r.users || [] : [];
+        
+        // Check if new users were added (invitation accepted)
+        const previousUserIds = new Set(users.map(u => u.user_id));
+        const newUserIds = new Set(newUsers.map((u: any) => u.user_id));
+        const newlyAccepted = newUsers.filter((u: any) => !previousUserIds.has(u.user_id));
+        
+        if (newlyAccepted.length > 0 && users.length > 0) {
+          toast({
+            title: "New User Joined!",
+            description: `${newlyAccepted.length} user${newlyAccepted.length > 1 ? 's' : ''} accepted invitation${newlyAccepted.length > 1 ? 's' : ''}`,
+          });
+        }
+        
+        setUsers(newUsers);
         if (!r.success && r.error) {
           console.error("Failed to fetch users:", r.error);
         }
@@ -201,7 +253,23 @@ export default function EnterpriseDashboard() {
       // Handle invitations response
       if (iRes.status === "fulfilled") {
         const r: any = iRes.value;
-        setInvitations(r.success ? r.invitations || [] : []);
+        const newInvitations = r.success ? r.invitations || [] : [];
+        
+        // Check if any invitations changed from pending to accepted
+        const previousInvitationsMap = new Map(invitations.map(inv => [inv.id, inv.status]));
+        const newlyAcceptedInvitations = newInvitations.filter((inv: any) => {
+          const prevStatus = previousInvitationsMap.get(inv.id);
+          return prevStatus === 'pending' && inv.status === 'accepted';
+        });
+        
+        if (newlyAcceptedInvitations.length > 0 && invitations.length > 0) {
+          toast({
+            title: "Invitation Accepted!",
+            description: `${newlyAcceptedInvitations.map((inv: any) => inv.email).join(', ')} accepted the invitation`,
+          });
+        }
+        
+        setInvitations(newInvitations);
         if (!r.success && r.error) {
           console.error("Failed to fetch invitations:", r.error);
         }
@@ -238,10 +306,32 @@ export default function EnterpriseDashboard() {
         toast({ title: "Success", description: "Invitation cancelled" });
         if (selectedEnterprise?.id) await loadEnterpriseDetails(selectedEnterprise.id);
       } else {
-        toast({ title: "Error", description: r.message || "Failed to cancel invitation", variant: "destructive" });
+        // Handle error response - check both error and message fields
+        const errorMsg = r.error || r.message || "Failed to cancel invitation";
+        toast({ 
+          title: "Error", 
+          description: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg),
+          variant: "destructive" 
+        });
       }
     } catch (err: any) {
-      toast({ title: "Error", description: err?.message || "Failed to cancel invitation", variant: "destructive" });
+      // Handle exception - extract error message properly
+      let errorMsg = "Failed to cancel invitation";
+      if (err?.message) {
+        errorMsg = err.message;
+      } else if (err?.error) {
+        errorMsg = typeof err.error === 'string' ? err.error : JSON.stringify(err.error);
+      } else if (err?.data?.error) {
+        errorMsg = typeof err.data.error === 'string' ? err.data.error : JSON.stringify(err.data.error);
+      } else if (typeof err === 'string') {
+        errorMsg = err;
+      }
+      
+      toast({ 
+        title: "Error", 
+        description: errorMsg,
+        variant: "destructive" 
+      });
     }
   }
 
@@ -271,6 +361,164 @@ export default function EnterpriseDashboard() {
       setSettingsHistory([]);
     } finally {
       setLoadingHistory(false);
+    }
+  }
+
+  async function handleEditUserSettings(userId: string, userEmail: string, firstName?: string, lastName?: string) {
+    if (!selectedEnterprise?.id) return;
+    
+    setLoadingUserSettings(true);
+    setEditingUserSettings({
+      userId,
+      userName: firstName || lastName ? `${firstName || ''} ${lastName || ''}`.trim() : userEmail,
+      userEmail
+    });
+    
+    try {
+      const result: any = await api.getEnterpriseUserSettings(selectedEnterprise.id, userId);
+      if (result.success) {
+        setUserSettingsData(result.settings || {});
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to load user settings",
+          variant: "destructive"
+        });
+        setEditingUserSettings(null);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to load user settings",
+        variant: "destructive"
+      });
+      setEditingUserSettings(null);
+    } finally {
+      setLoadingUserSettings(false);
+    }
+  }
+
+  async function handleSaveUserSettings() {
+    if (!selectedEnterprise?.id || !editingUserSettings) return;
+    
+    setLoadingUserSettings(true);
+    try {
+      const result: any = await api.updateEnterpriseUserSettings(
+        selectedEnterprise.id,
+        editingUserSettings.userId,
+        userSettingsData
+      );
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "User settings updated successfully"
+        });
+        setEditingUserSettings(null);
+        setUserSettingsData(null);
+        // Refresh settings history
+        if (selectedEnterprise.id) {
+          loadSettingsHistory(selectedEnterprise.id);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update settings",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to update settings",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingUserSettings(false);
+    }
+  }
+
+  async function handleDeleteUser(userRelationId: string, userName: string, userEmail: string) {
+    setDeleteUserId(userRelationId);
+  }
+
+  async function confirmDeleteUser() {
+    if (!deleteUserId || !selectedEnterprise?.id) return;
+    
+    setDeletingUser(true);
+    try {
+      const result: any = await api.deleteEnterpriseUser(deleteUserId);
+      
+      if (result.success) {
+        toast({
+          title: "User Deleted",
+          description: result.message || "User has been removed from the organization",
+        });
+        
+        // Refresh users list
+        if (selectedEnterprise.id) {
+          await loadEnterpriseDetails(selectedEnterprise.id);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete user",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error("Error deleting user:", err);
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to delete user. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingUser(false);
+      setDeleteUserId(null);
+    }
+  }
+
+  async function handleDeleteUserSettings() {
+    if (!selectedEnterprise?.id || !editingUserSettings) return;
+    
+    if (!window.confirm(`Are you sure you want to delete all settings for ${editingUserSettings.userName}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setLoadingUserSettings(true);
+    try {
+      const result: any = await api.deleteEnterpriseUserSettings(
+        selectedEnterprise.id,
+        editingUserSettings.userId
+      );
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "User settings deleted successfully"
+        });
+        setEditingUserSettings(null);
+        setUserSettingsData(null);
+        // Refresh settings history
+        if (selectedEnterprise.id) {
+          loadSettingsHistory(selectedEnterprise.id);
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete settings",
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to delete settings",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingUserSettings(false);
     }
   }
 
@@ -520,6 +768,125 @@ export default function EnterpriseDashboard() {
             </div>
           </div>
 
+          {/* Members View - Accepted Users */}
+          {activeSidebarItem === "members" && (
+            <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Members</h2>
+                  <p className="mt-1 text-sm text-slate-500">Users who have accepted your invitations</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => selectedEnterprise?.id && loadEnterpriseDetails(selectedEnterprise.id)}
+                  disabled={isLoading || !selectedEnterprise?.id}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
+
+              {!selectedEnterprise ? (
+                <div className="py-24 text-center">
+                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view members</p>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="py-24 text-center">
+                  <Users className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No members yet</h3>
+                  <p className="mt-2 text-sm text-slate-500">Users who accept your invitations will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Search for members */}
+                  <div className="mb-6">
+                    <Input
+                      placeholder="Search members by name or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="max-w-md"
+                    />
+                  </div>
+
+                  {/* Members Grid - Card Layout */}
+                  <div className="grid gap-4">
+                    {users
+                      .filter((user) => {
+                        if (!searchTerm) return true;
+                        const search = searchTerm.toLowerCase();
+                        const name = `${user.first_name || ''} ${user.last_name || ''}`.trim().toLowerCase();
+                        const email = (user.email || '').toLowerCase();
+                        return name.includes(search) || email.includes(search);
+                      })
+                      .map((user) => {
+                        const userName = user.first_name || user.last_name 
+                          ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                          : user.email || 'Unknown User';
+                        
+                        return (
+                          <Card key={user.id} className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-6">
+                              <div className="flex justify-between items-start">
+                                <div className="space-y-2 flex-1">
+                                  <div className="flex items-center gap-3">
+                                    <h4 className="font-semibold text-lg text-slate-900">{userName}</h4>
+                                    {user.has_accepted_invitation && (
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
+                                        ✓ Accepted Invitation
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-slate-600">{user.email}</p>
+                                  <div className="flex items-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="capitalize bg-slate-100 text-slate-700 border-slate-300"
+                                    >
+                                      {user.role || 'member'}
+                                    </Badge>
+                                    {user.joined_at && (
+                                      <span className="text-xs text-slate-500">
+                                        Joined {new Date(user.joined_at).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      handleEditUserSettings(user.user_id, user.email, user.first_name, user.last_name);
+                                      setActiveSidebarItem("settings");
+                                    }}
+                                    className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                                  >
+                                    <Settings className="h-4 w-4 mr-1" />
+                                    Settings
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteUser(user.id, userName, user.email)}
+                                    className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Activity View - Settings History */}
           {activeSidebarItem === "activity" && (
             <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -638,21 +1005,307 @@ export default function EnterpriseDashboard() {
             </section>
           )}
 
-          {/* Settings View - Time Restrictions */}
+          {/* Settings View - Time Restrictions & User Settings */}
           {activeSidebarItem === "settings" && (
-            <section className="mt-12">
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-slate-900">Organization Settings</h2>
-                <p className="mt-1 text-sm text-slate-500">Manage your organization preferences</p>
-              </div>
-              {!selectedEnterprise ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
-                  <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage settings</p>
+            <section className="mt-12 space-y-8">
+              {/* Organization Settings */}
+              <div>
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold text-slate-900">Organization Settings</h2>
+                  <p className="mt-1 text-sm text-slate-500">Manage your organization preferences</p>
                 </div>
-              ) : (
-                <TimeRestrictionsSettings enterpriseId={selectedEnterprise.id} />
+                {!selectedEnterprise ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                    <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                    <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                    <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage settings</p>
+                  </div>
+                ) : (
+                  <TimeRestrictionsSettings enterpriseId={selectedEnterprise.id} />
+                )}
+              </div>
+
+              {/* User Settings Management */}
+              {selectedEnterprise && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+                  <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900">User Settings</h2>
+                    <p className="mt-1 text-sm text-slate-500">Edit health settings for organization members</p>
+                  </div>
+
+                  {/* User Selector */}
+                  <div className="mb-6">
+                    <Label htmlFor="user-select" className="text-sm font-semibold text-slate-700 mb-2 block">
+                      Select User to Edit Settings
+                    </Label>
+                    <Select
+                      value={editingUserSettings?.userId || ""}
+                      onValueChange={(userId) => {
+                        const user = users.find(u => u.user_id === userId);
+                        if (user) {
+                          handleEditUserSettings(user.user_id, user.email, user.first_name, user.last_name);
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="user-select" className="w-full max-w-md">
+                        <SelectValue placeholder="Choose a user to edit their settings" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.length === 0 ? (
+                          <SelectItem value="no-users" disabled>No members available</SelectItem>
+                        ) : (
+                          users.map((user) => {
+                            const userName = user.first_name || user.last_name 
+                              ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                              : user.email || 'Unknown User';
+                            return (
+                              <SelectItem key={user.user_id} value={user.user_id}>
+                                {userName} ({user.email})
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* User Settings Form */}
+                  {editingUserSettings && (
+                    <Card className="border-slate-200">
+                      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200">
+                        <CardTitle>Edit Settings for {editingUserSettings.userName}</CardTitle>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            setEditingUserSettings(null);
+                            setUserSettingsData(null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4 pt-6">
+                        {loadingUserSettings ? (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="age">Age</Label>
+                                  <Input
+                                    id="age"
+                                    type="number"
+                                    value={userSettingsData?.age || ''}
+                                    onChange={(e) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      age: e.target.value ? parseInt(e.target.value) : undefined
+                                    })}
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Gender</Label>
+                                  <Select
+                                    value={userSettingsData?.gender || ''}
+                                    onValueChange={(value) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      gender: value
+                                    })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select gender" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="male">Male</SelectItem>
+                                      <SelectItem value="female">Female</SelectItem>
+                                      <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Height (cm)</Label>
+                                  <Input
+                                    type="number"
+                                    value={userSettingsData?.height || ''}
+                                    onChange={(e) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      height: e.target.value ? parseFloat(e.target.value) : undefined
+                                    })}
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Weight (kg)</Label>
+                                  <Input
+                                    type="number"
+                                    value={userSettingsData?.weight || ''}
+                                    onChange={(e) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      weight: e.target.value ? parseFloat(e.target.value) : undefined
+                                    })}
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Waist Circumference (cm)</Label>
+                                  <Input
+                                    type="number"
+                                    value={userSettingsData?.waist || ''}
+                                    onChange={(e) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      waist: e.target.value ? parseFloat(e.target.value) : undefined
+                                    })}
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Activity Level</Label>
+                                  <Select
+                                    value={userSettingsData?.activityLevel || ''}
+                                    onValueChange={(value) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      activityLevel: value
+                                    })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select activity level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="sedentary">Sedentary</SelectItem>
+                                      <SelectItem value="light">Light</SelectItem>
+                                      <SelectItem value="moderate">Moderate</SelectItem>
+                                      <SelectItem value="active">Active</SelectItem>
+                                      <SelectItem value="very_active">Very Active</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Health Goal</Label>
+                                  <Select
+                                    value={userSettingsData?.goal || ''}
+                                    onValueChange={(value) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      goal: value
+                                    })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select goal" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="heal">Heal & Manage Condition</SelectItem>
+                                      <SelectItem value="maintain">Maintain Health</SelectItem>
+                                      <SelectItem value="lose_weight">Lose Weight</SelectItem>
+                                      <SelectItem value="gain_weight">Gain Weight</SelectItem>
+                                      <SelectItem value="improve_fitness">Improve Fitness</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Location</Label>
+                                  <Input
+                                    value={userSettingsData?.location || ''}
+                                    onChange={(e) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      location: e.target.value
+                                    })}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Health Condition Section - Prominent */}
+                              <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="space-y-2">
+                                  <Label className="text-base font-semibold text-blue-900">Health Condition Status</Label>
+                                  <Select
+                                    value={userSettingsData?.hasSickness ? 'yes' : 'no'}
+                                    onValueChange={(value) => setUserSettingsData({
+                                      ...userSettingsData,
+                                      hasSickness: value === 'yes',
+                                      ...(value === 'no' ? { sicknessType: '' } : {})
+                                    })}
+                                  >
+                                    <SelectTrigger className="bg-white">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="yes">Yes, has health condition</SelectItem>
+                                      <SelectItem value="no">No health condition</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {userSettingsData?.hasSickness && (
+                                  <div className="space-y-2">
+                                    <Label className="text-blue-900">Condition Type</Label>
+                                    <Input
+                                      value={userSettingsData?.sicknessType || ''}
+                                      onChange={(e) => setUserSettingsData({
+                                        ...userSettingsData,
+                                        sicknessType: e.target.value
+                                      })}
+                                      placeholder="Enter the specific health condition"
+                                      className="bg-white"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between gap-2 pt-4 border-t">
+                              <Button
+                                variant="destructive"
+                                onClick={handleDeleteUserSettings}
+                                disabled={loadingUserSettings}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Settings
+                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingUserSettings(null);
+                                    setUserSettingsData(null);
+                                  }}
+                                  disabled={loadingUserSettings}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={handleSaveUserSettings}
+                                  disabled={loadingUserSettings}
+                                >
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  {loadingUserSettings ? 'Saving...' : 'Save Changes'}
+                                </Button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {!editingUserSettings && users.length > 0 && (
+                    <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+                      <Settings className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                      <p className="text-sm text-slate-600">Select a user from the dropdown above to edit their settings</p>
+                    </div>
+                  )}
+
+                  {!editingUserSettings && users.length === 0 && (
+                    <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+                      <Users className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                      <p className="text-sm text-slate-600">No members available. Invite users to start managing their settings.</p>
+                    </div>
+                  )}
+                </div>
               )}
             </section>
           )}
@@ -703,6 +1356,33 @@ export default function EnterpriseDashboard() {
 
             {activeTab === "invitations" ? (
               <>
+                <div className="mt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">
+                      {filteredInvitations.length} invitation{filteredInvitations.length !== 1 ? 's' : ''} total
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Auto-refreshes every 15 seconds • Click "Refresh Now" for immediate update
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedEnterprise?.id) {
+                        loadEnterpriseDetails(selectedEnterprise.id);
+                        toast({
+                          title: "Refreshing...",
+                          description: "Checking for invitation status updates",
+                        });
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh Now
+                  </Button>
+                </div>
                 {filteredInvitations.length === 0 ? (
                   <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
                     No invitations yet.
@@ -730,9 +1410,31 @@ export default function EnterpriseDashboard() {
                               {inv.sent_at ? new Date(inv.sent_at).toLocaleDateString() : "—"}
                             </td>
                             <td className="px-6 py-4">
-                              <Badge variant={inv.status === "accepted" ? "default" : "secondary"}>
-                                {inv.status ?? "pending"}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge 
+                                  variant={
+                                    inv.status === "accepted" ? "default" : 
+                                    inv.status === "cancelled" ? "destructive" : 
+                                    inv.status === "expired" ? "outline" : 
+                                    "secondary"
+                                  }
+                                  className={
+                                    inv.status === "accepted" 
+                                      ? "bg-green-600 text-white font-semibold" 
+                                      : ""
+                                  }
+                                >
+                                  {inv.status === "accepted" ? "✓ Accepted" : (inv.status ?? "pending")}
+                                </Badge>
+                                {inv.status === "accepted" && inv.accepted_at && (
+                                  <div className="mt-2 flex items-center gap-1 text-xs text-green-600 font-medium">
+                                    <CheckCircle className="h-3 w-3" />
+                                    <span>
+                                      Accepted on {new Date(inv.accepted_at).toLocaleDateString()} at {new Date(inv.accepted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-right">
                               {inv.status === "pending" && (
@@ -754,9 +1456,39 @@ export default function EnterpriseDashboard() {
                 )}
               </>
             ) : (
-              <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
-                No users yet.
-              </div>
+              <>
+                <div className="mt-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600">
+                      {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} who accepted invitation{filteredUsers.length !== 1 ? 's' : ''}
+                      {filteredUsers.length > 0 && (
+                        <span className="ml-2 text-green-600 font-semibold">
+                          ({filteredUsers.length} {filteredUsers.length === 1 ? 'has' : 'have'} joined)
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Accepted users are now shown in the <strong>Members</strong> page. Click "Members" in the sidebar to view and manage them.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setActiveSidebarItem("members");
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Go to Members
+                  </Button>
+                </div>
+                <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
+                  <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                  <p className="mb-2 font-medium">View members in the Members page</p>
+                  <p className="text-xs text-slate-400">Click "Members" in the sidebar to see all users who accepted your invitations.</p>
+                </div>
+              </>
             )}
           </section>
           )}
@@ -803,6 +1535,42 @@ export default function EnterpriseDashboard() {
         />
         );
       })()}
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={!!deleteUserId} onOpenChange={(open) => !open && setDeleteUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this user from your organization? This will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Remove them from the organization</li>
+                <li>Delete their account completely</li>
+                <li>Remove all their data</li>
+              </ul>
+              <p className="mt-3 font-semibold text-red-600">This action cannot be undone!</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingUser}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteUser}
+              disabled={deletingUser}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deletingUser ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Delete User"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

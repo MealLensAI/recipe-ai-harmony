@@ -14,17 +14,21 @@ from supabase import Client
 
 def get_frontend_url():
     """Get the frontend URL from environment or auto-detect from request origin"""
-    # Priority 1: Environment variable (for local development)
+    # Priority 1: Environment variable (for local development and production)
     frontend_url = os.environ.get('FRONTEND_URL')
     if frontend_url:
         print(f"🔍 Using FRONTEND_URL from env: {frontend_url}")
-        return frontend_url
+        return frontend_url.rstrip('/')
     
     # Priority 2: Request Origin header (works for both dev and production)
+    # But only if it's not the backend URL
     origin = request.headers.get('Origin')
     if origin:
-        print(f"🔍 Using Origin header: {origin}")
-        return origin
+        # Don't use backend URL as frontend URL
+        backend_urls = ['meallens.onrender.com', 'localhost:5000', 'localhost:5001', '127.0.0.1:5000', '127.0.0.1:5001']
+        if not any(backend_url in origin for backend_url in backend_urls):
+            print(f"🔍 Using Origin header: {origin}")
+            return origin.rstrip('/')
     
     # Priority 3: Referer header as fallback
     referer = request.headers.get('Referer')
@@ -32,8 +36,11 @@ def get_frontend_url():
         from urllib.parse import urlparse
         parsed = urlparse(referer)
         frontend_url = f"{parsed.scheme}://{parsed.netloc}"
-        print(f"🔍 Using Referer header: {frontend_url}")
-        return frontend_url
+        # Don't use backend URL as frontend URL
+        backend_urls = ['meallens.onrender.com', 'localhost:5000', 'localhost:5001', '127.0.0.1:5000', '127.0.0.1:5001']
+        if not any(backend_url in frontend_url for backend_url in backend_urls):
+            print(f"🔍 Using Referer header: {frontend_url}")
+            return frontend_url.rstrip('/')
     
     # Last resort: Production URL
     print(f"🔍 No env/origin/referer found, using production URL")
@@ -281,7 +288,16 @@ def can_create_organization():
 @require_auth
 def get_my_enterprises():
     """Get all enterprises owned by the current user"""
-    print(f"[MY_ENTERPRISES] Getting enterprises for user: {request.user_id}")
+    user_id = getattr(request, 'user_id', None)
+    user_email = getattr(request, 'user_email', 'Unknown')
+    
+    current_app.logger.info(f"[MY_ENTERPRISES] Getting enterprises for user: {user_id} ({user_email})")
+    print(f"[MY_ENTERPRISES] Getting enterprises for user: {user_id} ({user_email})")
+    
+    if not user_id:
+        current_app.logger.error("[MY_ENTERPRISES] No user_id found in request")
+        return jsonify({'error': 'User ID not found in request', 'success': False}), 401
+    
     try:
         # Use admin client to bypass RLS
         supabase = get_supabase_client(use_admin=True)
@@ -293,12 +309,17 @@ def get_my_enterprises():
         
         while retry_count < max_retries:
             try:
-                print(f"[MY_ENTERPRISES] Querying enterprises table for created_by={request.user_id}")
-                result = supabase.table('enterprises').select('*').eq('created_by', request.user_id).execute()
+                current_app.logger.info(f"[MY_ENTERPRISES] Querying enterprises table for created_by={user_id}")
+                print(f"[MY_ENTERPRISES] Querying enterprises table for created_by={user_id}")
+                
+                result = supabase.table('enterprises').select('*').eq('created_by', user_id).execute()
+                
+                current_app.logger.info(f"[MY_ENTERPRISES] Query result: {len(result.data) if result.data else 0} enterprises found")
                 print(f"[MY_ENTERPRISES] Query result: {result.data}")
                 
                 # Return enterprises without stats for now
                 enterprises = result.data or []
+                current_app.logger.info(f"[MY_ENTERPRISES] Returning {len(enterprises)} enterprises")
                 print(f"[MY_ENTERPRISES] Returning {len(enterprises)} enterprises")
                 
                 return jsonify({
@@ -308,7 +329,9 @@ def get_my_enterprises():
             except Exception as e:
                 retry_count += 1
                 last_error = e
-                current_app.logger.warning(f"Attempt {retry_count}/{max_retries} failed to fetch enterprises: {str(e)}")
+                error_msg = str(e)
+                current_app.logger.warning(f"[MY_ENTERPRISES] Attempt {retry_count}/{max_retries} failed: {error_msg}")
+                print(f"[MY_ENTERPRISES] Attempt {retry_count}/{max_retries} failed: {error_msg}")
                 if retry_count < max_retries:
                     import time
                     time.sleep(0.5)  # Wait 500ms before retry
@@ -316,8 +339,13 @@ def get_my_enterprises():
                 raise e
         
     except Exception as e:
-        current_app.logger.error(f'Failed to fetch enterprises after {max_retries} retries: {str(e)}')
-        return jsonify({'error': f'Failed to fetch enterprises: {str(e)}'}), 500
+        error_msg = str(e)
+        current_app.logger.error(f'[MY_ENTERPRISES] Failed to fetch enterprises after {max_retries} retries: {error_msg}')
+        print(f'[MY_ENTERPRISES] Failed to fetch enterprises: {error_msg}')
+        return jsonify({
+            'error': f'Failed to fetch enterprises: {error_msg}',
+            'success': False
+        }), 500
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>', methods=['GET'])
@@ -408,6 +436,15 @@ def get_enterprise_users(enterprise_id):
         # Get organization users (excludes owner - they're not in this table)
         result = supabase.table('organization_users').select('*').eq('enterprise_id', enterprise_id).execute()
         
+        # Get all accepted invitations for this enterprise to link with users
+        invitations_result = supabase.table('invitations').select('*').eq('enterprise_id', enterprise_id).eq('status', 'accepted').execute()
+        accepted_invitations_by_email = {}
+        accepted_invitations_by_user_id = {}
+        for inv in invitations_result.data:
+            accepted_invitations_by_email[inv['email']] = inv
+            if inv.get('accepted_by'):
+                accepted_invitations_by_user_id[inv['accepted_by']] = inv
+        
         # Format response with user details from auth
         users = []
         for org_user in result.data:
@@ -424,6 +461,13 @@ def get_enterprise_users(enterprise_id):
             except:
                 first_name = last_name = email = 'Unknown'
             
+            # Find the invitation this user accepted (check by user_id first, then email)
+            accepted_invitation = None
+            if org_user['user_id'] in accepted_invitations_by_user_id:
+                accepted_invitation = accepted_invitations_by_user_id[org_user['user_id']]
+            elif email in accepted_invitations_by_email:
+                accepted_invitation = accepted_invitations_by_email[email]
+            
             user_data = {
                 'id': org_user['id'],
                 'user_id': org_user['user_id'],
@@ -434,7 +478,14 @@ def get_enterprise_users(enterprise_id):
                 'status': org_user.get('status', 'active'),
                 'joined_at': org_user['joined_at'],
                 'notes': org_user.get('notes'),
-                'metadata': org_user.get('metadata', {})
+                'metadata': org_user.get('metadata', {}),
+                # Add invitation information
+                'accepted_invitation': {
+                    'id': accepted_invitation['id'] if accepted_invitation else None,
+                    'accepted_at': accepted_invitation['accepted_at'] if accepted_invitation else None,
+                    'invited_by': accepted_invitation.get('invited_by') if accepted_invitation else None,
+                } if accepted_invitation else None,
+                'has_accepted_invitation': accepted_invitation is not None
             }
             users.append(user_data)
         
@@ -640,51 +691,62 @@ def invite_user(enterprise_id):
             current_app.logger.warning(f"[INVITE] Could not fetch inviter details: {str(e)}")
         
         # Send invitation email with timeout protection
+        # IMPORTANT: Invitation is already created above, so we continue even if email fails
         email_sent = False
         email_error_message = None
         try:
-            current_app.logger.info(f"[INVITE] Sending invitation email to {email}")
-            # Use a thread to send email asynchronously with timeout
-            import threading
-            import time
+            current_app.logger.info(f"[INVITE] Attempting to send invitation email to {email}")
             
-            email_result = {'sent': False}
-            
-            def send_email_async():
-                try:
-                    result = email_service.send_invitation_email(
-                        to_email=email,
-                        enterprise_name=enterprise_data['name'],
-                        inviter_name=inviter_name,
-                        invitation_link=invitation_link,
-                        custom_message=data.get('message')
-                    )
-                    email_result['sent'] = result
-                except Exception as e:
-                    current_app.logger.error(f"[INVITE] Email thread error: {e}")
-                    email_result['sent'] = False
-            
-            email_thread = threading.Thread(target=send_email_async)
-            email_thread.daemon = True
-            email_thread.start()
-            
-            # Wait up to 5 seconds for email to send
-            email_thread.join(timeout=5.0)
-            
-            if email_thread.is_alive():
-                current_app.logger.warning(f"[INVITE] Email sending timed out after 5 seconds, continuing anyway")
-                email_sent = False
-                email_error_message = "Email sending timed out"
+            # Check if email service is configured
+            if not email_service.is_configured:
+                current_app.logger.warning(f"[INVITE] Email service not configured")
+                current_app.logger.warning(f"[INVITE] SMTP_USER: {'SET' if email_service.smtp_user else 'NOT SET'}")
+                current_app.logger.warning(f"[INVITE] SMTP_PASSWORD: {'SET' if email_service.smtp_password else 'NOT SET'}")
+                email_error_message = "Email service not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables."
             else:
-                email_sent = email_result['sent']
-                current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
-                if not email_sent and hasattr(email_service, 'last_error_message'):
-                    email_error_message = email_service.last_error_message
+                # Use a thread to send email asynchronously with timeout
+                import threading
+                
+                email_result = {'sent': False, 'error': None}
+                
+                def send_email_async():
+                    try:
+                        result = email_service.send_invitation_email(
+                            to_email=email,
+                            enterprise_name=enterprise_data['name'],
+                            inviter_name=inviter_name,
+                            invitation_link=invitation_link,
+                            custom_message=data.get('message')
+                        )
+                        email_result['sent'] = result
+                        if not result and hasattr(email_service, 'last_error_message'):
+                            email_result['error'] = email_service.last_error_message
+                    except Exception as e:
+                        current_app.logger.error(f"[INVITE] Email thread error: {e}")
+                        email_result['sent'] = False
+                        email_result['error'] = str(e)
+                
+                email_thread = threading.Thread(target=send_email_async)
+                email_thread.daemon = True
+                email_thread.start()
+                
+                # Wait up to 10 seconds for email to send (increased from 5)
+                email_thread.join(timeout=10.0)
+                
+                if email_thread.is_alive():
+                    current_app.logger.warning(f"[INVITE] Email sending timed out after 10 seconds, but invitation was created successfully")
+                    email_sent = False
+                    email_error_message = "Email sending timed out. The invitation was created - you can share the link manually."
+                else:
+                    email_sent = email_result['sent']
+                    current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
+                    if not email_sent:
+                        email_error_message = email_result.get('error') or "Failed to send email. The invitation was created - you can share the link manually."
                 
         except Exception as email_error:
             current_app.logger.error(f"[INVITE] Email service error: {email_error}", exc_info=True)
             email_sent = False
-            email_error_message = str(email_error)
+            email_error_message = f"Email error: {str(email_error)}. The invitation was created - you can share the link manually."
         
         current_app.logger.info(f"[INVITE] ✅ Invitation process completed successfully")
         
@@ -751,7 +813,10 @@ def cancel_invitation(invitation_id):
         ''').eq('id', invitation_id).execute()
         
         if not invitation_result.data:
-            return jsonify({'error': 'Invitation not found'}), 404
+            return jsonify({
+                'success': False,
+                'error': 'Invitation not found'
+            }), 404
         
         invitation = invitation_result.data[0]
         enterprise_id = invitation['enterprise_id']
@@ -759,11 +824,17 @@ def cancel_invitation(invitation_id):
         # Verify user has permission (owner or admin) to manage invitations
         is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
         if not is_admin:
-            return jsonify({'error': f'Access denied: {reason}'}), 403
+            return jsonify({
+                'success': False,
+                'error': f'Access denied: {reason}'
+            }), 403
         
         # Only pending invitations can be cancelled
         if invitation.get('status') != 'pending':
-            return jsonify({'error': f"Cannot cancel invitation with status '{invitation.get('status')}'"}), 400
+            return jsonify({
+                'success': False,
+                'error': f"Cannot cancel invitation with status '{invitation.get('status')}'"
+            }), 400
         
         # Cancel invitation
         supabase.table('invitations').update({'status': 'cancelled'}).eq('id', invitation_id).execute()
@@ -775,7 +846,101 @@ def cancel_invitation(invitation_id):
         
     except Exception as e:
         current_app.logger.error(f"[INVITE] Failed to cancel invitation {invitation_id}: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to cancel invitation: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'error': f'Failed to cancel invitation: {str(e)}'
+        }), 500
+
+
+@enterprise_bp.route('/api/test-email', methods=['POST'])
+@require_auth
+def test_email():
+    """Test endpoint to send a test email"""
+    try:
+        data = request.get_json()
+        test_email_address = data.get('email', 'computervisionafrica@gmail.com')
+        
+        current_app.logger.info(f"[TEST_EMAIL] Testing email send to {test_email_address}")
+        
+        # Check email service configuration
+        email_config_status = {
+            'is_configured': email_service.is_configured,
+            'smtp_host': email_service.smtp_host,
+            'smtp_port': email_service.smtp_port,
+            'smtp_user': email_service.smtp_user if email_service.smtp_user else 'NOT SET',
+            'from_email': email_service.from_email,
+            'from_name': email_service.from_name,
+            'port_candidates': email_service.smtp_port_candidates,
+            'timeout': email_service.smtp_timeout
+        }
+        
+        current_app.logger.info(f"[TEST_EMAIL] Email config: {email_config_status}")
+        
+        if not email_service.is_configured:
+            return jsonify({
+                'success': False,
+                'error': 'Email service is not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables.',
+                'config': email_config_status
+            }), 400
+        
+        # Create a simple test email
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Test Email from MeallensAI'
+        msg['From'] = f'{email_service.from_name} <{email_service.from_email}>'
+        msg['To'] = test_email_address
+        
+        html_body = """
+        <html>
+        <body>
+            <h2>Test Email from MeallensAI</h2>
+            <p>This is a test email to verify that the email service is working correctly.</p>
+            <p>If you received this email, the SMTP configuration is correct!</p>
+            <p>Time sent: {}</p>
+        </body>
+        </html>
+        """.format(datetime.now(timezone.utc).isoformat())
+        
+        text_body = f"""
+        Test Email from MeallensAI
+        
+        This is a test email to verify that the email service is working correctly.
+        
+        If you received this email, the SMTP configuration is correct!
+        
+        Time sent: {datetime.now(timezone.utc).isoformat()}
+        """
+        
+        msg.attach(MIMEText(text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+        
+        # Try to send the email
+        result = email_service._send_email_message(msg, test_email_address)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'message': f'Test email sent successfully to {test_email_address}',
+                'config': email_config_status
+            }), 200
+        else:
+            error_msg = email_service.last_error_message or 'Unknown error'
+            return jsonify({
+                'success': False,
+                'error': f'Failed to send test email: {error_msg}',
+                'config': email_config_status,
+                'last_error': error_msg,
+                'last_error_port': email_service.last_error_port
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"[TEST_EMAIL] Error: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': f'Error testing email: {str(e)}'
+        }), 500
 
 
 @enterprise_bp.route('/api/enterprise/invitation/verify/<token>', methods=['GET'])
@@ -812,14 +977,31 @@ def verify_invitation(token):
         if now > expires_at:
             return jsonify({'error': 'Invitation has expired'}), 400
         
+        # Ensure enterprise data is present, fetch if missing
+        enterprise_data = invitation.get('enterprise')
+        if not enterprise_data:
+            # Fallback: fetch enterprise directly
+            try:
+                enterprise_result = supabase.table('enterprises').select('id, name, organization_type').eq('id', invitation['enterprise_id']).execute()
+                if enterprise_result.data:
+                    enterprise_data = enterprise_result.data[0]
+            except:
+                enterprise_data = {
+                    'id': invitation.get('enterprise_id', ''),
+                    'name': 'Unknown Organization',
+                    'organization_type': 'organization'
+                }
+        
         return jsonify({
             'success': True,
             'invitation': {
                 'id': invitation['id'],
                 'email': invitation['email'],
                 'role': invitation['role'],
-                'message': invitation['message'],
-                'enterprise': invitation['enterprise']
+                'message': invitation.get('message'),
+                'enterprise': enterprise_data,
+                'enterprise_name': enterprise_data.get('name') if enterprise_data else 'Unknown Organization',
+                'organization_type': enterprise_data.get('organization_type') if enterprise_data else 'organization'
             }
         }), 200
         
@@ -894,16 +1076,82 @@ def accept_invitation():
                 return jsonify({'error': 'Failed to add user to organization'}), 500
             
             # Update invitation status with acceptance details
-            supabase.table('invitations').update({
+            current_app.logger.info(f"[ACCEPT] Updating invitation {invitation['id']} status to 'accepted'")
+            update_result = admin_supabase.table('invitations').update({
                 'status': 'accepted',
                 'accepted_at': datetime.now(timezone.utc).isoformat(),
                 'accepted_by': user_id
             }).eq('id', invitation['id']).execute()
             
-            # Get enterprise name safely
-            enterprise_name = 'Unknown Organization'
-            if invitation.get('enterprises') and isinstance(invitation['enterprises'], dict):
-                enterprise_name = invitation['enterprises'].get('name', 'Unknown Organization')
+            # Verify the update was successful
+            if update_result.data:
+                current_app.logger.info(f"[ACCEPT] ✅ Successfully updated invitation {invitation['id']} status to 'accepted'")
+                current_app.logger.info(f"[ACCEPT] Updated invitation data: {update_result.data[0]}")
+            else:
+                current_app.logger.error(f"[ACCEPT] ❌ Failed to update invitation status for {invitation['id']}")
+                # Try to verify current status
+                check_result = admin_supabase.table('invitations').select('status').eq('id', invitation['id']).execute()
+                if check_result.data:
+                    current_app.logger.warning(f"[ACCEPT] Current invitation status: {check_result.data[0].get('status')}")
+            
+            # Get enterprise details
+            enterprise_result = admin_supabase.table('enterprises').select('id, name, created_by, email').eq('id', invitation['enterprise_id']).execute()
+            enterprise = enterprise_result.data[0] if enterprise_result.data else None
+            enterprise_name = enterprise.get('name', 'Unknown Organization') if enterprise else 'Unknown Organization'
+            enterprise_owner_id = enterprise.get('created_by') if enterprise else None
+            
+            # Get accepted user details
+            accepted_user_email = invitation.get('email', 'Unknown')
+            accepted_user_name = 'User'
+            try:
+                accepted_user_details = admin_supabase.auth.admin.get_user_by_id(user_id)
+                if accepted_user_details and accepted_user_details.user:
+                    user_metadata = accepted_user_details.user.user_metadata or {}
+                    first_name = user_metadata.get('first_name', '')
+                    last_name = user_metadata.get('last_name', '')
+                    accepted_user_name = f"{first_name} {last_name}".strip() or accepted_user_email
+                    accepted_user_email = accepted_user_details.user.email or accepted_user_email
+            except Exception as e:
+                current_app.logger.warning(f"[ACCEPT] Could not fetch accepted user details: {e}")
+            
+            # Send email notification to admin/owner
+            if enterprise_owner_id:
+                try:
+                    owner_details = admin_supabase.auth.admin.get_user_by_id(enterprise_owner_id)
+                    if owner_details and owner_details.user:
+                        owner_email = owner_details.user.email
+                        owner_metadata = owner_details.user.user_metadata or {}
+                        owner_name = f"{owner_metadata.get('first_name', '')} {owner_metadata.get('last_name', '')}".strip() or owner_email
+                        
+                        # Get frontend URL for dashboard link
+                        frontend_url = get_frontend_url()
+                        dashboard_url = f"{frontend_url}/enterprise"
+                        
+                        # Send notification email
+                        import threading
+                        def send_notification():
+                            try:
+                                email_sent = email_service.send_invitation_accepted_notification(
+                                    admin_email=owner_email,
+                                    admin_name=owner_name,
+                                    accepted_user_email=accepted_user_email,
+                                    accepted_user_name=accepted_user_name,
+                                    enterprise_name=enterprise_name,
+                                    role=invitation.get('role', 'member'),
+                                    dashboard_url=dashboard_url
+                                )
+                                if email_sent:
+                                    current_app.logger.info(f"[ACCEPT] ✅ Notification email sent to admin {owner_email}")
+                                else:
+                                    current_app.logger.warning(f"[ACCEPT] ⚠️ Failed to send notification email to {owner_email}")
+                            except Exception as e:
+                                current_app.logger.error(f"[ACCEPT] Error sending notification email: {e}")
+                        
+                        notification_thread = threading.Thread(target=send_notification)
+                        notification_thread.daemon = True
+                        notification_thread.start()
+                except Exception as e:
+                    current_app.logger.warning(f"[ACCEPT] Could not send notification email: {e}")
             
             return jsonify({
                 'success': True,
@@ -985,16 +1233,82 @@ def complete_invitation():
             return jsonify({'error': 'Failed to add user to organization'}), 500
         
         # Update invitation status with completion details
-        supabase.table('invitations').update({
+        current_app.logger.info(f"[COMPLETE] Updating invitation {invitation['id']} status to 'accepted'")
+        update_result = admin_supabase.table('invitations').update({
             'status': 'accepted',
             'accepted_at': datetime.now(timezone.utc).isoformat(),
             'accepted_by': request.user_id
         }).eq('id', invitation['id']).execute()
         
-        # Get enterprise name safely
-        enterprise_name = 'Unknown Organization'
-        if invitation.get('enterprises') and isinstance(invitation['enterprises'], dict):
-            enterprise_name = invitation['enterprises'].get('name', 'Unknown Organization')
+        # Verify the update was successful
+        if update_result.data:
+            current_app.logger.info(f"[COMPLETE] ✅ Successfully updated invitation {invitation['id']} status to 'accepted'")
+            current_app.logger.info(f"[COMPLETE] Updated invitation data: {update_result.data[0]}")
+        else:
+            current_app.logger.error(f"[COMPLETE] ❌ Failed to update invitation status for {invitation['id']}")
+            # Try to verify current status
+            check_result = admin_supabase.table('invitations').select('status').eq('id', invitation['id']).execute()
+            if check_result.data:
+                current_app.logger.warning(f"[COMPLETE] Current invitation status: {check_result.data[0].get('status')}")
+        
+        # Get enterprise details
+        enterprise_result = admin_supabase.table('enterprises').select('id, name, created_by, email').eq('id', invitation['enterprise_id']).execute()
+        enterprise = enterprise_result.data[0] if enterprise_result.data else None
+        enterprise_name = enterprise.get('name', 'Unknown Organization') if enterprise else 'Unknown Organization'
+        enterprise_owner_id = enterprise.get('created_by') if enterprise else None
+        
+        # Get accepted user details
+        accepted_user_email = invitation.get('email', 'Unknown')
+        accepted_user_name = 'User'
+        try:
+            accepted_user_details = admin_supabase.auth.admin.get_user_by_id(request.user_id)
+            if accepted_user_details and accepted_user_details.user:
+                user_metadata = accepted_user_details.user.user_metadata or {}
+                first_name = user_metadata.get('first_name', '')
+                last_name = user_metadata.get('last_name', '')
+                accepted_user_name = f"{first_name} {last_name}".strip() or accepted_user_email
+                accepted_user_email = accepted_user_details.user.email or accepted_user_email
+        except Exception as e:
+            current_app.logger.warning(f"[COMPLETE] Could not fetch accepted user details: {e}")
+        
+        # Send email notification to admin/owner
+        if enterprise_owner_id:
+            try:
+                owner_details = admin_supabase.auth.admin.get_user_by_id(enterprise_owner_id)
+                if owner_details and owner_details.user:
+                    owner_email = owner_details.user.email
+                    owner_metadata = owner_details.user.user_metadata or {}
+                    owner_name = f"{owner_metadata.get('first_name', '')} {owner_metadata.get('last_name', '')}".strip() or owner_email
+                    
+                    # Get frontend URL for dashboard link
+                    frontend_url = get_frontend_url()
+                    dashboard_url = f"{frontend_url}/enterprise"
+                    
+                    # Send notification email
+                    import threading
+                    def send_notification():
+                        try:
+                            email_sent = email_service.send_invitation_accepted_notification(
+                                admin_email=owner_email,
+                                admin_name=owner_name,
+                                accepted_user_email=accepted_user_email,
+                                accepted_user_name=accepted_user_name,
+                                enterprise_name=enterprise_name,
+                                role=invitation.get('role', 'member'),
+                                dashboard_url=dashboard_url
+                            )
+                            if email_sent:
+                                current_app.logger.info(f"[COMPLETE] ✅ Notification email sent to admin {owner_email}")
+                            else:
+                                current_app.logger.warning(f"[COMPLETE] ⚠️ Failed to send notification email to {owner_email}")
+                        except Exception as e:
+                            current_app.logger.error(f"[COMPLETE] Error sending notification email: {e}")
+                    
+                    notification_thread = threading.Thread(target=send_notification)
+                    notification_thread.daemon = True
+                    notification_thread.start()
+            except Exception as e:
+                current_app.logger.warning(f"[COMPLETE] Could not send notification email: {e}")
         
         return jsonify({
             'success': True,
@@ -1329,8 +1643,8 @@ def get_enterprise_settings_history(enterprise_id):
         
         user_ids = [user['user_id'] for user in org_users.data]
         
-        # Get settings history for these users
-        history_result = supabase.table('user_settings').select('*').in_('user_id', user_ids).order('created_at', desc=True).limit(100).execute()
+        # Get settings history for these users from user_settings_history table
+        history_result = supabase.table('user_settings_history').select('*').in_('user_id', user_ids).eq('settings_type', 'health_profile').order('created_at', desc=True).limit(100).execute()
         
         # Enrich with user details
         history = []
@@ -1348,36 +1662,21 @@ def get_enterprise_settings_history(enterprise_id):
                 user_name = 'Unknown'
                 user_email = 'Unknown'
             
-            # Calculate changed fields by comparing with previous version
-            changed_fields = []
-            previous_data = {}
-            
-            # Get previous settings for this user and settings type
-            prev_result = supabase.table('user_settings').select('*').eq('user_id', record['user_id']).eq('settings_type', record['settings_type']).lt('created_at', record['created_at']).order('created_at', desc=True).limit(1).execute()
-            
-            if prev_result.data:
-                previous_data = prev_result.data[0].get('settings_data', {})
-                current_data = record.get('settings_data', {})
-                
-                # Find changed fields
-                all_keys = set(list(previous_data.keys()) + list(current_data.keys()))
-                for key in all_keys:
-                    if previous_data.get(key) != current_data.get(key):
-                        changed_fields.append(key)
-            else:
-                # First time settings, all fields are "changed"
-                current_data = record.get('settings_data', {})
-                changed_fields = list(current_data.keys())
+            # Use the changed_fields from history record (already calculated)
+            changed_fields = record.get('changed_fields', [])
+            # Filter out numbered removed items (like "0 (removed)", "1 (removed)", etc.)
+            import re
+            meaningful_fields = [f for f in changed_fields if not re.match(r'^\d+\s*\(removed\)$', f)]
             
             history.append({
                 'id': record['id'],
                 'user_id': record['user_id'],
                 'user_name': user_name,
                 'user_email': user_email,
-                'settings_type': record['settings_type'],
+                'settings_type': record.get('settings_type', 'health_profile'),
                 'settings_data': record.get('settings_data', {}),
-                'previous_settings_data': previous_data,
-                'changed_fields': changed_fields,
+                'previous_settings_data': record.get('previous_settings_data', {}),
+                'changed_fields': meaningful_fields,
                 'created_at': record['created_at']
             })
         
@@ -1389,6 +1688,135 @@ def get_enterprise_settings_history(enterprise_id):
     except Exception as e:
         current_app.logger.error(f'Failed to fetch settings history: {str(e)}')
         return jsonify({'error': f'Failed to fetch settings history: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/settings', methods=['GET'])
+@require_auth
+def get_user_settings_for_enterprise(enterprise_id, user_id):
+    """Get user settings for a specific user in the enterprise"""
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Verify user is part of the enterprise
+        org_user = supabase.table('organization_users').select('*').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not org_user.data:
+            return jsonify({'error': 'User is not part of this enterprise'}), 404
+        
+        # Get user settings
+        settings_result = supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', 'health_profile').execute()
+        
+        # Get user details
+        try:
+            user_details = supabase.auth.admin.get_user_by_id(user_id)
+            if user_details and user_details.user:
+                user_metadata = user_details.user.user_metadata or {}
+                user_name = f"{user_metadata.get('first_name', '')} {user_metadata.get('last_name', '')}".strip()
+                user_email = user_details.user.email
+            else:
+                user_name = 'Unknown'
+                user_email = 'Unknown'
+        except:
+            user_name = 'Unknown'
+            user_email = 'Unknown'
+        
+        settings_data = settings_result.data[0] if settings_result.data else None
+        
+        return jsonify({
+            'success': True,
+            'user_id': user_id,
+            'user_name': user_name,
+            'user_email': user_email,
+            'settings': settings_data.get('settings_data', {}) if settings_data else {},
+            'updated_at': settings_data.get('updated_at') if settings_data else None
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to fetch user settings: {str(e)}')
+        return jsonify({'error': f'Failed to fetch user settings: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/settings', methods=['PUT'])
+@require_auth
+def update_user_settings_for_enterprise(enterprise_id, user_id):
+    """Update user settings for a specific user in the enterprise"""
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Verify user is part of the enterprise
+        org_user = supabase.table('organization_users').select('*').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not org_user.data:
+            return jsonify({'error': 'User is not part of this enterprise'}), 404
+        
+        data = request.get_json()
+        if not data or 'settings_data' not in data:
+            return jsonify({'error': 'settings_data is required'}), 400
+        
+        settings_data = data['settings_data']
+        settings_type = data.get('settings_type', 'health_profile')
+        
+        # Use the supabase service to save settings (this will create history)
+        from services.supabase_service import SupabaseService
+        supabase_service = current_app.supabase_service
+        success, error = supabase_service.save_user_settings(user_id, settings_type, settings_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'User settings updated successfully'
+            }), 200
+        else:
+            return jsonify({'error': error or 'Failed to update settings'}), 500
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to update user settings: {str(e)}')
+        return jsonify({'error': f'Failed to update user settings: {str(e)}'}), 500
+
+
+@enterprise_bp.route('/api/enterprise/<enterprise_id>/user/<user_id>/settings', methods=['DELETE'])
+@require_auth
+def delete_user_settings_for_enterprise(enterprise_id, user_id):
+    """Delete user settings for a specific user in the enterprise"""
+    try:
+        supabase = get_supabase_client(use_admin=True)
+        
+        # Verify user has permission (must be admin or owner)
+        is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
+        if not is_admin:
+            return jsonify({'error': f'Access denied: {reason}'}), 403
+        
+        # Verify user is part of the enterprise
+        org_user = supabase.table('organization_users').select('*').eq('enterprise_id', enterprise_id).eq('user_id', user_id).execute()
+        if not org_user.data:
+            return jsonify({'error': 'User is not part of this enterprise'}), 404
+        
+        settings_type = request.args.get('settings_type', 'health_profile')
+        
+        # Delete settings
+        from services.supabase_service import SupabaseService
+        supabase_service = current_app.supabase_service
+        success, error = supabase_service.delete_user_settings(user_id, settings_type)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'User settings deleted successfully'
+            }), 200
+        else:
+            return jsonify({'error': error or 'Failed to delete settings'}), 500
+        
+    except Exception as e:
+        current_app.logger.error(f'Failed to delete user settings: {str(e)}')
+        return jsonify({'error': f'Failed to delete user settings: {str(e)}'}), 500
 
 
 @enterprise_bp.route('/api/enterprise/<enterprise_id>/time-restrictions', methods=['GET'])

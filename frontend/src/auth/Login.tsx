@@ -89,24 +89,51 @@ const Login = () => {
           description: "You have been successfully logged in.",
         })
 
-        // Warm up essential user data (profile, meal plans, settings) before navigation
-        await hydratePostLogin()
-
+        // Check if user is an organization user and redirect accordingly
+        // Priority 1: Check signup_type from user metadata (most reliable)
         const userMetadata = (result as any).user_data?.metadata || {}
         const signupType = userMetadata.signup_type || userMetadata.signupType
+        
+        console.log('[Login] User metadata:', userMetadata)
+        console.log('[Login] Signup type from metadata:', signupType)
+        
         let isOrganizationUser = signupType === 'organization'
-
+        
+        // Priority 2: Check if user owns organizations (fallback for existing users)
         if (!isOrganizationUser) {
           try {
+            console.log('[Login] Checking for organization ownership...')
+            console.log('[Login] User ID:', result.user_id || result.user_data?.id)
             const enterprisesResponse = await api.getMyEnterprises()
-            if (enterprisesResponse.success && enterprisesResponse.enterprises && enterprisesResponse.enterprises.length > 0) {
-              isOrganizationUser = true
+            console.log('[Login] Enterprises response:', JSON.stringify(enterprisesResponse, null, 2))
+            
+            // Check if user owns organizations (enterprises array with items)
+            if (enterprisesResponse && typeof enterprisesResponse === 'object') {
+              const success = (enterprisesResponse as any).success
+              const enterprises = (enterprisesResponse as any).enterprises
+              
+              console.log('[Login] Response success:', success)
+              console.log('[Login] Enterprises array:', enterprises)
+              console.log('[Login] Enterprises length:', enterprises?.length)
+              
+              if (success && enterprises && Array.isArray(enterprises) && enterprises.length > 0) {
+                // User owns at least one organization - redirect to enterprise dashboard
+                console.log('🔄 User is organization owner, redirecting to enterprise dashboard')
+                isOrganizationUser = true
+              } else {
+                console.log('[Login] User does not own any organizations')
+              }
+            } else {
+              console.warn('[Login] Unexpected response format:', enterprisesResponse)
             }
-          } catch (error) {
-            console.error('Failed to check enterprise ownership:', error)
+          } catch (error: any) {
+            console.error('[Login] Failed to check enterprise ownership:', error)
+            console.error('[Login] Error details:', error?.message, error?.stack)
+            // Continue with normal redirect on error - don't block login
           }
         }
 
+        // Warm up essential user data (profile, meal plans, settings) before navigation
         await hydratePostLogin()
 
         if (isOrganizationUser) {

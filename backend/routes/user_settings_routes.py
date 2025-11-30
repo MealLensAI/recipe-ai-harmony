@@ -166,3 +166,29 @@ def get_user_settings_history():
         log_error("Unexpected error in get_user_settings_history", e)
         current_app.logger.error(f"[SETTINGS_HISTORY] Error: {str(e)}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+@user_settings_bp.route('/settings/history/<record_id>', methods=['DELETE'])
+def delete_user_settings_history(record_id):
+    """
+    Deletes a specific settings history record. Requires authentication.
+    """
+    try:
+        user_id, error = get_user_id_from_token()
+        
+        if error:
+            current_app.logger.warning(f"Authentication failed: {error}")
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        current_app.logger.info(f"Deleting settings history record {record_id} for user: {user_id}")
+        
+        supabase_service = current_app.supabase_service
+        success, error = supabase_service.delete_settings_history(user_id, record_id)
+        
+        if success:
+            return jsonify({'status': 'success', 'message': 'Settings history record deleted successfully.'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': error or 'Failed to delete record'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in delete_user_settings_history: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500

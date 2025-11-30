@@ -2,7 +2,14 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
 from dotenv import load_dotenv
-load_dotenv()  # This loads the environment variables from .env file
+import os
+# Load .env file from backend directory
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(env_path)  # This loads the environment variables from .env file
+print(f"[APP] Loading .env from: {env_path}")
+print(f"[APP] SMTP_USER: {'SET' if os.getenv('SMTP_USER') else 'NOT SET'}")
+print(f"[APP] SMTP_PASSWORD: {'SET' if os.getenv('SMTP_PASSWORD') else 'NOT SET'}")
+print(f"[APP] FRONTEND_URL: {os.getenv('FRONTEND_URL', 'NOT SET')}")
 from supabase import create_client, Client
 
 from flask_cors import CORS, cross_origin # Import CORS
@@ -235,6 +242,9 @@ def create_app():
   if ENTERPRISE_ROUTES_ENABLED:
       app.register_blueprint(enterprise_bp)
       print("Enterprise routes registered.")
+      # Debug: Print registered routes
+      enterprise_routes = [str(rule) for rule in app.url_map.iter_rules() if 'enterprise' in str(rule)]
+      print(f"Registered enterprise routes: {enterprise_routes[:10]}")  # Print first 10
   else:
       print("Enterprise routes disabled.")
 

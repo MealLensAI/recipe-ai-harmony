@@ -919,3 +919,22 @@ class SupabaseService:
                 return False, error
         except Exception as e:
             return False, str(e)
+
+    def delete_settings_history(self, user_id: str, record_id: str) -> tuple[bool, str | None]:
+        """
+        Deletes a specific settings history record for a user.
+
+        Args:
+            user_id (str): The Supabase user ID.
+            record_id (str): The ID of the history record to delete.
+
+        Returns:
+            tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
+        """
+        try:
+            result = self.supabase.table('user_settings_history').delete().eq('id', record_id).eq('user_id', user_id).execute()
+            if result.data:
+                return True, None
+            return False, 'Record not found or not authorized'
+        except Exception as e:
+            return False, str(e)
