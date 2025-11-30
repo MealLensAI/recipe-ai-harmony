@@ -6,6 +6,9 @@ This document explains how the enterprise (organization) user management system 
 
 ## Key Concepts
 
+
+
+
 ### 1. Enterprise Owner
 - **Who**: The user who creates/registers an enterprise
 - **Storage**: Stored in `enterprises.created_by` field
