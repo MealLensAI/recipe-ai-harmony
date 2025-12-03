@@ -134,11 +134,16 @@ def get_user_settings_history():
         
         current_app.logger.info(f"[SETTINGS_HISTORY] Fetching history for user {user_id}, type: {settings_type}")
         
-        supabase_service = current_app.supabase_service
-        supabase = supabase_service.supabase
+        # Use admin client to bypass RLS for history fetch
+        from supabase import create_client
+        import os
+        admin_client = create_client(
+            os.getenv('SUPABASE_URL'),
+            os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        )
         
         # Query settings history
-        result = supabase.table('user_settings_history')\
+        result = admin_client.table('user_settings_history')\
             .select('*')\
             .eq('user_id', user_id)\
             .eq('settings_type', settings_type)\

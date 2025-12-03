@@ -818,6 +818,14 @@ class SupabaseService:
                 changed_fields = list(normalized_settings.keys())
             
             try:
+                # Use admin client to bypass RLS for history insert
+                from supabase import create_client
+                import os
+                admin_client = create_client(
+                    os.getenv('SUPABASE_URL'),
+                    os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+                )
+                
                 history_data = {
                     'user_id': user_id,
                     'settings_type': settings_type,
@@ -827,10 +835,14 @@ class SupabaseService:
                     'created_at': timestamp,
                     'created_by': user_id
                 }
-                self.supabase.table('user_settings_history').insert(history_data).execute()
-                print(f"[DEBUG] Saved settings history with {len(changed_fields)} changed fields")
+                
+                history_result = admin_client.table('user_settings_history').insert(history_data).execute()
+                print(f"[DEBUG] ✅ Saved settings history with {len(changed_fields)} changed fields")
+                print(f"[DEBUG] History record ID: {history_result.data[0]['id'] if history_result.data else 'unknown'}")
             except Exception as history_error:
-                print(f"[WARNING] Failed to save settings history: {history_error}")
+                print(f"[ERROR] ❌ Failed to save settings history: {history_error}")
+                import traceback
+                traceback.print_exc()
             
             print(f"[SUCCESS] Settings saved via direct table upsert")
             return True, None
