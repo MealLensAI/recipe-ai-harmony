@@ -98,19 +98,6 @@ export default function EnterpriseSidebar({
         <span className="text-lg font-semibold text-slate-900">MealLens</span>
       </div>
 
-      {/* Search */}
-      <div className="border-b border-slate-200 px-4 py-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            placeholder="Search"
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="h-9 pl-9 bg-slate-50 border-slate-200 text-sm"
-          />
-        </div>
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {

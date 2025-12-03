@@ -95,6 +95,8 @@ export default function EnterpriseDashboard() {
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
   const [isEditingHealthInfo, setIsEditingHealthInfo] = useState(false);
+  const [userHealthHistory, setUserHealthHistory] = useState<any[]>([]);
+  const [loadingUserHistory, setLoadingUserHistory] = useState(false);
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
@@ -377,6 +379,28 @@ export default function EnterpriseDashboard() {
     }
   }
 
+  async function loadUserHealthHistory(userId: string) {
+    if (!selectedEnterprise?.id) return;
+    
+    setLoadingUserHistory(true);
+    try {
+      // Get all history for the enterprise, then filter for this user
+      const res: any = await api.getEnterpriseSettingsHistory(selectedEnterprise.id);
+      if (res.success) {
+        const userHistory = (res.history || []).filter((h: any) => h.user_id === userId);
+        setUserHealthHistory(userHistory);
+        console.log('[USER_HISTORY] Loaded history for user:', userId, 'Records:', userHistory.length);
+      } else {
+        setUserHealthHistory([]);
+      }
+    } catch (err: any) {
+      console.error('[USER_HISTORY] Error loading user history:', err);
+      setUserHealthHistory([]);
+    } finally {
+      setLoadingUserHistory(false);
+    }
+  }
+
   async function handleEditUserSettings(userId: string, userEmail: string, firstName?: string, lastName?: string) {
     if (!selectedEnterprise?.id) return;
     
@@ -388,9 +412,12 @@ export default function EnterpriseDashboard() {
     });
     
     try {
+      // Load user settings
       const result: any = await api.getEnterpriseUserSettings(selectedEnterprise.id, userId);
       if (result.success) {
         setUserSettingsData(result.settings || {});
+        // Also load user's health history
+        await loadUserHealthHistory(userId);
       } else {
         toast({
           title: "Error",
@@ -430,7 +457,11 @@ export default function EnterpriseDashboard() {
           title: "Success",
           description: "Health information updated successfully and added to history"
         });
-        // Refresh settings history
+        // Refresh user's health history
+        if (editingUserSettings?.userId) {
+          await loadUserHealthHistory(editingUserSettings.userId);
+        }
+        // Also refresh overall settings history
         if (selectedEnterprise.id) {
           loadSettingsHistory(selectedEnterprise.id);
         }
@@ -682,6 +713,9 @@ export default function EnterpriseDashboard() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="px-6 py-8 lg:px-12">
+          {/* Header and Stats - Only show on Overview tab */}
+          {activeSidebarItem === "overview" && (
+            <>
           <header className="mb-10">
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">MealLens</p>
             <h1 className="mt-2 text-4xl font-semibold text-slate-900">Enterprise Dashboard</h1>
@@ -781,6 +815,8 @@ export default function EnterpriseDashboard() {
               </Button>
             </div>
           </div>
+            </>
+          )}
 
           {/* Members View - Accepted Users */}
           {activeSidebarItem === "members" && (
@@ -879,7 +915,7 @@ export default function EnterpriseDashboard() {
                                     className="border-slate-300 text-slate-700 hover:bg-slate-50"
                                   >
                                     <Settings className="h-4 w-4 mr-1" />
-                                    Settings
+                                    Health Info
                                   </Button>
                                   <Button
                                     variant="outline"
@@ -1019,14 +1055,14 @@ export default function EnterpriseDashboard() {
             </section>
           )}
 
-          {/* History View - Settings Change History */}
+          {/* History View - Health Information History (Matches User History Page UI) */}
           {activeSidebarItem === "history" && (
-            <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="mb-8 flex items-center justify-between">
+            <section className="mt-12">
+              <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Settings History</h2>
-                  <p className="mt-1 text-sm text-slate-500">View all settings changes made by organization members</p>
-                </div>
+                  <h2 className="text-2xl font-bold text-slate-900">Health Information History</h2>
+                  <p className="mt-1 text-sm text-slate-500">View all health information changes made by organization members</p>
+              </div>
                 <Button
                   variant="outline"
                   onClick={() => selectedEnterprise?.id && loadSettingsHistory(selectedEnterprise.id)}
@@ -1039,110 +1075,138 @@ export default function EnterpriseDashboard() {
               </div>
 
               {!selectedEnterprise ? (
-                <div className="py-24 text-center">
+                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
                   <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
                   <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view history</p>
                 </div>
               ) : loadingHistory ? (
-                <div className="flex items-center justify-center py-24">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                  </div>
+                  <p className="mt-4 text-slate-600">Loading history...</p>
                 </div>
               ) : settingsHistory.length === 0 ? (
-                <div className="py-24 text-center">
-                  <History className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                  <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
                   <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
-                  <p className="mt-2 text-sm text-slate-500">Settings changes will appear here when members update their health profiles</p>
+                  <p className="mt-2 text-sm text-slate-500">Health information changes will appear here when members update their profiles</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {settingsHistory.map((record) => {
-                    const changedFields = record.changed_fields || [];
-                    const hasChanges = changedFields.length > 0;
-                    
-                    return (
-                      <Card key={record.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-semibold text-lg text-slate-900">{record.user_name}</h4>
-                                <Badge variant="outline" className="text-xs">
-                                  {record.user_email}
-                                </Badge>
-                              </div>
-                              
-                              <p className="text-sm text-slate-500 mb-3">
-                                Updated {new Date(record.created_at).toLocaleString()}
-                              </p>
+                <Card className="rounded-2xl border border-slate-200 shadow-sm">
+                  <CardContent className="p-6">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="font-semibold text-slate-700">Date & Time</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Member</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Changes Made</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Details</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {settingsHistory.map((record) => {
+                            // Filter out numbered removed items
+                            const meaningfulFields = record.changed_fields 
+                              ? record.changed_fields.filter((field: string) => {
+                                  const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(field);
+                                  return !isNumberedRemoved;
+                                })
+                              : [];
 
-                              {hasChanges && (
-                                <div className="mt-4">
-                                  <p className="text-sm font-semibold text-slate-700 mb-2">Changes:</p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {changedFields.map((field, idx) => (
-                                      <Badge 
-                                        key={idx} 
-                                        variant="secondary"
-                                        className="bg-blue-50 text-blue-700 border-blue-200"
-                                      >
-                                        {field}
-                                      </Badge>
-                                    ))}
+                            // Get meaningful saved data
+                            const meaningfulData = record.settings_data 
+                              ? Object.entries(record.settings_data).filter(([key, value]) => {
+                                  if (value === null || value === undefined || value === '') return false;
+                                  if (/^\d+$/.test(key)) return false;
+                                  return true;
+                                })
+                              : [];
+
+                            const formatDate = (dateString: string) => {
+                              const date = new Date(dateString);
+                              return date.toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              });
+                            };
+
+                            return (
+                              <TableRow key={record.id}>
+                                <TableCell className="text-sm text-slate-600">
+                                  {formatDate(record.created_at)}
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium text-slate-900">{record.user_name || 'Unknown'}</p>
+                                    <p className="text-xs text-slate-500">{record.user_email}</p>
                                   </div>
-                                </div>
-                              )}
-
-                              {record.settings_data && Object.keys(record.settings_data).length > 0 && (
-                                <details className="mt-4">
-                                  <summary className="cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900">
-                                    View Current Settings
-                                  </summary>
-                                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                                    {Object.entries(record.settings_data).map(([key, value]) => (
-                                      <div key={key} className="flex justify-between p-2 bg-slate-50 rounded">
-                                        <span className="font-medium text-slate-600 capitalize">
-                                          {key.replace(/([A-Z])/g, ' $1').trim()}:
-                                        </span>
-                                        <span className="text-slate-900">
-                                          {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
-                                        </span>
+                                </TableCell>
+                                <TableCell>
+                                  {meaningfulFields.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {meaningfulFields.slice(0, 3).map((field: string, idx: number) => (
+                                        <Badge 
+                                          key={idx} 
+                                          variant="secondary"
+                                          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                        >
+                                          {field}
+                                        </Badge>
+                                      ))}
+                                      {meaningfulFields.length > 3 && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          +{meaningfulFields.length - 3} more
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-slate-500">Initial setup</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {meaningfulData.length > 0 ? (
+                                    <details>
+                                      <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 font-medium">
+                                        ► View details
+                                      </summary>
+                                      <div className="mt-3 space-y-2 text-sm bg-slate-50 p-3 rounded">
+                                        {meaningfulData.map(([key, value]) => (
+                                          <div key={key} className="flex justify-between">
+                                            <span className="font-medium text-slate-600 capitalize">
+                                              {key.replace(/([A-Z])/g, ' $1').trim()}:
+                                            </span>
+                                            <span className="text-slate-900">
+                                              {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                                            </span>
+                                          </div>
+                                        ))}
                                       </div>
-                                    ))}
-                                  </div>
-                                </details>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                                    </details>
+                                  ) : (
+                                    <span className="text-sm text-slate-400">No saved data</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </section>
           )}
 
-          {/* Health Information View - Time Restrictions & User Health Information */}
-          {activeSidebarItem === "settings" && (
+          {/* Health Information View - User Health Information Management */}
+          {activeSidebarItem === "settings" && selectedEnterprise && (
             <section className="mt-12 space-y-8">
-              {/* Organization Settings */}
-              <div>
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-slate-900">Organization Settings</h2>
-                <p className="mt-1 text-sm text-slate-500">Manage your organization preferences</p>
-              </div>
-              {!selectedEnterprise ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
-                  <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage settings</p>
-                </div>
-              ) : (
-                <TimeRestrictionsSettings enterpriseId={selectedEnterprise.id} />
-                )}
-              </div>
-
               {/* User Health Information Management */}
               {selectedEnterprise && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -1191,10 +1255,7 @@ export default function EnterpriseDashboard() {
                   {editingUserSettings && (
                     <Card className="border-slate-200">
                       <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200">
-                        <div>
-                          <CardTitle>Health Information for {editingUserSettings.userName}</CardTitle>
-                          <p className="text-sm text-slate-500 mt-1">{editingUserSettings.userEmail}</p>
-                        </div>
+                        <CardTitle>Current Health Info</CardTitle>
                         <div className="flex items-center gap-2">
                           {!isEditingHealthInfo && userSettingsData && (
                             <Button
@@ -1214,6 +1275,7 @@ export default function EnterpriseDashboard() {
                               setEditingUserSettings(null);
                               setUserSettingsData(null);
                               setIsEditingHealthInfo(false);
+                              setUserHealthHistory([]);
                             }}
                           >
                             <X className="h-4 w-4" />
@@ -1479,6 +1541,126 @@ export default function EnterpriseDashboard() {
                               </div>
                             </div>
                           </>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* User's Health Information History - Show when user is selected */}
+                  {editingUserSettings && (
+                    <Card className="mt-6 border-slate-200">
+                      <CardHeader className="border-b border-slate-200">
+                        <CardTitle className="text-lg">Health Information History for {editingUserSettings.userName}</CardTitle>
+                        <p className="text-sm text-slate-500 mt-1">View all changes made to this member's health profile</p>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        {loadingUserHistory ? (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                            <p className="ml-3 text-slate-600">Loading history...</p>
+                          </div>
+                        ) : userHealthHistory.length === 0 ? (
+                          <div className="py-12 text-center">
+                            <Settings className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                            <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
+                            <p className="mt-2 text-sm text-slate-500">Changes to this member's health profile will appear here</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="font-semibold text-slate-700">Date & Time</TableHead>
+                                  <TableHead className="font-semibold text-slate-700">Changes Made</TableHead>
+                                  <TableHead className="font-semibold text-slate-700">Details</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {userHealthHistory.map((record) => {
+                                  // Filter out numbered removed items
+                                  const meaningfulFields = record.changed_fields 
+                                    ? record.changed_fields.filter((field: string) => {
+                                        const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(field);
+                                        return !isNumberedRemoved;
+                                      })
+                                    : [];
+
+                                  // Get meaningful saved data
+                                  const meaningfulData = record.settings_data 
+                                    ? Object.entries(record.settings_data).filter(([key, value]) => {
+                                        if (value === null || value === undefined || value === '') return false;
+                                        if (/^\d+$/.test(key)) return false;
+                                        return true;
+                                      })
+                                    : [];
+
+                                  const formatDate = (dateString: string) => {
+                                    const date = new Date(dateString);
+                                    return date.toLocaleString('en-US', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    });
+                                  };
+
+                                  return (
+                                    <TableRow key={record.id}>
+                                      <TableCell className="text-sm text-slate-600">
+                                        {formatDate(record.created_at)}
+                                      </TableCell>
+                                      <TableCell>
+                                        {meaningfulFields.length > 0 ? (
+                                          <div className="flex flex-wrap gap-1">
+                                            {meaningfulFields.slice(0, 3).map((field: string, idx: number) => (
+                                              <Badge 
+                                                key={idx} 
+                                                variant="secondary"
+                                                className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                                              >
+                                                {field}
+                                              </Badge>
+                                            ))}
+                                            {meaningfulFields.length > 3 && (
+                                              <Badge variant="secondary" className="text-xs">
+                                                +{meaningfulFields.length - 3} more
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-sm text-slate-500">Initial setup</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        {meaningfulData.length > 0 ? (
+                                          <details>
+                                            <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 font-medium">
+                                              ► View details
+                                            </summary>
+                                            <div className="mt-3 space-y-2 text-sm bg-slate-50 p-3 rounded">
+                                              {meaningfulData.map(([key, value]) => (
+                                                <div key={key} className="flex justify-between">
+                                                  <span className="font-medium text-slate-600 capitalize">
+                                                    {key.replace(/([A-Z])/g, ' $1').trim()}:
+                                                  </span>
+                                                  <span className="text-slate-900">
+                                                    {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </details>
+                                        ) : (
+                                          <span className="text-sm text-slate-400">No saved data</span>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
                         )}
                       </CardContent>
                     </Card>
