@@ -97,12 +97,21 @@ def check_user_is_org_admin(user_id: str, enterprise_id: str, supabase: Client) 
     """
     try:
         current_app.logger.info(f"[PERMISSION] Checking permissions for user {user_id} on enterprise {enterprise_id}")
+        current_app.logger.info(f"[PERMISSION] Using admin client: {supabase is not None}")
         
         # FIRST: Check if enterprise exists
         enterprise_result = supabase.table('enterprises').select('id, created_by').eq('id', enterprise_id).execute()
         
+        current_app.logger.info(f"[PERMISSION] Enterprise query result: {enterprise_result.data}")
+        
         if not enterprise_result.data:
-            current_app.logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found")
+            current_app.logger.error(f"[PERMISSION] Enterprise {enterprise_id} not found in database")
+            # Try to list all enterprises to debug
+            try:
+                all_enterprises = supabase.table('enterprises').select('id, name, created_by').limit(5).execute()
+                current_app.logger.info(f"[PERMISSION] Sample enterprises in DB: {all_enterprises.data}")
+            except Exception as debug_error:
+                current_app.logger.error(f"[PERMISSION] Could not list enterprises: {debug_error}")
             return False, "Organization not found"
         
         enterprise = enterprise_result.data[0]
@@ -1624,7 +1633,8 @@ def get_user_enterprises():
 def get_enterprise_settings_history(enterprise_id):
     """Get settings change history for an enterprise"""
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        supabase = get_supabase_client(use_admin=True)
         
         # Verify user has permission (must be admin or owner)
         is_admin, reason = check_user_is_org_admin(request.user_id, enterprise_id, supabase)
