@@ -48,6 +48,7 @@ def get_frontend_url():
 
 enterprise_bp = Blueprint('enterprise', __name__)
 
+
 def get_supabase_client(use_admin: bool = False) -> Client:
     """Helper function to get the Supabase client from the app context."""
     if use_admin:
