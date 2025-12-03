@@ -27,7 +27,7 @@ def get_frontend_url():
         # Don't use backend URL as frontend URL
         backend_urls = ['meallens.onrender.com', 'localhost:5000', 'localhost:5001', '127.0.0.1:5000', '127.0.0.1:5001']
         if not any(backend_url in origin for backend_url in backend_urls):
-            print(f"🔍 Using Origin header: {origin}")
+        print(f"🔍 Using Origin header: {origin}")
             return origin.rstrip('/')
     
     # Priority 3: Referer header as fallback
@@ -39,7 +39,7 @@ def get_frontend_url():
         # Don't use backend URL as frontend URL
         backend_urls = ['meallens.onrender.com', 'localhost:5000', 'localhost:5001', '127.0.0.1:5000', '127.0.0.1:5001']
         if not any(backend_url in frontend_url for backend_url in backend_urls):
-            print(f"🔍 Using Referer header: {frontend_url}")
+        print(f"🔍 Using Referer header: {frontend_url}")
             return frontend_url.rstrip('/')
     
     # Last resort: Production URL
@@ -704,42 +704,42 @@ def invite_user(enterprise_id):
                 current_app.logger.warning(f"[INVITE] SMTP_PASSWORD: {'SET' if email_service.smtp_password else 'NOT SET'}")
                 email_error_message = "Email service not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables."
             else:
-                # Use a thread to send email asynchronously with timeout
-                import threading
-                
+            # Use a thread to send email asynchronously with timeout
+            import threading
+            
                 email_result = {'sent': False, 'error': None}
-                
-                def send_email_async():
-                    try:
-                        result = email_service.send_invitation_email(
-                            to_email=email,
-                            enterprise_name=enterprise_data['name'],
-                            inviter_name=inviter_name,
-                            invitation_link=invitation_link,
-                            custom_message=data.get('message')
-                        )
-                        email_result['sent'] = result
+            
+            def send_email_async():
+                try:
+                    result = email_service.send_invitation_email(
+                        to_email=email,
+                        enterprise_name=enterprise_data['name'],
+                        inviter_name=inviter_name,
+                        invitation_link=invitation_link,
+                        custom_message=data.get('message')
+                    )
+                    email_result['sent'] = result
                         if not result and hasattr(email_service, 'last_error_message'):
                             email_result['error'] = email_service.last_error_message
-                    except Exception as e:
-                        current_app.logger.error(f"[INVITE] Email thread error: {e}")
-                        email_result['sent'] = False
+                except Exception as e:
+                    current_app.logger.error(f"[INVITE] Email thread error: {e}")
+                    email_result['sent'] = False
                         email_result['error'] = str(e)
-                
-                email_thread = threading.Thread(target=send_email_async)
-                email_thread.daemon = True
-                email_thread.start()
-                
+            
+            email_thread = threading.Thread(target=send_email_async)
+            email_thread.daemon = True
+            email_thread.start()
+            
                 # Wait up to 10 seconds for email to send (increased from 5)
                 email_thread.join(timeout=10.0)
-                
-                if email_thread.is_alive():
+            
+            if email_thread.is_alive():
                     current_app.logger.warning(f"[INVITE] Email sending timed out after 10 seconds, but invitation was created successfully")
-                    email_sent = False
+                email_sent = False
                     email_error_message = "Email sending timed out. The invitation was created - you can share the link manually."
-                else:
-                    email_sent = email_result['sent']
-                    current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
+            else:
+                email_sent = email_result['sent']
+                current_app.logger.info(f"[INVITE] Email sent status: {email_sent}")
                     if not email_sent:
                         email_error_message = email_result.get('error') or "Failed to send email. The invitation was created - you can share the link manually."
                 
