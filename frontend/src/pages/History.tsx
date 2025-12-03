@@ -358,34 +358,34 @@ export function HistoryPage() {
                             : [];
 
                           return (
-                            <tr key={record.id || index} className="hover:bg-gray-50">
-                              <td className="py-3 text-gray-600 whitespace-nowrap">
-                                {formatDate(record.created_at)}
-                              </td>
-                              <td className="py-3">
+                          <tr key={record.id || index} className="hover:bg-gray-50">
+                            <td className="py-3 text-gray-600 whitespace-nowrap">
+                              {formatDate(record.created_at)}
+                            </td>
+                            <td className="py-3">
                                 {meaningfulFields.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap gap-1">
                                     {meaningfulFields.map((field: string, idx: number) => (
-                                      <span
-                                        key={idx}
-                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
-                                      >
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
+                                    >
                                         {field.replace(' (removed)', '')}
-                                      </span>
-                                    ))}
-                                  </div>
+                                    </span>
+                                  ))}
+                                </div>
                                 ) : meaningfulData.length > 0 ? (
                                   <span className="text-gray-500 italic">Settings updated</span>
-                                ) : (
-                                  <span className="text-gray-500 italic">Initial setup</span>
-                                )}
-                              </td>
-                              <td className="py-3">
-                                <details className="cursor-pointer">
-                                  <summary className="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                              ) : (
+                                <span className="text-gray-500 italic">Initial setup</span>
+                              )}
+                            </td>
+                            <td className="py-3">
+                              <details className="cursor-pointer">
+                                <summary className="text-blue-600 hover:text-blue-800 text-xs font-medium">
                                     ► View details
-                                  </summary>
-                                  <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
+                                </summary>
+                                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
                                     {meaningfulData.length > 0 ? (
                                       meaningfulData.map(([key, value]: [string, any]) => {
                                         // Format field names for display
@@ -413,18 +413,18 @@ export function HistoryPage() {
                                         }
 
                                         return (
-                                          <div key={key} className="flex justify-between gap-4">
+                                    <div key={key} className="flex justify-between gap-4">
                                             <span className="font-medium text-gray-700">{formattedKey}:</span>
                                             <span className="text-gray-600 text-right">{formattedValue}</span>
-                                          </div>
+                                    </div>
                                         );
                                       })
                                     ) : (
                                       <p className="text-gray-500 italic">No saved data</p>
                                     )}
-                                  </div>
-                                </details>
-                              </td>
+                                </div>
+                              </details>
+                            </td>
                               <td className="py-3">
                                 <Button
                                   variant="ghost"
@@ -441,7 +441,7 @@ export function HistoryPage() {
                                   )}
                                 </Button>
                               </td>
-                            </tr>
+                          </tr>
                           );
                         })}
                       </tbody>

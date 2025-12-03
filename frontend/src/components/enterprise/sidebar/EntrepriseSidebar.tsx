@@ -5,6 +5,7 @@ import {
   Activity,
   Building2,
   ChevronDown,
+  History,
   LayoutDashboard,
   Search,
   Settings,
@@ -16,7 +17,8 @@ const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'members', label: 'Members', icon: Users },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'history', label: 'History', icon: History },
+  { id: 'settings', label: 'Health Information', icon: Settings },
 ] as const;
 
 type NavId = typeof navItems[number]['id'];

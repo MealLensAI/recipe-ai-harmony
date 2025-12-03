@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock } from 'lucide-react';
+import { Clock, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +10,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Swal from 'sweetalert2';
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const {
     settings,
@@ -25,6 +28,17 @@ const Settings = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
 
   const [localLoading, setLocalLoading] = useState(false);
+  const [isFormExpanded, setIsFormExpanded] = useState(true);
+  const [showSavedData, setShowSavedData] = useState(false);
+
+  // Check if user has saved data on mount - if yes, collapse form and show table
+  useEffect(() => {
+    if (settings.hasSickness && settings.age && settings.gender && settings.sicknessType) {
+      // User has complete health information, show table view
+      setIsFormExpanded(false);
+      setShowSavedData(true);
+    }
+  }, [settings.hasSickness, settings.age, settings.gender, settings.sicknessType]);
 
   useEffect(() => {
     if (error) {
@@ -136,21 +150,25 @@ const Settings = () => {
       const result = await saveSettings(settings);
 
       if (result.success) {
+        // Collapse form and show saved data
+        setIsFormExpanded(false);
+        setShowSavedData(true);
+        
         Swal.fire({
           icon: 'success',
-          title: 'Settings Saved!',
-          text: settings.hasSickness
-            ? 'Your health profile was saved successfully.'
+          title: 'Health Information Saved!',
+          html: settings.hasSickness
+            ? 'Your health information was saved successfully and has been added to your history.<br><br><small>You can view your history by clicking the "View History" button below or going to the History page.</small>'
             : 'Your preference has been saved successfully.',
           confirmButtonColor: '#f97316',
-          timer: 2500,
+          timer: 3500,
           showConfirmButton: true
         });
       } else {
         Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'Failed to save settings. Try again.',
+          text: 'Failed to save health information. Try again.',
           confirmButtonColor: '#f97316'
         });
       }
@@ -159,7 +177,7 @@ const Settings = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Failed to save settings. Try again.',
+        text: 'Failed to save health information. Try again.',
         confirmButtonColor: '#f97316'
       });
     } finally {
@@ -175,9 +193,9 @@ const Settings = () => {
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
+          <h1 className="text-3xl font-bold">Health Information</h1>
           <p className="text-muted-foreground mt-2">
-            Manage your account settings and preferences
+            Manage your health information and preferences
           </p>
 
           {error && (
@@ -247,9 +265,101 @@ const Settings = () => {
                 </RadioGroup>
               </div>
 
-              {/* CONDITIONAL FORM */}
-              {settings.hasSickness && (
+              {/* SAVED DATA TABLE - Show when form is collapsed */}
+              {settings.hasSickness && !isFormExpanded && showSavedData && (
+                <div className="space-y-4 border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Your Saved Health Information</h3>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate('/history')}
+                        className="flex items-center gap-2"
+                      >
+                        <History className="h-4 w-4" />
+                        View History
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFormExpanded(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                        Edit Information
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="font-semibold">Field</TableHead>
+                          <TableHead className="font-semibold">Value</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="font-medium">Age</TableCell>
+                          <TableCell>{settings.age || 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Gender</TableCell>
+                          <TableCell className="capitalize">{settings.gender || 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Height</TableCell>
+                          <TableCell>{settings.height ? `${settings.height} cm` : 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Weight</TableCell>
+                          <TableCell>{settings.weight ? `${settings.weight} kg` : 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Waist Circumference</TableCell>
+                          <TableCell>{settings.waist ? `${settings.waist} cm` : 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Activity Level</TableCell>
+                          <TableCell className="capitalize">{settings.activityLevel?.replace('_', ' ') || 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Health Condition</TableCell>
+                          <TableCell className="font-semibold text-blue-600">{settings.sicknessType || 'Not specified'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Health Goal</TableCell>
+                          <TableCell className="capitalize">{settings.goal?.replace('_', ' ') || 'Not set'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Location</TableCell>
+                          <TableCell>{settings.location || 'Not set'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* CONDITIONAL FORM - Show when expanded */}
+              {settings.hasSickness && isFormExpanded && (
                 <div className="space-y-6 border-t pt-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">Health Information Details</h3>
+                    {showSavedData && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsFormExpanded(false)}
+                        className="flex items-center gap-2"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                        Collapse
+                      </Button>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -388,7 +498,7 @@ const Settings = () => {
                   disabled={isActuallyLoading}
                   className="w-full"
                 >
-                  {isActuallyLoading ? 'Saving...' : 'Save Health Profile'}
+                  {isActuallyLoading ? 'Saving...' : 'Save Health Information'}
                 </Button>
               </div>
             </CardContent>

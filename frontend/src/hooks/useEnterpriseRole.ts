@@ -58,7 +58,7 @@ export const useEnterpriseRole = () => {
           
           if (success && Array.isArray(enterprisesData)) {
             enterprises = enterprisesData;
-            ownsOrganizations = enterprises.length > 0;
+        ownsOrganizations = enterprises.length > 0;
             console.log('[useEnterpriseRole] ✅ User owns', enterprises.length, 'enterprises');
           } else {
             console.warn('[useEnterpriseRole] ⚠️ Unexpected response format or no success flag');

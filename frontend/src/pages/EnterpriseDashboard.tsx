@@ -3,9 +3,10 @@ import { useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Building2,
   Users,
@@ -18,6 +19,7 @@ import {
   Trash2,
   X,
   CheckCircle,
+  History,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -92,6 +94,7 @@ export default function EnterpriseDashboard() {
   const [loadingUserSettings, setLoadingUserSettings] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [isEditingHealthInfo, setIsEditingHealthInfo] = useState(false);
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +104,7 @@ export default function EnterpriseDashboard() {
 
   // misc
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings">("overview");
+  const [activeSidebarItem, setActiveSidebarItem] = useState<"overview" | "activity" | "members" | "settings" | "history">("overview");
   const [activeTab, setActiveTab] = useState<"users" | "invitations">("invitations");
   const [selectedPeriod, setSelectedPeriod] = useState(PERIOD_OPTIONS[0]);
   const [isPeriodMenuOpen, setIsPeriodMenuOpen] = useState(false);
@@ -165,6 +168,14 @@ export default function EnterpriseDashboard() {
       }, 15000); // Refresh every 15 seconds for faster updates
 
       return () => clearInterval(interval);
+    }
+  }, [activeSidebarItem, selectedEnterprise]);
+
+  // Load settings history when history tab is activated
+  useEffect(() => {
+    if (activeSidebarItem === "history" && selectedEnterprise?.id) {
+      console.log('[EnterpriseDashboard] Loading settings history...');
+      loadSettingsHistory(selectedEnterprise.id);
     }
   }, [activeSidebarItem, selectedEnterprise]);
 
@@ -345,11 +356,13 @@ export default function EnterpriseDashboard() {
       const res: any = await api.getEnterpriseSettingsHistory(enterpriseId);
       if (res.success) {
         setSettingsHistory(res.history || []);
+        console.log('[HISTORY] Loaded settings history:', res.history?.length || 0, 'records');
       } else {
         // Don't show error toast for empty history - just show empty state
         setSettingsHistory([]);
       }
     } catch (err: any) {
+      console.error('[HISTORY] Error loading settings history:', err);
       // Only show error for actual errors, not 404s (which just mean no history yet)
       if (err?.status !== 404) {
         toast({ 
@@ -410,12 +423,13 @@ export default function EnterpriseDashboard() {
       );
       
       if (result.success) {
+        // Switch back to table view after saving
+        setIsEditingHealthInfo(false);
+        
         toast({
           title: "Success",
-          description: "User settings updated successfully"
+          description: "Health information updated successfully and added to history"
         });
-        setEditingUserSettings(null);
-        setUserSettingsData(null);
         // Refresh settings history
         if (selectedEnterprise.id) {
           loadSettingsHistory(selectedEnterprise.id);
@@ -423,7 +437,7 @@ export default function EnterpriseDashboard() {
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to update settings",
+          description: result.error || "Failed to update health information",
           variant: "destructive"
         });
       }
@@ -1005,38 +1019,142 @@ export default function EnterpriseDashboard() {
             </section>
           )}
 
-          {/* Settings View - Time Restrictions & User Settings */}
+          {/* History View - Settings Change History */}
+          {activeSidebarItem === "history" && (
+            <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="mb-8 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Settings History</h2>
+                  <p className="mt-1 text-sm text-slate-500">View all settings changes made by organization members</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => selectedEnterprise?.id && loadSettingsHistory(selectedEnterprise.id)}
+                  disabled={loadingHistory || !selectedEnterprise?.id}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
+
+              {!selectedEnterprise ? (
+                <div className="py-24 text-center">
+                  <Building2 className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view history</p>
+                </div>
+              ) : loadingHistory ? (
+                <div className="flex items-center justify-center py-24">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+                </div>
+              ) : settingsHistory.length === 0 ? (
+                <div className="py-24 text-center">
+                  <History className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
+                  <p className="mt-2 text-sm text-slate-500">Settings changes will appear here when members update their health profiles</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {settingsHistory.map((record) => {
+                    const changedFields = record.changed_fields || [];
+                    const hasChanges = changedFields.length > 0;
+                    
+                    return (
+                      <Card key={record.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="font-semibold text-lg text-slate-900">{record.user_name}</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {record.user_email}
+                                </Badge>
+                              </div>
+                              
+                              <p className="text-sm text-slate-500 mb-3">
+                                Updated {new Date(record.created_at).toLocaleString()}
+                              </p>
+
+                              {hasChanges && (
+                                <div className="mt-4">
+                                  <p className="text-sm font-semibold text-slate-700 mb-2">Changes:</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {changedFields.map((field, idx) => (
+                                      <Badge 
+                                        key={idx} 
+                                        variant="secondary"
+                                        className="bg-blue-50 text-blue-700 border-blue-200"
+                                      >
+                                        {field}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {record.settings_data && Object.keys(record.settings_data).length > 0 && (
+                                <details className="mt-4">
+                                  <summary className="cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900">
+                                    View Current Settings
+                                  </summary>
+                                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                                    {Object.entries(record.settings_data).map(([key, value]) => (
+                                      <div key={key} className="flex justify-between p-2 bg-slate-50 rounded">
+                                        <span className="font-medium text-slate-600 capitalize">
+                                          {key.replace(/([A-Z])/g, ' $1').trim()}:
+                                        </span>
+                                        <span className="text-slate-900">
+                                          {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </details>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Health Information View - Time Restrictions & User Health Information */}
           {activeSidebarItem === "settings" && (
             <section className="mt-12 space-y-8">
               {/* Organization Settings */}
               <div>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-slate-900">Organization Settings</h2>
-                  <p className="mt-1 text-sm text-slate-500">Manage your organization preferences</p>
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-slate-900">Organization Settings</h2>
+                <p className="mt-1 text-sm text-slate-500">Manage your organization preferences</p>
+              </div>
+              {!selectedEnterprise ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
+                  <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
+                  <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
+                  <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage settings</p>
                 </div>
-                {!selectedEnterprise ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-24 text-center shadow-sm">
-                    <Settings className="mx-auto mb-6 h-12 w-12 text-slate-300" />
-                    <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
-                    <p className="mt-2 text-sm text-slate-500">Please select or create an organization to manage settings</p>
-                  </div>
-                ) : (
-                  <TimeRestrictionsSettings enterpriseId={selectedEnterprise.id} />
+              ) : (
+                <TimeRestrictionsSettings enterpriseId={selectedEnterprise.id} />
                 )}
               </div>
 
-              {/* User Settings Management */}
+              {/* User Health Information Management */}
               {selectedEnterprise && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
                   <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-slate-900">User Settings</h2>
-                    <p className="mt-1 text-sm text-slate-500">Edit health settings for organization members</p>
+                    <h2 className="text-2xl font-bold text-slate-900">Member Health Information</h2>
+                    <p className="mt-1 text-sm text-slate-500">View and edit health information for organization members</p>
                   </div>
 
                   {/* User Selector */}
                   <div className="mb-6">
                     <Label htmlFor="user-select" className="text-sm font-semibold text-slate-700 mb-2 block">
-                      Select User to Edit Settings
+                      Select Member to View/Edit Health Information
                     </Label>
                     <Select
                       value={editingUserSettings?.userId || ""}
@@ -1069,28 +1187,98 @@ export default function EnterpriseDashboard() {
                     </Select>
                   </div>
 
-                  {/* User Settings Form */}
+                  {/* User Health Information Display/Edit */}
                   {editingUserSettings && (
                     <Card className="border-slate-200">
                       <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200">
-                        <CardTitle>Edit Settings for {editingUserSettings.userName}</CardTitle>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => {
-                            setEditingUserSettings(null);
-                            setUserSettingsData(null);
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <div>
+                          <CardTitle>Health Information for {editingUserSettings.userName}</CardTitle>
+                          <p className="text-sm text-slate-500 mt-1">{editingUserSettings.userEmail}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!isEditingHealthInfo && userSettingsData && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsEditingHealthInfo(true)}
+                              className="flex items-center gap-2"
+                            >
+                              <Edit className="h-4 w-4" />
+                              Edit
+                            </Button>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => {
+                              setEditingUserSettings(null);
+                              setUserSettingsData(null);
+                              setIsEditingHealthInfo(false);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4 pt-6">
                         {loadingUserSettings ? (
                           <div className="flex items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
                           </div>
+                        ) : userSettingsData && !isEditingHealthInfo ? (
+                          /* TABLE VIEW */
+                          <div className="rounded-lg border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="font-semibold w-1/3">Field</TableHead>
+                                  <TableHead className="font-semibold">Value</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell className="font-medium">Age</TableCell>
+                                  <TableCell>{userSettingsData.age || 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Gender</TableCell>
+                                  <TableCell className="capitalize">{userSettingsData.gender || 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Height</TableCell>
+                                  <TableCell>{userSettingsData.height ? `${userSettingsData.height} cm` : 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Weight</TableCell>
+                                  <TableCell>{userSettingsData.weight ? `${userSettingsData.weight} kg` : 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Waist Circumference</TableCell>
+                                  <TableCell>{userSettingsData.waist ? `${userSettingsData.waist} cm` : 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Activity Level</TableCell>
+                                  <TableCell className="capitalize">{userSettingsData.activityLevel?.replace('_', ' ') || 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow className="bg-blue-50">
+                                  <TableCell className="font-semibold">Health Condition</TableCell>
+                                  <TableCell className="font-semibold text-blue-700">
+                                    {userSettingsData.hasSickness ? (userSettingsData.sicknessType || 'Not specified') : 'No health condition'}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Health Goal</TableCell>
+                                  <TableCell className="capitalize">{userSettingsData.goal?.replace('_', ' ') || 'Not set'}</TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="font-medium">Location</TableCell>
+                                  <TableCell>{userSettingsData.location || 'Not set'}</TableCell>
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          </div>
                         ) : (
+                          /* EDIT FORM */
                           <>
                             <div className="space-y-4">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1270,8 +1458,12 @@ export default function EnterpriseDashboard() {
                                 <Button
                                   variant="outline"
                                   onClick={() => {
-                                    setEditingUserSettings(null);
-                                    setUserSettingsData(null);
+                                    if (isEditingHealthInfo) {
+                                      setIsEditingHealthInfo(false);
+                                    } else {
+                                      setEditingUserSettings(null);
+                                      setUserSettingsData(null);
+                                    }
                                   }}
                                   disabled={loadingUserSettings}
                                 >
@@ -1425,7 +1617,7 @@ export default function EnterpriseDashboard() {
                                   }
                                 >
                                   {inv.status === "accepted" ? "✓ Accepted" : (inv.status ?? "pending")}
-                                </Badge>
+                              </Badge>
                                 {inv.status === "accepted" && inv.accepted_at && (
                                   <div className="mt-2 flex items-center gap-1 text-xs text-green-600 font-medium">
                                     <CheckCircle className="h-3 w-3" />
@@ -1483,11 +1675,11 @@ export default function EnterpriseDashboard() {
                     Go to Members
                   </Button>
                 </div>
-                <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
+              <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
                   <Users className="mx-auto mb-4 h-12 w-12 text-slate-300" />
                   <p className="mb-2 font-medium">View members in the Members page</p>
                   <p className="text-xs text-slate-400">Click "Members" in the sidebar to see all users who accepted your invitations.</p>
-                </div>
+              </div>
               </>
             )}
           </section>

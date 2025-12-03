@@ -94,44 +94,55 @@ const Login = () => {
         const userMetadata = (result as any).user_data?.metadata || {}
         const signupType = userMetadata.signup_type || userMetadata.signupType
         
+        console.log('[Login] ========== ENTERPRISE DETECTION START ==========')
+        console.log('[Login] Full result:', JSON.stringify(result, null, 2))
         console.log('[Login] User metadata:', userMetadata)
         console.log('[Login] Signup type from metadata:', signupType)
         
         let isOrganizationUser = signupType === 'organization'
-        
-        // Priority 2: Check if user owns organizations (fallback for existing users)
-        if (!isOrganizationUser) {
-          try {
-            console.log('[Login] Checking for organization ownership...')
-            console.log('[Login] User ID:', result.user_id || result.user_data?.id)
-            const enterprisesResponse = await api.getMyEnterprises()
-            console.log('[Login] Enterprises response:', JSON.stringify(enterprisesResponse, null, 2))
+        console.log('[Login] Is organization user (from metadata):', isOrganizationUser)
+
+        // Priority 2: Check if user owns organizations (ALWAYS check, even if signup_type is set)
+        try {
+          console.log('[Login] Checking for organization ownership...')
+          console.log('[Login] User ID:', result.user_id || result.user_data?.id)
+          console.log('[Login] Access token available:', !!safeGetItem('access_token'))
+          
+          const enterprisesResponse = await api.getMyEnterprises()
+          console.log('[Login] Enterprises response:', JSON.stringify(enterprisesResponse, null, 2))
+          
+          // Check if user owns organizations (enterprises array with items)
+          if (enterprisesResponse && typeof enterprisesResponse === 'object') {
+            const success = (enterprisesResponse as any).success
+            const enterprises = (enterprisesResponse as any).enterprises
             
-            // Check if user owns organizations (enterprises array with items)
-            if (enterprisesResponse && typeof enterprisesResponse === 'object') {
-              const success = (enterprisesResponse as any).success
-              const enterprises = (enterprisesResponse as any).enterprises
-              
-              console.log('[Login] Response success:', success)
-              console.log('[Login] Enterprises array:', enterprises)
-              console.log('[Login] Enterprises length:', enterprises?.length)
-              
-              if (success && enterprises && Array.isArray(enterprises) && enterprises.length > 0) {
-                // User owns at least one organization - redirect to enterprise dashboard
-                console.log('🔄 User is organization owner, redirecting to enterprise dashboard')
-                isOrganizationUser = true
-              } else {
-                console.log('[Login] User does not own any organizations')
-              }
+            console.log('[Login] Response success:', success)
+            console.log('[Login] Enterprises array:', enterprises)
+            console.log('[Login] Enterprises length:', enterprises?.length)
+            
+            if (success && enterprises && Array.isArray(enterprises) && enterprises.length > 0) {
+              // User owns at least one organization - redirect to enterprise dashboard
+              console.log('✅ User owns organizations, setting isOrganizationUser = true')
+              isOrganizationUser = true
             } else {
-              console.warn('[Login] Unexpected response format:', enterprisesResponse)
+              console.log('[Login] User does not own any organizations')
             }
-          } catch (error: any) {
-            console.error('[Login] Failed to check enterprise ownership:', error)
-            console.error('[Login] Error details:', error?.message, error?.stack)
-            // Continue with normal redirect on error - don't block login
+          } else {
+            console.warn('[Login] Unexpected response format:', enterprisesResponse)
+          }
+        } catch (error: any) {
+          console.error('[Login] ❌ Failed to check enterprise ownership:', error)
+          console.error('[Login] Error details:', error?.message, error?.stack)
+          // If there's an error but signup_type says organization, trust the signup_type
+          if (signupType === 'organization') {
+            console.log('[Login] Using signup_type as fallback since API call failed')
+            isOrganizationUser = true
           }
         }
+        
+        console.log('[Login] ========== FINAL DECISION ==========')
+        console.log('[Login] isOrganizationUser:', isOrganizationUser)
+        console.log('[Login] Will redirect to:', isOrganizationUser ? '/enterprise' : '/')
 
         // Warm up essential user data (profile, meal plans, settings) before navigation
         await hydratePostLogin()
