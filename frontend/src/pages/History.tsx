@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Utensils, BookOpen, CalendarDays, Clock, Search, Play, Settings as SettingsIcon, Trash2 } from "lucide-react"
 import { useAuth, safeGetItem, safeRemoveItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
@@ -148,8 +147,6 @@ export function HistoryPage() {
   
   const [history, setHistory] = useState<SharedRecipe[]>(cachedHistory || [])
   const [settingsHistory, setSettingsHistory] = useState<any[]>(cachedSettingsHistory || [])
-  const [isLoading, setIsLoading] = useState(false) // Start as false - don't block rendering
-  const [isLoadingSettings, setIsLoadingSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("detections")
@@ -188,13 +185,7 @@ export function HistoryPage() {
         return
       }
 
-      // If no cached data, show loading state
-      if (!cachedHistory) {
-        setIsLoading(true)
-      }
-
-      // If we have cached data, update in background
-      // If no cache, still don't block but fetch immediately
+      // Always fetch fresh data in background, show cached data immediately
       try {
         const result = await api.getDetectionHistory()
 
@@ -217,7 +208,10 @@ export function HistoryPage() {
           // Cache the data
           setCachedHistory(historyData, userId)
         } else {
-          setError(result.message || 'Failed to load history.')
+          // Only show error if we don't have cached data
+          if (!cachedHistory) {
+            setError(result.message || 'Failed to load history.')
+          }
         }
       } catch (err) {
         console.error("Error fetching history:", err)
@@ -229,8 +223,6 @@ export function HistoryPage() {
             setError("Failed to load history. Please try again later.")
           }
         }
-      } finally {
-        setIsLoading(false)
       }
     }
     
@@ -245,13 +237,7 @@ export function HistoryPage() {
         return
       }
 
-      // If no cached data, show loading state
-      if (!cachedSettingsHistory) {
-        setIsLoadingSettings(true)
-      }
-
-      // If we have cached data, show it immediately and update in background
-      // If no cache, still don't block but fetch immediately
+      // Always fetch fresh data in background, show cached data immediately
       try {
         const result = await api.getUserSettingsHistory('health_profile', 50)
         if ((result as any).status === 'success') {
@@ -262,9 +248,7 @@ export function HistoryPage() {
         }
       } catch (err) {
         console.error("Error fetching settings history:", err)
-        // Don't show error if we have cached data
-      } finally {
-        setIsLoadingSettings(false)
+        // Don't show error if we have cached data - just use cached data
       }
     }
 
@@ -385,22 +369,7 @@ export function HistoryPage() {
 
           {/* Detections Tab */}
           <TabsContent value="detections">
-            {isLoading && filteredHistory.length === 0 ? (
-              // Show skeleton while loading and no cached data
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                  <Card key={i} className="overflow-hidden">
-                    <CardContent className="p-3 sm:p-6">
-                      <Skeleton className="h-6 w-3/4 mb-3" />
-                      <Skeleton className="h-4 w-1/2 mb-2" />
-                      <Skeleton className="h-4 w-2/3 mb-2" />
-                      <Skeleton className="h-4 w-1/3 mb-4" />
-                      <Skeleton className="h-6 w-24" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filteredHistory.length === 0 ? (
+            {filteredHistory.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
                 <Utensils className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
                 <p className="text-lg sm:text-xl font-semibold">No detection history yet.</p>
@@ -417,22 +386,7 @@ export function HistoryPage() {
 
           {/* Settings History Tab */}
           <TabsContent value="settings">
-            {isLoadingSettings && settingsHistory.length === 0 ? (
-              // Show skeleton while loading and no cached data
-              <Card>
-                <CardContent className="p-4 sm:p-6">
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="border-b pb-4">
-                        <Skeleton className="h-4 w-32 mb-2" />
-                        <Skeleton className="h-4 w-48 mb-2" />
-                        <Skeleton className="h-4 w-24" />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : settingsHistory.length === 0 ? (
+            {settingsHistory.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
                 <SettingsIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
                 <p className="text-lg sm:text-xl font-semibold">No settings history yet</p>

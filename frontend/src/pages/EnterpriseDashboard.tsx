@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,7 +19,6 @@ import {
   Trash2,
   X,
   CheckCircle,
-  History,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -34,10 +33,19 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { EnterpriseRegistrationForm } from "@/components/enterprise/EnterpriseRegistrationForm";
 import { InviteUserForm } from "@/components/enterprise/InviteUserForm";
-import { TimeRestrictionsSettings } from "@/components/enterprise/TimeRestrictionsSettings";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/utils";
+import { useAuth, safeGetItem } from "@/lib/utils";
 import EntrepriseSidebar from "@/components/enterprise/sidebar/EntrepriseSidebar";
+import { 
+  getCachedEnterprises, 
+  setCachedEnterprises, 
+  getCachedEnterpriseDetails, 
+  setCachedEnterpriseDetails,
+  getCachedUserHealthSettings,
+  setCachedUserHealthSettings,
+  getCachedUserHealthHistory,
+  setCachedUserHealthHistory
+} from "@/lib/enterpriseCache";
 import "./EnterpriseDashboard.css";
 
 const PERIOD_OPTIONS = ["December 2023", "November 2023", "October 2023", "Q3 2023", "FY 2023"];
@@ -60,6 +68,16 @@ export default function EnterpriseDashboard() {
   const { toast } = useToast();
   const { isAuthenticated, loading: authLoading, user, signOut } = useAuth();
 
+  // Get user ID for cache key
+  const userData = safeGetItem('user_data');
+  const userId = userData ? JSON.parse(userData)?.uid : undefined;
+
+  // Try to load from cache first for instant display
+  const cachedEnterprises = getCachedEnterprises(userId);
+  const cachedDetails = cachedEnterprises?.selectedEnterpriseId 
+    ? getCachedEnterpriseDetails(cachedEnterprises.selectedEnterpriseId, userId) 
+    : null;
+
   const handleSidebarSettings = () => {
     setActiveSidebarItem("settings");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -77,29 +95,34 @@ export default function EnterpriseDashboard() {
     }
   };
 
-  // Core state
-  const [enterprises, setEnterprises] = useState<any[]>([]);
-  const [selectedEnterprise, setSelectedEnterprise] = useState<any | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [invitations, setInvitations] = useState<any[]>([]);
+  // Core state - initialize with cached data
+  const [enterprises, setEnterprises] = useState<any[]>(cachedEnterprises?.enterprises || []);
+  const [selectedEnterprise, setSelectedEnterprise] = useState<any | null>(() => {
+    if (cachedEnterprises?.selectedEnterpriseId && cachedEnterprises?.enterprises) {
+      return cachedEnterprises.enterprises.find((e: any) => e.id === cachedEnterprises.selectedEnterpriseId) || null;
+    }
+    return cachedEnterprises?.enterprises?.[0] || null;
+  });
+  const [users, setUsers] = useState<any[]>(cachedDetails?.users || []);
+  const [invitations, setInvitations] = useState<any[]>(cachedDetails?.invitations || []);
   const [settingsHistory, setSettingsHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [statistics, setStatistics] = useState<any>(null);
+  const [statistics, setStatistics] = useState<any>(cachedDetails?.statistics || null);
   const [editingUserSettings, setEditingUserSettings] = useState<{
     userId: string;
     userName: string;
     userEmail: string;
   } | null>(null);
   const [userSettingsData, setUserSettingsData] = useState<any>(null);
-  const [loadingUserSettings, setLoadingUserSettings] = useState(false);
+  const [savingUserSettings, setSavingUserSettings] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
   const [isEditingHealthInfo, setIsEditingHealthInfo] = useState(false);
   const [userHealthHistory, setUserHealthHistory] = useState<any[]>([]);
-  const [loadingUserHistory, setLoadingUserHistory] = useState(false);
 
-  // UI state
-  const [isLoading, setIsLoading] = useState(true);
+  // UI state - start as false if we have cached data
+  const [isLoading, setIsLoading] = useState(!cachedEnterprises);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [showInviteUserForm, setShowInviteUserForm] = useState(false);
   const [inviteContextTeam, setInviteContextTeam] = useState<string | undefined>(undefined);
@@ -138,6 +161,11 @@ export default function EnterpriseDashboard() {
   // Fetch enterprises and permissions on auth ready
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
+      // If we have cached data, load fresh data in background
+      // If no cache, show loading state
+      if (!cachedEnterprises) {
+        setIsLoading(true);
+      }
       loadEnterprises();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,13 +174,28 @@ export default function EnterpriseDashboard() {
   // load enterprise details when selectedEnterprise changes
   useEffect(() => {
     if (selectedEnterprise?.id) {
-      loadEnterpriseDetails(selectedEnterprise.id);
+      // Check if we have cached details for this enterprise
+      const cached = getCachedEnterpriseDetails(selectedEnterprise.id, userId);
+      if (cached) {
+        // Show cached data immediately
+        setUsers(cached.users);
+        setInvitations(cached.invitations);
+        setStatistics(cached.statistics);
+        // Load fresh data in background
+        setIsLoadingDetails(false);
+        loadEnterpriseDetails(selectedEnterprise.id);
+      } else {
+        // No cache, show loading and fetch
+        setIsLoadingDetails(true);
+        loadEnterpriseDetails(selectedEnterprise.id);
+      }
     } else {
       setUsers([]);
       setInvitations([]);
       setSettingsHistory([]);
+      setStatistics(null);
     }
-  }, [selectedEnterprise]);
+  }, [selectedEnterprise, userId]);
 
   // Load settings history when activity tab is selected
   useEffect(() => {
@@ -196,7 +239,6 @@ export default function EnterpriseDashboard() {
   // --- API helpers ---
   async function loadEnterprises() {
     console.log('[DASHBOARD] Loading enterprises...');
-    setIsLoading(true);
     try {
       const res: any = await api.getMyEnterprises();
       console.log('[DASHBOARD] getMyEnterprises response:', res);
@@ -204,19 +246,41 @@ export default function EnterpriseDashboard() {
         const loaded = res.enterprises || [];
         console.log('[DASHBOARD] Loaded enterprises:', loaded);
         setEnterprises(loaded);
+        
+        // Cache the enterprises
+        setCachedEnterprises({
+          enterprises: loaded,
+          selectedEnterpriseId: selectedEnterprise?.id
+        }, userId);
+        
         // auto-select first if nothing selected
         setSelectedEnterprise((prev: any) => {
           const selected = (prev && loaded.find((e: any) => e.id === prev.id)) ? prev : (loaded[0] ?? null);
           console.log('[DASHBOARD] Selected enterprise:', selected);
+          
+          // Update cache with selected enterprise
+          if (selected) {
+            setCachedEnterprises({
+              enterprises: loaded,
+              selectedEnterpriseId: selected.id
+            }, userId);
+          }
+          
           return selected;
         });
       } else {
         console.error('[DASHBOARD] Failed to load enterprises:', res.message);
-        toast({ title: "Error", description: res.message || "Unable to fetch organizations", variant: "destructive" });
+        // Only show error if we don't have cached data
+        if (!cachedEnterprises) {
+          toast({ title: "Error", description: res.message || "Unable to fetch organizations", variant: "destructive" });
+        }
       }
     } catch (err: any) {
       console.error('[DASHBOARD] Error loading enterprises:', err);
-      toast({ title: "Error", description: err?.message || "Failed to load organizations", variant: "destructive" });
+      // Only show error if we don't have cached data
+      if (!cachedEnterprises) {
+        toast({ title: "Error", description: err?.message || "Failed to load organizations", variant: "destructive" });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -244,7 +308,6 @@ export default function EnterpriseDashboard() {
         
         // Check if new users were added (invitation accepted)
         const previousUserIds = new Set(users.map(u => u.user_id));
-        const newUserIds = new Set(newUsers.map((u: any) => u.user_id));
         const newlyAccepted = newUsers.filter((u: any) => !previousUserIds.has(u.user_id));
         
         if (newlyAccepted.length > 0 && users.length > 0) {
@@ -259,7 +322,10 @@ export default function EnterpriseDashboard() {
           console.error("Failed to fetch users:", r.error);
         }
       } else {
-        setUsers([]);
+        // Only clear if we don't have cached data
+        if (!cachedDetails) {
+          setUsers([]);
+        }
         console.error("Failed to fetch users (network):", uRes.reason);
       }
 
@@ -287,28 +353,58 @@ export default function EnterpriseDashboard() {
           console.error("Failed to fetch invitations:", r.error);
         }
       } else {
-        setInvitations([]);
+        // Only clear if we don't have cached data
+        if (!cachedDetails) {
+          setInvitations([]);
+        }
         console.error("Failed to fetch invitations (network):", iRes.reason);
       }
 
       // Handle statistics response
       if (sRes.status === "fulfilled") {
         const r: any = sRes.value;
-        setStatistics(r.success ? r.statistics : null);
+        const newStatistics = r.success ? r.statistics : null;
+        setStatistics(newStatistics);
         if (!r.success && r.error) {
           console.error("Failed to fetch statistics:", r.error);
         }
       } else {
-        setStatistics(null);
+        // Only clear if we don't have cached data
+        if (!cachedDetails) {
+          setStatistics(null);
+        }
         console.error("Failed to fetch statistics (network):", sRes.reason);
       }
+
+      // Cache the details after successful fetch
+      const finalUsers = uRes.status === "fulfilled" && (uRes.value as any).success 
+        ? ((uRes.value as any).users || []) 
+        : users;
+      const finalInvitations = iRes.status === "fulfilled" && (iRes.value as any).success 
+        ? ((iRes.value as any).invitations || []) 
+        : invitations;
+      const finalStatistics = sRes.status === "fulfilled" && (sRes.value as any).success 
+        ? ((sRes.value as any).statistics || null) 
+        : statistics;
+
+      setCachedEnterpriseDetails({
+        enterpriseId,
+        users: finalUsers,
+        invitations: finalInvitations,
+        statistics: finalStatistics
+      }, userId);
     } catch (err: any) {
       console.error("Failed to load enterprise details:", err);
-      toast({ 
-        title: "Unable to load organization details", 
-        description: "Please refresh the page or try again later.", 
-        variant: "destructive" 
-      });
+      // Only show error if we don't have cached data
+      if (!cachedDetails) {
+        toast({ 
+          title: "Unable to load organization details", 
+          description: "Please refresh the page or try again later.", 
+          variant: "destructive" 
+        });
+      }
+    } finally {
+      setIsLoadingDetails(false);
     }
   }
 
@@ -382,7 +478,13 @@ export default function EnterpriseDashboard() {
   async function loadUserHealthHistory(userId: string) {
     if (!selectedEnterprise?.id) return;
     
-    setLoadingUserHistory(true);
+    // Check for cached history first
+    const cachedHistory = getCachedUserHealthHistory(userId, selectedEnterprise.id, userId);
+    if (cachedHistory) {
+      setUserHealthHistory(cachedHistory.history);
+    }
+    
+    // Fetch fresh data in background
     try {
       // Get all history for the enterprise, then filter for this user
       const res: any = await api.getEnterpriseSettingsHistory(selectedEnterprise.id);
@@ -390,58 +492,94 @@ export default function EnterpriseDashboard() {
         const userHistory = (res.history || []).filter((h: any) => h.user_id === userId);
         setUserHealthHistory(userHistory);
         console.log('[USER_HISTORY] Loaded history for user:', userId, 'Records:', userHistory.length);
+        
+        // Cache the history
+        setCachedUserHealthHistory({
+          userId,
+          enterpriseId: selectedEnterprise.id,
+          history: userHistory
+        }, userId);
       } else {
-        setUserHealthHistory([]);
+        // Only clear if no cached data
+        if (!cachedHistory) {
+          setUserHealthHistory([]);
+        }
       }
     } catch (err: any) {
       console.error('[USER_HISTORY] Error loading user history:', err);
-      setUserHealthHistory([]);
-    } finally {
-      setLoadingUserHistory(false);
+      // Only clear if no cached data
+      if (!cachedHistory) {
+        setUserHealthHistory([]);
+      }
     }
   }
 
   async function handleEditUserSettings(userId: string, userEmail: string, firstName?: string, lastName?: string) {
     if (!selectedEnterprise?.id) return;
     
-    setLoadingUserSettings(true);
     setEditingUserSettings({
       userId,
       userName: firstName || lastName ? `${firstName || ''} ${lastName || ''}`.trim() : userEmail,
       userEmail
     });
     
+    // Check for cached settings first
+    const cachedSettings = getCachedUserHealthSettings(userId, selectedEnterprise.id, userId);
+    if (cachedSettings) {
+      setUserSettingsData(cachedSettings.settings);
+    }
+    
+    // Check for cached history
+    const cachedHistory = getCachedUserHealthHistory(userId, selectedEnterprise.id, userId);
+    if (cachedHistory) {
+      setUserHealthHistory(cachedHistory.history);
+    }
+    
+    // Fetch fresh data in background
     try {
       // Load user settings
       const result: any = await api.getEnterpriseUserSettings(selectedEnterprise.id, userId);
       if (result.success) {
-        setUserSettingsData(result.settings || {});
+        const settings = result.settings || {};
+        setUserSettingsData(settings);
+        
+        // Cache the settings
+        setCachedUserHealthSettings({
+          userId,
+          enterpriseId: selectedEnterprise.id,
+          settings
+        }, userId);
+        
         // Also load user's health history
         await loadUserHealthHistory(userId);
       } else {
+        // Only show error if no cached data
+        if (!cachedSettings) {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to load user settings",
+            variant: "destructive"
+          });
+          setEditingUserSettings(null);
+        }
+      }
+    } catch (err: any) {
+      // Only show error if no cached data
+      if (!cachedSettings) {
         toast({
           title: "Error",
-          description: result.error || "Failed to load user settings",
+          description: err?.message || "Failed to load user settings",
           variant: "destructive"
         });
         setEditingUserSettings(null);
       }
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err?.message || "Failed to load user settings",
-        variant: "destructive"
-      });
-      setEditingUserSettings(null);
-    } finally {
-      setLoadingUserSettings(false);
     }
   }
 
   async function handleSaveUserSettings() {
     if (!selectedEnterprise?.id || !editingUserSettings) return;
     
-    setLoadingUserSettings(true);
+    setSavingUserSettings(true);
     try {
       const result: any = await api.updateEnterpriseUserSettings(
         selectedEnterprise.id,
@@ -452,6 +590,13 @@ export default function EnterpriseDashboard() {
       if (result.success) {
         // Switch back to table view after saving
         setIsEditingHealthInfo(false);
+        
+        // Update cached settings
+        setCachedUserHealthSettings({
+          userId: editingUserSettings.userId,
+          enterpriseId: selectedEnterprise.id,
+          settings: userSettingsData
+        }, userId);
         
         toast({
           title: "Success",
@@ -479,11 +624,11 @@ export default function EnterpriseDashboard() {
         variant: "destructive"
       });
     } finally {
-      setLoadingUserSettings(false);
+      setSavingUserSettings(false);
     }
   }
 
-  async function handleDeleteUser(userRelationId: string, userName: string, userEmail: string) {
+  async function handleDeleteUser(userRelationId: string) {
     setDeleteUserId(userRelationId);
   }
 
@@ -531,7 +676,7 @@ export default function EnterpriseDashboard() {
       return;
     }
     
-    setLoadingUserSettings(true);
+    setSavingUserSettings(true);
     try {
       const result: any = await api.deleteEnterpriseUserSettings(
         selectedEnterprise.id,
@@ -545,6 +690,7 @@ export default function EnterpriseDashboard() {
         });
         setEditingUserSettings(null);
         setUserSettingsData(null);
+        setUserHealthHistory([]);
         // Refresh settings history
         if (selectedEnterprise.id) {
           loadSettingsHistory(selectedEnterprise.id);
@@ -563,7 +709,7 @@ export default function EnterpriseDashboard() {
         variant: "destructive"
       });
     } finally {
-      setLoadingUserSettings(false);
+      setSavingUserSettings(false);
     }
   }
 
@@ -713,8 +859,30 @@ export default function EnterpriseDashboard() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="px-6 py-8 lg:px-12">
+          {/* Loading State - Show skeleton while initial load */}
+          {isLoading && !cachedEnterprises && (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="h-6 w-32 bg-slate-200 rounded animate-pulse"></div>
+                <div className="h-10 w-64 bg-slate-200 rounded animate-pulse"></div>
+                <div className="h-4 w-96 bg-slate-200 rounded animate-pulse"></div>
+              </div>
+              <div className="grid gap-6 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex-1">
+                      <div className="h-4 w-24 bg-slate-200 rounded animate-pulse mb-2"></div>
+                      <div className="h-8 w-16 bg-slate-200 rounded animate-pulse"></div>
+                    </div>
+                    <div className="rounded-xl bg-slate-100 p-3 w-14 h-14 animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Header and Stats - Only show on Overview tab */}
-          {activeSidebarItem === "overview" && (
+          {activeSidebarItem === "overview" && !isLoading && (
             <>
           <header className="mb-10">
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">MealLens</p>
@@ -843,6 +1011,26 @@ export default function EnterpriseDashboard() {
                   <h3 className="text-lg font-semibold text-slate-900">No organization selected</h3>
                   <p className="mt-2 text-sm text-slate-500">Please select or create an organization to view members</p>
                 </div>
+              ) : isLoadingDetails && users.length === 0 ? (
+                <div className="py-24">
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="rounded-lg border border-slate-200 bg-white p-6 animate-pulse">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 space-y-3">
+                            <div className="h-5 w-48 bg-slate-200 rounded"></div>
+                            <div className="h-4 w-64 bg-slate-200 rounded"></div>
+                            <div className="h-6 w-24 bg-slate-200 rounded"></div>
+                          </div>
+                          <div className="flex gap-2">
+                            <div className="h-9 w-24 bg-slate-200 rounded"></div>
+                            <div className="h-9 w-9 bg-slate-200 rounded"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : users.length === 0 ? (
                 <div className="py-24 text-center">
                   <Users className="mx-auto mb-6 h-12 w-12 text-slate-300" />
@@ -920,7 +1108,7 @@ export default function EnterpriseDashboard() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleDeleteUser(user.id, userName, user.email)}
+                                    onClick={() => handleDeleteUser(user.id)}
                                     className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1283,11 +1471,7 @@ export default function EnterpriseDashboard() {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4 pt-6">
-                        {loadingUserSettings ? (
-                          <div className="flex items-center justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
-                          </div>
-                        ) : userSettingsData && !isEditingHealthInfo ? (
+                        {userSettingsData && !isEditingHealthInfo ? (
                           /* TABLE VIEW */
                           <div className="rounded-lg border">
                             <Table>
@@ -1511,7 +1695,7 @@ export default function EnterpriseDashboard() {
                               <Button
                                 variant="destructive"
                                 onClick={handleDeleteUserSettings}
-                                disabled={loadingUserSettings}
+                                disabled={savingUserSettings}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Settings
@@ -1527,16 +1711,16 @@ export default function EnterpriseDashboard() {
                                       setUserSettingsData(null);
                                     }
                                   }}
-                                  disabled={loadingUserSettings}
+                                  disabled={savingUserSettings}
                                 >
                                   Cancel
                                 </Button>
                                 <Button
                                   onClick={handleSaveUserSettings}
-                                  disabled={loadingUserSettings}
+                                  disabled={savingUserSettings}
                                 >
                                   <Edit className="h-4 w-4 mr-2" />
-                                  {loadingUserSettings ? 'Saving...' : 'Save Changes'}
+                                  {savingUserSettings ? 'Saving...' : 'Save Changes'}
                                 </Button>
                               </div>
                             </div>
@@ -1554,12 +1738,7 @@ export default function EnterpriseDashboard() {
                         <p className="text-sm text-slate-500 mt-1">View all changes made to this member's health profile</p>
                       </CardHeader>
                       <CardContent className="p-6">
-                        {loadingUserHistory ? (
-                          <div className="flex items-center justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-                            <p className="ml-3 text-slate-600">Loading history...</p>
-                          </div>
-                        ) : userHealthHistory.length === 0 ? (
+                        {userHealthHistory.length === 0 ? (
                           <div className="py-12 text-center">
                             <Settings className="mx-auto mb-4 h-12 w-12 text-slate-300" />
                             <h3 className="text-lg font-semibold text-slate-900">No history yet</h3>
@@ -1757,7 +1936,22 @@ export default function EnterpriseDashboard() {
                     Refresh Now
                   </Button>
                 </div>
-                {filteredInvitations.length === 0 ? (
+                {isLoadingDetails && filteredInvitations.length === 0 ? (
+                  <div className="mt-10 rounded-2xl border border-slate-200 bg-white p-12">
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-4 p-4 border-b border-slate-100">
+                          <div className="h-6 w-6 bg-slate-200 rounded animate-pulse"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-48 bg-slate-200 rounded animate-pulse"></div>
+                            <div className="h-3 w-32 bg-slate-200 rounded animate-pulse"></div>
+                          </div>
+                          <div className="h-6 w-20 bg-slate-200 rounded animate-pulse"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : filteredInvitations.length === 0 ? (
                   <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-12 text-center text-sm text-slate-500">
                     No invitations yet.
                   </div>
