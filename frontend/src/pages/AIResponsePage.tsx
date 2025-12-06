@@ -360,6 +360,9 @@ const AIResponsePage: FC = () => {
     setInstructions("")
     setResources(null)
 
+    // Generate analysis ID for this health meal
+    const analysisId = `health-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     try {
       const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions`, {
         method: "POST",
@@ -412,6 +415,48 @@ const AIResponsePage: FC = () => {
       })
       const resData = await resRes.json()
       setResources(resData)
+
+      // 3. Save to detection history with resources (IMPORTANT FIX!)
+      if (token && meal.ingredients_used.length && data.instructions && resData) {
+        console.log("[AIResponse] Saving health meal to history with resources");
+        const payload = {
+          recipe_type: "ingredient_detection",
+          suggestion: meal.food_suggestions[0] || "Health Meal",
+          instructions: data.instructions || "",
+          ingredients: JSON.stringify(meal.ingredients_used || []),
+          detected_foods: JSON.stringify(meal.ingredients_used || []),
+          analysis_id: analysisId,
+          youtube: resData?.YoutubeSearch?.[0]?.link || "",
+          google: resData?.GoogleSearch?.[0]?.link || "",
+          resources: JSON.stringify(resData || {})
+        };
+
+        try {
+          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (historyResponse.ok) {
+            console.log("[AIResponse] ✅ Successfully saved health meal to history");
+          } else {
+            console.error("[AIResponse] ❌ Failed to save health meal to history:", await historyResponse.text());
+          }
+        } catch (historyError) {
+          console.error("[AIResponse] ❌ Error saving health meal to history:", historyError);
+        }
+      } else {
+        console.warn("[AIResponse] ⚠️ Cannot save to history - missing data:", {
+          hasToken: !!token,
+          hasIngredients: meal.ingredients_used.length > 0,
+          hasInstructions: !!data.instructions,
+          hasResources: !!resData
+        });
+      }
 
     } catch (error) {
       console.error("Error fetching health meal instructions:", error)

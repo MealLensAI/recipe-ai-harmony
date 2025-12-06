@@ -8,6 +8,7 @@ import MealTypeFilter from '../components/MealTypeFilter';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CookingTutorialModal from '../components/CookingTutorialModal';
 import MealPlanManager from '../components/MealPlanManager';
+import MealPlanSkeleton from '../components/MealPlanSkeleton';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
@@ -71,6 +72,8 @@ const Index = () => {
     savedPlans,
     selectMealPlan,
     refreshMealPlans,
+    loading: mealPlansLoading,
+    initialized: mealPlansInitialized,
     error: mealPlansError
   } = useMealPlans(sicknessSettings.hasSickness); // Filter based on current health settings
   useEffect(() => {
@@ -472,6 +475,7 @@ const Index = () => {
           // Auto generate based on location and budget only
           formData.append('location', location);
           formData.append('budget', budget);
+          
           const response = await fetch(`${APP_CONFIG.api.ai_api_url}/auto_generate_plan`, {
             method: 'POST',
             body: formData,
@@ -620,51 +624,16 @@ const Index = () => {
         }
       } else {
         // Regular smart plan for healthy users
-        let response;
-        let data;
-        
-        try {
-          // Try external AI API first with timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-          
-          response = await fetch(`${APP_CONFIG.api.ai_api_url}/smart_plan`, {
-            method: 'POST',
-            body: formData,
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
+        const response = await fetch(`${APP_CONFIG.api.ai_api_url}/smart_plan`, {
+          method: 'POST',
+          body: formData,
+        });
 
-          if (!response.ok) {
-            throw new Error('Failed to generate meal plan');
-          }
-
-          data = await response.json();
-        } catch (aiError: any) {
-          // If external AI fails, use local mock endpoint
-          console.warn('External AI API failed, using local mock endpoint:', aiError);
-          
-          Swal.fire({
-            icon: 'info',
-            title: 'Using Demo Mode',
-            text: 'The AI service is temporarily unavailable. Generating a sample meal plan for demonstration.',
-            confirmButtonColor: '#f97316',
-            timer: 3000
-          });
-          
-          response = await fetch(`${APP_CONFIG.api.base_url}/smart_plan`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to generate meal plan from mock service');
-          }
-
-          data = await response.json();
+        if (!response.ok) {
+          throw new Error('Failed to generate meal plan');
         }
-        
+
+        const data = await response.json();
         console.log('[Index] Smart Plan Response:', data);
         console.log('[Index] Meal Plan Data:', data.meal_plan);
 
@@ -980,7 +949,10 @@ const Index = () => {
 
         {/* Main Content */}
         <div className="flex-1 order-0 lg:order-none">
-          {currentPlan ? (
+          {/* Show loading skeleton while fetching data (only if not initialized and loading) */}
+          {!mealPlansInitialized && mealPlansLoading && !currentPlan ? (
+            <MealPlanSkeleton />
+          ) : currentPlan ? (
             <React.Fragment>
               <div className="mb-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -1084,25 +1056,31 @@ const Index = () => {
               )}
             </React.Fragment>
           ) : (
-            <div className="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm border border-[#e2e8f0]">
-              <ChefHat className="w-16 h-16 text-[#e2e8f0] mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-[#2D3436] mb-2">No Meal Plan Selected</h3>
-              <p className="text-[#1e293b] mb-6">Create a new meal plan or select an existing one to get started!</p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={handleNewPlan}
-                  className="bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors w-full max-w-xs sm:w-auto"
-                >
-                  Create New Plan
-                </button>
-                <button
-                  onClick={() => setShowPlanManager(true)}
-                  className="bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors w-full max-w-xs sm:w-auto"
-                >
-                  View Saved Plans
-                </button>
+            // Only show empty state if we've finished loading and there's no plan
+            mealPlansInitialized && !mealPlansLoading ? (
+              <div className="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm border border-[#e2e8f0]">
+                <ChefHat className="w-16 h-16 text-[#e2e8f0] mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-[#2D3436] mb-2">No Meal Plan Selected</h3>
+                <p className="text-[#1e293b] mb-6">Create a new meal plan or select an existing one to get started!</p>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={handleNewPlan}
+                    className="bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors w-full max-w-xs sm:w-auto"
+                  >
+                    Create New Plan
+                  </button>
+                  <button
+                    onClick={() => setShowPlanManager(true)}
+                    className="bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors w-full max-w-xs sm:w-auto"
+                  >
+                    View Saved Plans
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              // Still loading - show skeleton
+              <MealPlanSkeleton />
+            )
           )}
         </div>
       </div>

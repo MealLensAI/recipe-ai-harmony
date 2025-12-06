@@ -123,13 +123,13 @@ const DetectFoodPage = () => {
           ingredients: JSON.stringify(data.food_detected || []),
           detected_foods: JSON.stringify(data.food_detected || []),
           analysis_id: data.analysis_id || "",
-          youtube: "",
-          google: "",
-          resources: "{}"
+          youtube_link: "",
+          google_link: "",
+          resources_link: "{}"
         };
 
         try {
-          await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
+          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -137,10 +137,22 @@ const DetectFoodPage = () => {
             },
             body: JSON.stringify(payload)
           });
-          console.log("[DetectFood] Saved to detection history");
+
+          if (historyResponse.ok) {
+            console.log("[DetectFood] ✅ Saved to detection history");
+          } else {
+            const errorText = await historyResponse.text();
+            console.error("[DetectFood] ❌ Failed to save to history:", errorText);
+          }
         } catch (historyError) {
-          console.error("[DetectFood] Error saving to history:", historyError);
+          console.error("[DetectFood] ❌ Error saving to history:", historyError);
         }
+      } else {
+        console.warn("[DetectFood] ⚠️ Cannot save to history - missing data:", {
+          hasToken: !!token,
+          hasFoodDetected: !!data.food_detected,
+          hasInstructions: !!data.instructions
+        });
       }
 
       // Fetch resources automatically when instructions are displayed

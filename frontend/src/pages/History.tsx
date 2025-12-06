@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Utensils, BookOpen, CalendarDays, Clock, Search, Play, Settings as SettingsIcon, Trash2 } from "lucide-react"
-import { useAuth } from "@/lib/utils"
+import { useAuth, safeGetItem, safeRemoveItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 
 interface SharedRecipe {
@@ -48,11 +49,106 @@ const getStatusText = (recipeType: string) => {
   }
 }
 
+// LocalStorage cache keys
+const HISTORY_CACHE_KEY = 'meallensai_history_cache'
+const HISTORY_CACHE_TIMESTAMP_KEY = 'meallensai_history_cache_timestamp'
+const SETTINGS_HISTORY_CACHE_KEY = 'meallensai_settings_history_cache'
+const SETTINGS_HISTORY_CACHE_TIMESTAMP_KEY = 'meallensai_settings_history_cache_timestamp'
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper functions for caching
+const getCachedHistory = (userId?: string): SharedRecipe[] | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    
+    const cacheKey = userId ? `${HISTORY_CACHE_KEY}_${userId}` : HISTORY_CACHE_KEY;
+    const timestampKey = userId ? `${HISTORY_CACHE_TIMESTAMP_KEY}_${userId}` : HISTORY_CACHE_TIMESTAMP_KEY;
+    
+    const cached = window.localStorage.getItem(cacheKey);
+    const timestamp = window.localStorage.getItem(timestampKey);
+    
+    if (!cached || !timestamp) return null;
+    
+    const cacheAge = Date.now() - parseInt(timestamp, 10);
+    if (cacheAge > CACHE_DURATION) {
+      safeRemoveItem(cacheKey);
+      safeRemoveItem(timestampKey);
+      return null;
+    }
+    
+    return JSON.parse(cached);
+  } catch (error) {
+    console.error('Error reading cached history:', error);
+    return null;
+  }
+};
+
+const setCachedHistory = (history: SharedRecipe[], userId?: string) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cacheKey = userId ? `${HISTORY_CACHE_KEY}_${userId}` : HISTORY_CACHE_KEY;
+      const timestampKey = userId ? `${HISTORY_CACHE_TIMESTAMP_KEY}_${userId}` : HISTORY_CACHE_TIMESTAMP_KEY;
+      window.localStorage.setItem(cacheKey, JSON.stringify(history));
+      window.localStorage.setItem(timestampKey, Date.now().toString());
+    }
+  } catch (error) {
+    console.error('Error caching history:', error);
+  }
+};
+
+const getCachedSettingsHistory = (userId?: string): any[] | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    
+    const cacheKey = userId ? `${SETTINGS_HISTORY_CACHE_KEY}_${userId}` : SETTINGS_HISTORY_CACHE_KEY;
+    const timestampKey = userId ? `${SETTINGS_HISTORY_CACHE_TIMESTAMP_KEY}_${userId}` : SETTINGS_HISTORY_CACHE_TIMESTAMP_KEY;
+    
+    const cached = window.localStorage.getItem(cacheKey);
+    const timestamp = window.localStorage.getItem(timestampKey);
+    
+    if (!cached || !timestamp) return null;
+    
+    const cacheAge = Date.now() - parseInt(timestamp, 10);
+    if (cacheAge > CACHE_DURATION) {
+      safeRemoveItem(cacheKey);
+      safeRemoveItem(timestampKey);
+      return null;
+    }
+    
+    return JSON.parse(cached);
+  } catch (error) {
+    console.error('Error reading cached settings history:', error);
+    return null;
+  }
+};
+
+const setCachedSettingsHistory = (settingsHistory: any[], userId?: string) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cacheKey = userId ? `${SETTINGS_HISTORY_CACHE_KEY}_${userId}` : SETTINGS_HISTORY_CACHE_KEY;
+      const timestampKey = userId ? `${SETTINGS_HISTORY_CACHE_TIMESTAMP_KEY}_${userId}` : SETTINGS_HISTORY_CACHE_TIMESTAMP_KEY;
+      window.localStorage.setItem(cacheKey, JSON.stringify(settingsHistory));
+      window.localStorage.setItem(timestampKey, Date.now().toString());
+    }
+  } catch (error) {
+    console.error('Error caching settings history:', error);
+  }
+};
+
 export function HistoryPage() {
   const navigate = useNavigate()
-  const [history, setHistory] = useState<SharedRecipe[]>([])
-  const [settingsHistory, setSettingsHistory] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  
+  // Get user ID for cache key
+  const userData = safeGetItem('user_data');
+  const userId = userData ? JSON.parse(userData)?.uid : undefined;
+  
+  // Try to load from cache first for instant display
+  const cachedHistory = getCachedHistory(userId);
+  const cachedSettingsHistory = getCachedSettingsHistory(userId);
+  
+  const [history, setHistory] = useState<SharedRecipe[]>(cachedHistory || [])
+  const [settingsHistory, setSettingsHistory] = useState<any[]>(cachedSettingsHistory || [])
+  const [isLoading, setIsLoading] = useState(false) // Start as false - don't block rendering
   const [isLoadingSettings, setIsLoadingSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -87,21 +183,18 @@ export function HistoryPage() {
 
   useEffect(() => {
     const fetchHistory = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      // Wait for auth to load
-      if (authLoading) {
+      // Don't block rendering - load in background
+      if (authLoading || !isAuthenticated) {
         return
       }
 
-      // Check authentication
-      if (!isAuthenticated) {
-        setError("Please log in to view your history.")
-        setIsLoading(false)
-        return
+      // If no cached data, show loading state
+      if (!cachedHistory) {
+        setIsLoading(true)
       }
 
+      // If we have cached data, update in background
+      // If no cache, still don't block but fetch immediately
       try {
         const result = await api.getDetectionHistory()
 
@@ -121,22 +214,29 @@ export function HistoryPage() {
           }
 
           setHistory(historyData)
+          // Cache the data
+          setCachedHistory(historyData, userId)
         } else {
           setError(result.message || 'Failed to load history.')
         }
       } catch (err) {
         console.error("Error fetching history:", err)
-        if (err instanceof APIError) {
-          setError(err.message)
-        } else {
-          setError("Failed to load history. Please try again later.")
+        // Don't show error if we have cached data
+        if (!cachedHistory) {
+          if (err instanceof APIError) {
+            setError(err.message)
+          } else {
+            setError("Failed to load history. Please try again later.")
+          }
         }
       } finally {
         setIsLoading(false)
       }
     }
-    fetchHistory()
-  }, [isAuthenticated, authLoading, api])
+    
+    // Load in background - don't block
+    fetchHistory().catch(console.error)
+  }, [isAuthenticated, authLoading, api, userId, cachedHistory])
 
   // Fetch settings history when tab is switched
   useEffect(() => {
@@ -145,21 +245,32 @@ export function HistoryPage() {
         return
       }
 
-      setIsLoadingSettings(true)
+      // If no cached data, show loading state
+      if (!cachedSettingsHistory) {
+        setIsLoadingSettings(true)
+      }
+
+      // If we have cached data, show it immediately and update in background
+      // If no cache, still don't block but fetch immediately
       try {
         const result = await api.getUserSettingsHistory('health_profile', 50)
         if ((result as any).status === 'success') {
-          setSettingsHistory((result as any).history || [])
+          const historyData = (result as any).history || []
+          setSettingsHistory(historyData)
+          // Cache the data
+          setCachedSettingsHistory(historyData, userId)
         }
       } catch (err) {
         console.error("Error fetching settings history:", err)
+        // Don't show error if we have cached data
       } finally {
         setIsLoadingSettings(false)
       }
     }
 
-    fetchSettingsHistory()
-  }, [activeTab, isAuthenticated, authLoading, api])
+    // Load in background - don't block
+    fetchSettingsHistory().catch(console.error)
+  }, [activeTab, isAuthenticated, authLoading, api, userId, cachedSettingsHistory])
 
   const handleDeleteHistory = async (recordId: string) => {
     if (!window.confirm('Are you sure you want to delete this settings history entry? This action cannot be undone.')) {
@@ -171,7 +282,12 @@ export function HistoryPage() {
       const result = await api.deleteSettingsHistory(recordId)
       if ((result as any).status === 'success') {
         // Remove the deleted record from the list
-        setSettingsHistory(prev => prev.filter(record => record.id !== recordId))
+        setSettingsHistory(prev => {
+          const updated = prev.filter(record => record.id !== recordId);
+          // Update cache
+          setCachedSettingsHistory(updated, userId);
+          return updated;
+        })
       } else {
         alert((result as any).message || 'Failed to delete history entry')
       }
@@ -199,34 +315,8 @@ export function HistoryPage() {
       suggestion.toLowerCase().includes(searchLower)
   })
 
-  // Show loading state while fetching
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">History</h1>
-                <p className="text-xs sm:text-sm text-gray-600 mt-1">View your detection and settings history</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Loading State */}
-        <div className="max-w-7xl mx-auto p-3 sm:p-6">
-          <div className="flex items-center justify-center py-12 min-h-[400px]">
-            <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-              <p className="text-gray-600">Loading history...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Don't block rendering - show content immediately with cached data
+  // Fresh data will load in background
 
   if (error) {
     return (
@@ -295,7 +385,22 @@ export function HistoryPage() {
 
           {/* Detections Tab */}
           <TabsContent value="detections">
-            {filteredHistory.length === 0 ? (
+            {isLoading && filteredHistory.length === 0 ? (
+              // Show skeleton while loading and no cached data
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardContent className="p-3 sm:p-6">
+                      <Skeleton className="h-6 w-3/4 mb-3" />
+                      <Skeleton className="h-4 w-1/2 mb-2" />
+                      <Skeleton className="h-4 w-2/3 mb-2" />
+                      <Skeleton className="h-4 w-1/3 mb-4" />
+                      <Skeleton className="h-6 w-24" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredHistory.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
                 <Utensils className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />
                 <p className="text-lg sm:text-xl font-semibold">No detection history yet.</p>
@@ -312,10 +417,21 @@ export function HistoryPage() {
 
           {/* Settings History Tab */}
           <TabsContent value="settings">
-            {isLoadingSettings ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-              </div>
+            {isLoadingSettings && settingsHistory.length === 0 ? (
+              // Show skeleton while loading and no cached data
+              <Card>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="border-b pb-4">
+                        <Skeleton className="h-4 w-32 mb-2" />
+                        <Skeleton className="h-4 w-48 mb-2" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             ) : settingsHistory.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-gray-500 text-center p-4 sm:p-8 min-h-[300px] sm:min-h-[400px]">
                 <SettingsIcon className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" aria-hidden="true" />

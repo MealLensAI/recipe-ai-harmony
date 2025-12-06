@@ -87,21 +87,8 @@ const TrialBlocker: React.FC<TrialBlockerProps> = ({ children }) => {
     }
   }, [isTrialExpired, hasActiveSubscription, isSubscriptionExpired, currentPath, canAccess, isLoading, allowedPaths]);
 
-  // Show loading spinner while determining subscription status
-  if (isLoading) {
-    return (
-      <>
-        <div className="fixed inset-0 bg-white bg-opacity-95 z-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#FF6B6B] mx-auto mb-4"></div>
-            <p className="text-gray-600 text-lg font-medium">Loading your subscription status...</p>
-            <p className="text-gray-500 text-sm mt-2">Please wait while we check your access</p>
-          </div>
-        </div>
-        {children}
-      </>
-    );
-  }
+  // Don't block rendering - show content immediately while checking subscription in background
+  // Subscription status will be checked asynchronously and modal will show if needed
 
   // If user can't access and is on a restricted page, show blocking overlay
   // Only show blocking if trial is actually expired (use frontend trial logic as primary source)

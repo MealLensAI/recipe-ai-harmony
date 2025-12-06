@@ -1,12 +1,66 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TrialService, TrialInfo, SubscriptionInfo } from '@/lib/trialService';
+import { safeGetItem, safeRemoveItem } from '@/lib/utils';
+
+// LocalStorage cache keys
+const TRIAL_CACHE_KEY = 'meallensai_trial_cache';
+const TRIAL_CACHE_TIMESTAMP_KEY = 'meallensai_trial_cache_timestamp';
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
+// Helper functions for caching
+const getCachedTrialData = (userId?: string): any | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    
+    const cacheKey = userId ? `${TRIAL_CACHE_KEY}_${userId}` : TRIAL_CACHE_KEY;
+    const timestampKey = userId ? `${TRIAL_CACHE_TIMESTAMP_KEY}_${userId}` : TRIAL_CACHE_TIMESTAMP_KEY;
+    
+    const cached = window.localStorage.getItem(cacheKey);
+    const timestamp = window.localStorage.getItem(timestampKey);
+    
+    if (!cached || !timestamp) return null;
+    
+    const cacheAge = Date.now() - parseInt(timestamp, 10);
+    if (cacheAge > CACHE_DURATION) {
+      // Cache expired
+      safeRemoveItem(cacheKey);
+      safeRemoveItem(timestampKey);
+      return null;
+    }
+    
+    return JSON.parse(cached);
+  } catch (error) {
+    console.error('Error reading cached trial data:', error);
+    return null;
+  }
+};
+
+const setCachedTrialData = (data: any, userId?: string) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cacheKey = userId ? `${TRIAL_CACHE_KEY}_${userId}` : TRIAL_CACHE_KEY;
+      const timestampKey = userId ? `${TRIAL_CACHE_TIMESTAMP_KEY}_${userId}` : TRIAL_CACHE_TIMESTAMP_KEY;
+      window.localStorage.setItem(cacheKey, JSON.stringify(data));
+      window.localStorage.setItem(timestampKey, Date.now().toString());
+    }
+  } catch (error) {
+    console.error('Error caching trial data:', error);
+  }
+};
 
 export const useTrial = () => {
-  const [trialInfo, setTrialInfo] = useState<TrialInfo | null>(null);
-  const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
-  const [hasEverHadSubscription, setHasEverHadSubscription] = useState<boolean>(false);
-  const [canAccess, setCanAccess] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  // Get user ID for cache key
+  const userData = safeGetItem('user_data');
+  const userId = userData ? JSON.parse(userData)?.uid : undefined;
+  
+  // Try to load from cache first for instant display
+  const cachedData = getCachedTrialData(userId);
+  
+  const [trialInfo, setTrialInfo] = useState<TrialInfo | null>(cachedData?.trialInfo || null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(cachedData?.subscriptionInfo || null);
+  const [hasEverHadSubscription, setHasEverHadSubscription] = useState<boolean>(cachedData?.hasEverHadSubscription || false);
+  const [canAccess, setCanAccess] = useState(cachedData?.canAccess ?? true); // Optimistic default
+  const [isLoading, setIsLoading] = useState(false); // Start as false - don't block rendering
 
   const updateTrialInfo = useCallback(async () => {
     try {
@@ -51,6 +105,14 @@ export const useTrial = () => {
       setHasEverHadSubscription(hasEverPaid);
       setCanAccess(hasAccess);
       setIsLoading(false);
+      
+      // Cache the data for instant access next time
+      setCachedTrialData({
+        trialInfo: info,
+        subscriptionInfo: subInfo,
+        hasEverHadSubscription: hasEverPaid,
+        canAccess: hasAccess
+      }, userId);
     } catch (error) {
       console.error('Error updating trial info:', error);
       // On error, set loading to false immediately
@@ -62,17 +124,17 @@ export const useTrial = () => {
   }, []);
 
   useEffect(() => {
-    // Initialize trial for new users
+    // Initialize trial for new users (non-blocking)
     TrialService.initializeTrial();
 
-    // Set loading to true before initial update
-    setIsLoading(true);
+    // Load subscription status in background - don't block rendering
+    // Always update in background (cached data already loaded in state)
+    updateTrialInfo().catch(console.error);
 
-    // Initial update
-    updateTrialInfo();
-
-    // Update every minute
-    const interval = setInterval(updateTrialInfo, 60000);
+    // Update every 2 minutes (less frequent to reduce load)
+    const interval = setInterval(() => {
+      updateTrialInfo().catch(console.error);
+    }, 120000);
 
     return () => clearInterval(interval);
   }, [updateTrialInfo]);

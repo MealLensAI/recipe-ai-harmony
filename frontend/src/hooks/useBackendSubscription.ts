@@ -11,12 +11,13 @@ export interface BackendSubscriptionInfo {
 }
 
 export const useBackendSubscription = () => {
+    // Start with optimistic defaults - assume access until proven otherwise
     const [subscriptionInfo, setSubscriptionInfo] = useState<BackendSubscriptionInfo>({
         hasActiveSubscription: false,
-        canAccessApp: false,
+        canAccessApp: true, // Optimistic default - assume access
         subscription: null,
         trial: null,
-        isLoading: true,
+        isLoading: false, // Start as false - don't block rendering
         error: null
     });
 
@@ -138,11 +139,13 @@ export const useBackendSubscription = () => {
     }, [subscriptionInfo]);
 
     useEffect(() => {
-        // Initial fetch
-        fetchSubscriptionStatus();
+        // Load subscription status in background - don't block rendering
+        fetchSubscriptionStatus().catch(console.error);
 
         // Set up periodic refresh every 5 minutes
-        const interval = setInterval(fetchSubscriptionStatus, 5 * 60 * 1000);
+        const interval = setInterval(() => {
+            fetchSubscriptionStatus().catch(console.error);
+        }, 5 * 60 * 1000);
 
         return () => clearInterval(interval);
     }, [fetchSubscriptionStatus]);

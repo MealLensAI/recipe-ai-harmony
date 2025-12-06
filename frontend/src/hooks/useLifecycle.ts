@@ -5,13 +5,11 @@ export const useLifecycle = () => {
     const [lifecycleInfo, setLifecycleInfo] = useState<UserLifecycleInfo | null>(null);
     const [userStateDisplay, setUserStateDisplay] = useState<UserStateDisplay | null>(null);
     const [canAccess, setCanAccess] = useState(true);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false); // Start as false - don't block rendering
 
     const updateLifecycleInfo = useCallback(async () => {
         try {
-            // Add a delay to ensure smooth loading experience
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
+            // Removed artificial delay - load immediately for faster app
             console.log('🔄 Starting lifecycle status update...');
 
             // Get lifecycle info from backend
@@ -45,14 +43,13 @@ export const useLifecycle = () => {
     }, []);
 
     useEffect(() => {
-        // Set loading to true before initial update
-        setIsLoading(true);
+        // Load lifecycle info in background - don't block rendering
+        updateLifecycleInfo().catch(console.error);
 
-        // Initial update
-        updateLifecycleInfo();
-
-        // Update every minute
-        const interval = setInterval(updateLifecycleInfo, 60000);
+        // Update every 2 minutes (less frequent to reduce load)
+        const interval = setInterval(() => {
+            updateLifecycleInfo().catch(console.error);
+        }, 120000);
 
         return () => clearInterval(interval);
     }, [updateLifecycleInfo]);

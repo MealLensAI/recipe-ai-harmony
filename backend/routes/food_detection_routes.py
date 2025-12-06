@@ -18,9 +18,13 @@ class DetectionHistorySchema(Schema):
     ingredients = fields.Str(required=False, allow_none=True, load_default="")
     detected_foods = fields.Str(required=False, allow_none=True, load_default="")
     analysis_id = fields.Str(required=False, allow_none=True, load_default="")
+    # Support both legacy and new field names for compatibility
     youtube = fields.Str(required=False, allow_none=True, load_default="")
+    youtube_link = fields.Str(required=False, allow_none=True, load_default="")
     google = fields.Str(required=False, allow_none=True, load_default="")
+    google_link = fields.Str(required=False, allow_none=True, load_default="")
     resources = fields.Str(required=False, allow_none=True, load_default="")
+    resources_link = fields.Str(required=False, allow_none=True, load_default="")
 
 @food_detection_bp.route('/process', methods=['POST'])
 def process_food_input():
@@ -345,17 +349,22 @@ def create_detection_history():
     if isinstance(validated.get('ingredients'), list):
         validated['ingredients'] = json.dumps(validated['ingredients'])
 
+    # Support both legacy and new field names for backwards compatibility
+    youtube_url = validated.get('youtube_link') or validated.get('youtube') or ''
+    google_url = validated.get('google_link') or validated.get('google') or ''
+    resources_json = validated.get('resources_link') or validated.get('resources') or ''
+
     print("Payload being passed to save_detection_history:", {
         'user_id': user_id,
         'recipe_type': validated.get('recipe_type'),
         'suggestion': validated.get('suggestion'),
-        'instructions': validated.get('instructions'),
-        'ingredients': validated.get('ingredients'),
-        'detected_foods': validated.get('detected_foods'),
+        'has_instructions': bool(validated.get('instructions')),
+        'has_ingredients': bool(validated.get('ingredients')),
+        'has_detected_foods': bool(validated.get('detected_foods')),
         'analysis_id': validated.get('analysis_id'),
-        'youtube': validated.get('youtube'),
-        'google': validated.get('google'),
-        'resources': validated.get('resources')
+        'has_youtube': bool(youtube_url),
+        'has_google': bool(google_url),
+        'has_resources': bool(resources_json and resources_json != '{}')
     })
 
     # Insert all validated fields, including shared_recipes fields
@@ -367,9 +376,9 @@ def create_detection_history():
         ingredients=validated.get('ingredients'),
         detected_foods=validated.get('detected_foods'),
         analysis_id=validated.get('analysis_id'),
-        youtube=validated.get('youtube'),
-        google=validated.get('google'),
-        resources=validated.get('resources')
+        youtube_url=youtube_url,
+        google_url=google_url,
+        resources_json=resources_json
     )
     if not success:
         print(f"[ERROR] Failed to save detection history: {error}")

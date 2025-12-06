@@ -55,14 +55,8 @@ const SubscriptionBlocker: React.FC<SubscriptionBlockerProps> = ({ children }) =
         }
     }, [isSubscriptionExpired, hasActiveSubscription, currentPath]);
 
-    // Show loading state while checking subscription
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B]"></div>
-            </div>
-        );
-    }
+    // Don't block rendering - show content immediately while checking subscription in background
+    // Subscription status will be checked asynchronously and modal will show if needed
 
     // If user has subscription but it's expired and is on a restricted page, show blocking overlay
     if (hasActiveSubscription && isSubscriptionExpired() && !allowedPaths.includes(currentPath)) {

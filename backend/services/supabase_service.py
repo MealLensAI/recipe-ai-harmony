@@ -158,8 +158,19 @@ class SupabaseService:
 
     def save_detection_history(self, user_id: str, recipe_type: str, suggestion: str = None,
                               instructions: str = None, ingredients: str = None, detected_foods: str = None,
-                              analysis_id: str = None, youtube: str = None, google: str = None, resources: str = None
+                              analysis_id: str = None, youtube_url: str = None, google_url: str = None, 
+                              resources_json: str = None, **kwargs
                             ) -> tuple[bool, str | None]:
+        """
+        Save detection history to the database.
+        Supports both new field names (youtube_url, google_url, resources_json) 
+        and legacy names (youtube, google, resources) for backwards compatibility.
+        """
+        # Support legacy field names
+        youtube_url = youtube_url or kwargs.get('youtube')
+        google_url = google_url or kwargs.get('google')
+        resources_json = resources_json or kwargs.get('resources')
+        
         try:
             # First try RPC function
             try:
@@ -171,9 +182,9 @@ class SupabaseService:
                     'p_ingredients': ingredients,
                     'p_detected_foods': detected_foods,
                     'p_analysis_id': analysis_id,
-                    'p_youtube': youtube,
-                    'p_google': google,
-                    'p_resources': resources
+                    'p_youtube_link': youtube_url,
+                    'p_google_link': google_url,
+                    'p_resources_link': resources_json
                 }
                 insert_data = {k: v for k, v in insert_data.items() if v is not None}
                 result = self.supabase.rpc('add_detection_history', insert_data).execute()
@@ -208,12 +219,14 @@ class SupabaseService:
                 direct_insert['detected_foods'] = detected_foods
             if analysis_id:
                 direct_insert['analysis_id'] = analysis_id
-            if youtube:
-                direct_insert['youtube'] = youtube
-            if google:
-                direct_insert['google'] = google
-            if resources:
-                direct_insert['resources'] = resources
+            if youtube_url:
+                direct_insert['youtube_link'] = youtube_url
+            if google_url:
+                direct_insert['google_link'] = google_url
+            if resources_json:
+                direct_insert['resources_link'] = resources_json
+            
+            print(f"📝 Direct insert data: user_id={user_id}, recipe_type={recipe_type}, has_youtube={bool(youtube_url)}, has_google={bool(google_url)}, has_resources={bool(resources_json)}")
             
             result = self.supabase.table('detection_history').insert(direct_insert).execute()
             

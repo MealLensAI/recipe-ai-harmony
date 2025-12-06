@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { APP_CONFIG } from '@/lib/config';
-import { safeGetItem, useAuth } from '@/lib/utils';
+import { safeGetItem, safeRemoveItem, useAuth } from '@/lib/utils';
 
 export interface MealPlan {
   day: string;
@@ -61,13 +61,93 @@ export interface SavedMealPlan {
   sicknessType?: string; // Type of sickness when plan was created
 }
 
+// LocalStorage cache key (user-specific)
+const getCacheKeys = (userId?: string) => {
+  const userSuffix = userId ? `_${userId}` : '';
+  return {
+    plans: `meallensai_meal_plans_cache${userSuffix}`,
+    timestamp: `meallensai_meal_plans_cache_timestamp${userSuffix}`
+  };
+};
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper functions for caching
+const getCachedPlans = (userId?: string): SavedMealPlan[] | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    
+    const keys = getCacheKeys(userId);
+    const cached = window.localStorage.getItem(keys.plans);
+    const timestamp = window.localStorage.getItem(keys.timestamp);
+    
+    if (!cached || !timestamp) return null;
+    
+    const cacheAge = Date.now() - parseInt(timestamp, 10);
+    if (cacheAge > CACHE_DURATION) {
+      // Cache expired
+      safeRemoveItem(keys.plans);
+      safeRemoveItem(keys.timestamp);
+      return null;
+    }
+    
+    return JSON.parse(cached);
+  } catch (error) {
+    console.error('Error reading cached meal plans:', error);
+    return null;
+  }
+};
+
+const setCachedPlans = (plans: SavedMealPlan[], userId?: string) => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const keys = getCacheKeys(userId);
+      window.localStorage.setItem(keys.plans, JSON.stringify(plans));
+      window.localStorage.setItem(keys.timestamp, Date.now().toString());
+    }
+  } catch (error) {
+    console.error('Error caching meal plans:', error);
+  }
+};
+
+const clearCachedPlans = (userId?: string) => {
+  try {
+    const keys = getCacheKeys(userId);
+    safeRemoveItem(keys.plans);
+    safeRemoveItem(keys.timestamp);
+  } catch (error) {
+    console.error('Error clearing cached meal plans:', error);
+  }
+};
+
 export const useMealPlans = (filterBySickness?: boolean) => {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [savedPlans, setSavedPlans] = useState<SavedMealPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<SavedMealPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get user ID for cache key
+  const userId = user?.uid || (safeGetItem('user_data') ? JSON.parse(safeGetItem('user_data') || '{}')?.uid : undefined);
+
+  // Load cached data immediately on mount (before auth check)
+  useEffect(() => {
+    // Try to load from cache first for instant display
+    const cachedPlans = getCachedPlans(userId);
+    if (cachedPlans && cachedPlans.length > 0) {
+      // Filter cached plans if needed
+      let filteredCached = cachedPlans;
+      if (filterBySickness !== undefined) {
+        filteredCached = cachedPlans.filter((plan: SavedMealPlan) => plan.hasSickness === filterBySickness);
+      }
+      setSavedPlans(filteredCached);
+      if (filteredCached.length > 0) {
+        setCurrentPlan(filteredCached[0]);
+      }
+      console.log('✅ Loaded meal plans from cache:', filteredCached.length);
+    }
+  }, [userId]); // Run when userId changes
 
   // Fetch all meal plans from backend API on mount
   // BUT ONLY when authentication is ready!
@@ -75,8 +155,12 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     // Don't fetch if not authenticated or auth still loading
     if (!isAuthenticated || authLoading) {
       console.log('⏸️ useMealPlans: Skipping fetch (not authenticated or auth loading)');
-      setSavedPlans([]);
-      setCurrentPlan(null);
+      // Don't clear cached data if auth is still loading
+      if (!isAuthenticated) {
+        setSavedPlans([]);
+        setCurrentPlan(null);
+        clearCachedPlans(userId);
+      }
       setInitialized(false);
       setLoading(false);
       setError(null);
@@ -86,7 +170,7 @@ export const useMealPlans = (filterBySickness?: boolean) => {
     const fetchPlans = async () => {
       setLoading(true);
       setError(null);
-      setInitialized(false);
+      // Don't set initialized to false here - keep showing cached data
       try {
         console.log('🔍 useMealPlans: Fetching meal plans');
         const token = safeGetItem('access_token');
@@ -157,21 +241,25 @@ export const useMealPlans = (filterBySickness?: boolean) => {
             });
           }
 
+          // Cache the plans
+          setCachedPlans(plans, userId);
+          
           setSavedPlans(filteredPlans);
           if (filteredPlans.length > 0) setCurrentPlan(filteredPlans[0]);
         } else {
           console.error('Error fetching meal plans:', result.message);
           setSavedPlans([]);
           setCurrentPlan(null);
+          clearCachedPlans(userId);
         }
       } catch (error) {
         console.error('Error fetching meal plans:', error);
-        setSavedPlans([]);
-        setCurrentPlan(null);
+        // Don't clear cached data on error - keep showing it
         setError(error instanceof Error ? error.message : 'Failed to load meal plans');
+      } finally {
+        setLoading(false);
+        setInitialized(true);
       }
-      setLoading(false);
-      setInitialized(true);
     };
     fetchPlans();
   }, [filterBySickness, isAuthenticated, authLoading]);
@@ -252,7 +340,12 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           hasSickness: sicknessSettings?.hasSickness || false,
           sicknessType: sicknessSettings?.sicknessType || ''
         };
-        setSavedPlans(prev => [newPlan, ...prev]);
+          setSavedPlans(prev => {
+            const updated = [newPlan, ...prev];
+            // Update cache
+            setCachedPlans(updated, userId);
+            return updated;
+          });
         setCurrentPlan(newPlan);
         return newPlan;
       } else {
@@ -295,11 +388,16 @@ export const useMealPlans = (filterBySickness?: boolean) => {
 
       if (result.status === 'success') {
         // Update local state
-        setSavedPlans(prev => prev.map(plan => plan.id === id ? {
-          ...plan,
-          mealPlan: mealPlan,
-          updatedAt: now.toISOString(),
-        } : plan));
+        setSavedPlans(prev => {
+          const updated = prev.map(plan => plan.id === id ? {
+            ...plan,
+            mealPlan: mealPlan,
+            updatedAt: now.toISOString(),
+          } : plan);
+          // Update cache
+          setCachedPlans(updated, userId);
+          return updated;
+        });
         setCurrentPlan(prev => prev?.id === id ? {
           ...prev,
           mealPlan: mealPlan,
@@ -342,6 +440,8 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         setSavedPlans(prev => {
           const remainingPlans = prev.filter(plan => plan.id !== id);
           setCurrentPlan(remainingPlans.length > 0 ? remainingPlans[0] : null);
+          // Update cache
+          setCachedPlans(remainingPlans, userId);
           return remainingPlans;
         });
       } else {
@@ -420,7 +520,12 @@ export const useMealPlans = (filterBySickness?: boolean) => {
         hasSickness: originalPlan.hasSickness || false,
         sicknessType: originalPlan.sicknessType || ''
       };
-      setSavedPlans(prev => [duplicatedPlan, ...prev]);
+      setSavedPlans(prev => {
+        const updated = [duplicatedPlan, ...prev];
+        // Update cache
+        setCachedPlans(updated, userId);
+        return updated;
+      });
       setCurrentPlan(duplicatedPlan);
       return duplicatedPlan;
     } else {
@@ -508,6 +613,9 @@ export const useMealPlans = (filterBySickness?: boolean) => {
           });
         }
 
+        // Update cache
+        setCachedPlans(plans, userId);
+        
         setSavedPlans(filteredPlans);
         setCurrentPlan(filteredPlans.length > 0 ? filteredPlans[0] : null);
       } else {
