@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Utensils, BookOpen } from "lucide-react"
-import { useAuth } from "@/lib/utils"
+import { useAuth, safeGetItem } from "@/lib/utils"
 import { useAPI } from "@/lib/api"
 
 interface HistoryDetail {
@@ -24,15 +24,73 @@ interface HistoryDetail {
   google?: string
 }
 
+// Helper to get cached history
+const getCachedHistory = (userId?: string): any[] | null => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    
+    const cacheKey = userId ? `meallensai_history_cache_${userId}` : 'meallensai_history_cache';
+    const timestampKey = userId ? `meallensai_history_cache_timestamp_${userId}` : 'meallensai_history_cache_timestamp';
+    
+    const cached = window.localStorage.getItem(cacheKey);
+    const timestamp = window.localStorage.getItem(timestampKey);
+    
+    if (!cached || !timestamp) return null;
+    
+    const cacheAge = Date.now() - parseInt(timestamp, 10);
+    if (cacheAge > 5 * 60 * 1000) { // 5 minutes
+      return null;
+    }
+    
+    return JSON.parse(cached);
+  } catch (error) {
+    return null;
+  }
+};
+
 const HistoryDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [historyDetail, setHistoryDetail] = useState<HistoryDetail | null>(null)
+  
+  // Get user ID for cache
+  const userData = safeGetItem('user_data');
+  const userId = userData ? JSON.parse(userData)?.uid : undefined;
+  
+  // Try to find item in cache immediately
+  const cachedHistory = getCachedHistory(userId);
+  const cachedItem = cachedHistory?.find((item: any) => item.id === id);
+  
+  const [historyDetail, setHistoryDetail] = useState<HistoryDetail | null>(cachedItem ? (() => {
+    // Normalize cached item
+    return {
+      ...cachedItem,
+      youtube_link: cachedItem.youtube_link || cachedItem.youtube || undefined,
+      google_link: cachedItem.google_link || cachedItem.google || undefined,
+      resources_link: cachedItem.resources_link || cachedItem.resources || undefined
+    };
+  })() : null)
   const [resources, setResources] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false) // Start as false - show cached data immediately
   const [error, setError] = useState<string | null>(null)
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
+  
+  // Parse resources from cached item immediately
+  useEffect(() => {
+    if (cachedItem && historyDetail) {
+      try {
+        if (historyDetail.resources_link && typeof historyDetail.resources_link === 'string' && historyDetail.resources_link.trim() !== '{}' && historyDetail.resources_link.trim() !== '') {
+          const parsed = JSON.parse(historyDetail.resources_link);
+          setResources(parsed);
+        } else if (historyDetail.resources && typeof historyDetail.resources === 'string' && historyDetail.resources.trim() !== '{}' && historyDetail.resources.trim() !== '') {
+          const parsed = JSON.parse(historyDetail.resources);
+          setResources(parsed);
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }, [cachedItem, historyDetail])
 
   // Reuse the Detect Food page formatting for instructions
   const formatInstructionsForDisplay = (raw: string) => {
@@ -53,15 +111,19 @@ const HistoryDetailPage = () => {
     const fetchHistoryDetail = async () => {
       if (!id) {
         setError("No history ID provided")
-        setIsLoading(false)
         return
       }
 
-      setIsLoading(true)
-      setError(null)
+      // If we have cached data, update in background
+      // If no cache, fetch immediately but don't block
+      if (cachedItem) {
+        // Update in background
+        fetchHistoryDetailBackground().catch(console.error);
+        return;
+      }
 
+      // No cache - fetch but don't block
       try {
-        // Get all history and find the specific entry
         const result = await api.getDetectionHistory()
 
         if (result.status === 'success') {
@@ -80,19 +142,7 @@ const HistoryDetailPage = () => {
           const raw = historyData.find((item: any) => item.id === id)
 
           if (raw) {
-            console.log('[HistoryDetail] Found history entry:', {
-              id: raw.id,
-              recipe_type: raw.recipe_type,
-              has_resources_link: !!raw.resources_link,
-              has_resources: !!raw.resources,
-              has_youtube_link: !!raw.youtube_link,
-              has_google_link: !!raw.google_link,
-              has_youtube: !!raw.youtube,
-              has_google: !!raw.google,
-              analysis_id: raw.analysis_id
-            });
-
-            // Normalize field names: map legacy youtube/google/resources -> *_link
+            // Normalize field names
             const detail: HistoryDetail = {
               ...raw,
               youtube_link: raw.youtube_link || raw.youtube || undefined,
@@ -100,61 +150,79 @@ const HistoryDetailPage = () => {
               resources_link: raw.resources_link || raw.resources || undefined
             }
             setHistoryDetail(detail)
-            // Parse resources JSON if present
+            
+            // Parse resources
             try {
               if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
-                const parsed = JSON.parse(detail.resources_link)
-                console.log('[HistoryDetail] ✅ Parsed resources from resources_link:', {
-                  hasYoutube: !!parsed?.YoutubeSearch,
-                  youtubeCount: parsed?.YoutubeSearch?.length || 0,
-                  hasGoogle: !!parsed?.GoogleSearch,
-                  googleCount: parsed?.GoogleSearch?.length || 0
-                })
-                setResources(parsed)
+                setResources(JSON.parse(detail.resources_link))
               } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
-                // Try parsing resources field as well (legacy)
-                const parsed = JSON.parse(detail.resources)
-                console.log('[HistoryDetail] ✅ Parsed resources from legacy resources field:', {
-                  hasYoutube: !!parsed?.YoutubeSearch,
-                  youtubeCount: parsed?.YoutubeSearch?.length || 0,
-                  hasGoogle: !!parsed?.GoogleSearch,
-                  googleCount: parsed?.GoogleSearch?.length || 0
-                })
-                setResources(parsed)
-              } else {
-                console.log('[HistoryDetail] ⚠️ No valid resources_link found. Available fields:', {
-                  resources_link: detail.resources_link,
-                  resources: detail.resources,
-                  youtube_link: detail.youtube_link,
-                  google_link: detail.google_link
-                })
-                setResources(null)
+                setResources(JSON.parse(detail.resources))
               }
-            } catch (parseError) {
-              console.error('[HistoryDetail] ❌ Error parsing resources:', parseError, {
-                resources_link: detail.resources_link,
-                resources: detail.resources
-              })
-              setResources(null)
+            } catch (e) {
+              // Ignore parse errors
             }
           } else {
             setError("History entry not found")
           }
-        } else {
-          setError(result.message || 'Failed to load history detail.')
         }
       } catch (err) {
         console.error("Error fetching history detail:", err)
-        setError("Failed to load history detail. Please try again later.")
-      } finally {
-        setIsLoading(false)
+        // Only show error if we don't have cached data
+        if (!cachedItem) {
+          setError("Failed to load history detail. Please try again later.")
+        }
+      }
+    }
+
+    const fetchHistoryDetailBackground = async () => {
+      // Background update - silent refresh
+      try {
+        const result = await api.getDetectionHistory()
+        if (result.status === 'success') {
+          let historyData = []
+          const resultAny = result as any
+          if (resultAny.detection_history) {
+            historyData = resultAny.detection_history
+          } else if (resultAny.data?.detection_history) {
+            historyData = resultAny.data.detection_history
+          } else if (Array.isArray(resultAny.data)) {
+            historyData = resultAny.data
+          } else if (resultAny.data) {
+            historyData = [resultAny.data]
+          }
+
+          const raw = historyData.find((item: any) => item.id === id)
+          if (raw) {
+            const detail: HistoryDetail = {
+              ...raw,
+              youtube_link: raw.youtube_link || raw.youtube || undefined,
+              google_link: raw.google_link || raw.google || undefined,
+              resources_link: raw.resources_link || raw.resources || undefined
+            }
+            setHistoryDetail(detail)
+            
+            // Parse resources
+            try {
+              if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
+                setResources(JSON.parse(detail.resources_link))
+              } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
+                setResources(JSON.parse(detail.resources))
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }
+        }
+      } catch (err) {
+        // Silent fail - we have cached data
+        console.error("Background update failed:", err)
       }
     }
 
     if (!authLoading && isAuthenticated) {
-      fetchHistoryDetail()
+      fetchHistoryDetail().catch(console.error)
     }
-  }, [id, isAuthenticated, authLoading, api])
+  }, [id, isAuthenticated, authLoading, api, cachedItem])
 
   const getYouTubeVideoId = (url: string) => {
     if (!url) return null
@@ -163,22 +231,8 @@ const HistoryDetailPage = () => {
     return (match && match[2] && match[2].length === 11) ? match[2] : null
   }
 
-  // Show loading state while fetching
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
-            <Utensils className="h-8 w-8 text-white" />
-          </div>
-          <div className="space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-            <p className="text-gray-600">Loading history entry...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Don't block rendering - show cached data immediately
+  // Only show error if we don't have cached data and there's an error
 
   if (!isAuthenticated && !authLoading) {
     return (
@@ -229,8 +283,29 @@ const HistoryDetailPage = () => {
     )
   }
 
-  // Don't render content if still loading or no data
-  if (isLoading || !historyDetail) {
+  // Don't render content if no data (even cached)
+  if (!historyDetail) {
+    if (error) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
+            <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
+              <Utensils className="h-8 w-8 text-white" />
+            </div>
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-gray-800">History Entry Not Found</h2>
+              <p className="text-gray-600">{error}</p>
+              <Button
+                onClick={() => navigate('/history')}
+                className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
+              >
+                Back to History
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
     return null
   }
 

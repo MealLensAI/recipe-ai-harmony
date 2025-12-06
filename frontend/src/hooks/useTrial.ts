@@ -106,9 +106,14 @@ export const useTrial = () => {
       setCanAccess(hasAccess);
       setIsLoading(false);
       
-      // Cache the data for instant access next time
+      // Cache the data for instant access next time (include calculated time)
       setCachedTrialData({
-        trialInfo: info,
+        trialInfo: info ? {
+          ...info,
+          // Calculate remaining time synchronously
+          remainingHours: info.remainingHours || Math.floor((info.remainingTime || 0) / (1000 * 60 * 60)),
+          remainingMinutes: info.remainingMinutes || Math.floor(((info.remainingTime || 0) % (1000 * 60 * 60)) / (1000 * 60))
+        } : null,
         subscriptionInfo: subInfo,
         hasEverHadSubscription: hasEverPaid,
         canAccess: hasAccess
@@ -178,20 +183,72 @@ export const useTrial = () => {
     updateProgress();
   }, [subscriptionInfo, hasActiveSubscription]);
 
-  // Get formatted remaining time (for subscription or trial)
-  const [formattedRemainingTime, setFormattedRemainingTime] = useState('Loading...');
+  // Calculate formatted remaining time synchronously from cached data - no async calls!
+  // Use state to trigger re-renders for real-time updates
+  const [currentTime, setCurrentTime] = useState(Date.now());
   
   useEffect(() => {
-    const updateFormattedTime = async () => {
-      if (subscriptionInfo && hasActiveSubscription) {
-        setFormattedRemainingTime(subscriptionInfo.formattedRemainingTime);
-      } else {
-        const formatted = await TrialService.getFormattedRemainingTime();
-        setFormattedRemainingTime(formatted);
+    // Update every minute for real-time countdown (non-blocking)
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  const getFormattedRemainingTime = (): string => {
+    // Use subscription info if available
+    if (subscriptionInfo && hasActiveSubscription && subscriptionInfo.formattedRemainingTime) {
+      return subscriptionInfo.formattedRemainingTime;
+    }
+    
+    // Calculate from trial info synchronously - recalculate from dates for accuracy
+    if (trialInfo) {
+      // Recalculate remaining time from end date for real-time accuracy
+      const now = new Date(currentTime); // Use currentTime state for real-time updates
+      const endDate = new Date(trialInfo.endDate);
+      const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
+      
+      if (remainingTime <= 0) {
+        return 'Trial expired';
       }
-    };
-    updateFormattedTime();
-  }, [subscriptionInfo, hasActiveSubscription, trialInfo]);
+      
+      const hours = Math.floor(remainingTime / (1000 * 60 * 60));
+      const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m remaining`;
+      } else if (minutes > 0) {
+        return `${minutes}m remaining`;
+      } else {
+        return 'Expiring soon';
+      }
+    }
+    
+    // Fallback: try to calculate from cached data dates
+    if (cachedData?.trialInfo && cachedData.trialInfo.endDate) {
+      const now = new Date(currentTime);
+      const endDate = new Date(cachedData.trialInfo.endDate);
+      const remainingTime = Math.max(0, endDate.getTime() - now.getTime());
+      
+      if (remainingTime <= 0) {
+        return 'Trial expired';
+      }
+      
+      const hours = Math.floor(remainingTime / (1000 * 60 * 60));
+      const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m remaining`;
+      } else if (minutes > 0) {
+        return `${minutes}m remaining`;
+      }
+    }
+    
+    return 'Trial expired';
+  };
+  
+  const formattedRemainingTime = getFormattedRemainingTime();
 
   return {
     trialInfo,
