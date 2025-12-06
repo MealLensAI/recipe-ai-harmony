@@ -160,24 +160,23 @@ const AIResponsePage: FC = () => {
       setShowResults(true)
 
       // Save initial detection to Supabase (ingredients + suggestions)
-      if (token && ingredientsArray && ingredientsArray.length > 0) {
+      if (token && ingredientsArray && ingredientsArray.length > 0 && data.analysis_id) {
         const payload = {
           recipe_type: "ingredient_detection",
           suggestion: "", // No suggestion selected yet, just initial detection
           instructions: "", // Instructions will be added when user clicks a suggestion
           ingredients: JSON.stringify(data.response || []),
           detected_foods: JSON.stringify(data.response || []),
-          analysis_id: data.analysis_id || "",
-          youtube_link: "",
-          google_link: "",
-          resources_link: "{}"
+          analysis_id: data.analysis_id || ""
+          // YouTube, Google, and resources will be added later when suggestion is clicked
         };
 
         try {
           console.log("[AIResponse] Saving initial detection to history:", {
             analysis_id: data.analysis_id,
             ingredients_count: data.response?.length || 0,
-            suggestions_count: data.food_suggestions?.length || 0
+            suggestions_count: data.food_suggestions?.length || 0,
+            payload: payload
           });
 
           const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
@@ -189,19 +188,33 @@ const AIResponsePage: FC = () => {
             body: JSON.stringify(payload)
           });
 
+          const responseData = await historyResponse.json();
+
           if (historyResponse.ok) {
-            console.log("[AIResponse] ✅ Successfully saved initial detection to history");
+            console.log("[AIResponse] ✅ Successfully saved initial detection to history:", responseData);
           } else {
-            const errorText = await historyResponse.text();
-            console.error("[AIResponse] ❌ Failed to save initial detection to history:", errorText);
+            console.error("[AIResponse] ❌ Failed to save initial detection to history:", responseData);
+            Swal.fire({
+              icon: 'warning',
+              title: 'History Save Warning',
+              text: `Failed to save to history: ${responseData.message || 'Unknown error'}`,
+              confirmButtonColor: '#f97316'
+            });
           }
         } catch (historyError) {
           console.error("[AIResponse] ❌ Error saving initial detection to history:", historyError);
+          Swal.fire({
+            icon: 'error',
+            title: 'History Save Error',
+            text: 'Failed to save detection to history. Please try again.',
+            confirmButtonColor: '#f97316'
+          });
         }
       } else {
         console.warn("[AIResponse] ⚠️ Cannot save initial detection - missing data:", {
           hasToken: !!token,
-          hasResponse: !!(data.response && data.response.length > 0)
+          hasResponse: !!(data.response && data.response.length > 0),
+          hasAnalysisId: !!data.analysis_id
         });
       }
     } catch (error) {
@@ -372,29 +385,45 @@ const AIResponsePage: FC = () => {
       setResources(resData)
 
       // Update existing detection history record with suggestion details
-      if (
-        token &&
-        detectedIngredients.length &&
-        instrData.instructions &&
-        resData &&
-        analysisId
-      ) {
+      if (token && analysisId && instrData.instructions) {
+        // Use raw instructions (before HTML formatting) for storage
+        const rawInstructions = instrData.instructions || "";
+        const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
+        const googleLink = resData?.GoogleSearch?.[0]?.link || "";
+        const resourcesJson = JSON.stringify(resData || {});
+        
+        // Prepare ingredients array
+        const ingredientsArray = detectedIngredientsArray.length > 0 
+          ? detectedIngredientsArray 
+          : (detectedIngredients ? detectedIngredients.split(', ').filter(Boolean) : []);
+        
         const payload = {
           analysis_id: analysisId,
           suggestion: suggestion || "",
-          instructions: instrData.instructions || "",
-          ingredients: JSON.stringify(detectedIngredientsArray.length > 0 ? detectedIngredientsArray : detectedIngredients.split(', ').filter(Boolean)),
-          detected_foods: JSON.stringify(detectedIngredientsArray.length > 0 ? detectedIngredientsArray : detectedIngredients.split(', ').filter(Boolean)),
-          youtube: resData?.YoutubeSearch?.[0]?.link || "",
-          google: resData?.GoogleSearch?.[0]?.link || "",
-          resources: JSON.stringify(resData || {})
+          instructions: rawInstructions, // Store raw instructions, not HTML formatted
+          ingredients: JSON.stringify(ingredientsArray),
+          detected_foods: JSON.stringify(ingredientsArray),
+          youtube_link: youtubeLink, // Use correct field name
+          google_link: googleLink, // Use correct field name
+          resources_link: resourcesJson // Use correct field name
         };
 
         try {
           console.log("[AIResponse] Updating detection history with suggestion:", {
             analysis_id: analysisId,
-            suggestion: suggestion
+            suggestion: suggestion,
+            hasInstructions: !!rawInstructions,
+            instructionsLength: rawInstructions.length,
+            hasYoutube: !!youtubeLink,
+            youtubeLink: youtubeLink ? youtubeLink.substring(0, 50) + "..." : "none",
+            hasGoogle: !!googleLink,
+            googleLink: googleLink ? googleLink.substring(0, 50) + "..." : "none",
+            resourcesLength: resourcesJson.length,
+            payload: payload
           });
+
+          // Wait a bit to ensure the initial history save completed
+          await new Promise(resolve => setTimeout(resolve, 500));
 
           const updateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
             method: "PUT",
@@ -405,11 +434,62 @@ const AIResponsePage: FC = () => {
             body: JSON.stringify(payload)
           });
 
-          if (updateResponse.ok) {
-            console.log("[AIResponse] ✅ Successfully updated detection history with suggestion");
+          const updateResult = await updateResponse.json();
+
+          if (updateResponse.ok && (updateResult.status === 'success' || updateResponse.status === 200)) {
+            console.log("[AIResponse] ✅ Successfully updated detection history with suggestion:", updateResult);
+            
+            // Also update resources separately using the same endpoint as DetectFoodPage (as a backup)
+            if (youtubeLink || googleLink || (resourcesJson && resourcesJson !== "{}")) {
+              try {
+                const resourcesUpdatePayload = {
+                  food_analysis_id: analysisId,
+                  youtube_link: youtubeLink,
+                  google_link: googleLink,
+                  resources_link: resourcesJson
+                };
+                
+                const resourcesUpdateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/food_detect_resources`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(resourcesUpdatePayload)
+                });
+                
+                const resourcesUpdateResult = await resourcesUpdateResponse.json();
+                if (resourcesUpdateResponse.ok && resourcesUpdateResult.status === 'success') {
+                  console.log("[AIResponse] ✅ Successfully updated resources separately:", resourcesUpdateResult);
+                } else {
+                  console.warn("[AIResponse] ⚠️ Resources update via separate endpoint failed (non-critical):", resourcesUpdateResult);
+                }
+              } catch (resourcesError) {
+                console.warn("[AIResponse] ⚠️ Error updating resources separately (non-critical):", resourcesError);
+              }
+            }
           } else {
-            const errorText = await updateResponse.text();
-            console.error("[AIResponse] ❌ Failed to update detection history:", errorText);
+            console.error("[AIResponse] ❌ Failed to update detection history:", updateResult);
+            // If update fails, try to create a new record instead
+            console.log("[AIResponse] Attempting to create new record instead of update...");
+            const createPayload = {
+              recipe_type: "ingredient_detection",
+              ...payload
+            };
+            const createResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(createPayload)
+            });
+            const createResult = await createResponse.json();
+            if (createResponse.ok) {
+              console.log("[AIResponse] ✅ Created new detection history record:", createResult);
+            } else {
+              console.error("[AIResponse] ❌ Failed to create new record:", createResult);
+            }
           }
         } catch (updateError) {
           console.error("[AIResponse] ❌ Error updating detection history:", updateError);
@@ -495,17 +575,31 @@ const AIResponsePage: FC = () => {
 
       // 3. Save to detection history with resources (IMPORTANT FIX!)
       if (token && meal.ingredients_used.length && data.instructions && resData) {
-        console.log("[AIResponse] Saving health meal to history with resources");
+        // Use raw instructions (before HTML formatting) for storage
+        const rawInstructions = data.instructions || "";
+        const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
+        const googleLink = resData?.GoogleSearch?.[0]?.link || "";
+        const resourcesJson = JSON.stringify(resData || {});
+        
+        console.log("[AIResponse] Saving health meal to history with resources:", {
+          analysis_id: analysisId,
+          suggestion: meal.food_suggestions[0],
+          hasInstructions: !!rawInstructions,
+          hasYoutube: !!youtubeLink,
+          hasGoogle: !!googleLink,
+          resourcesLength: resourcesJson.length
+        });
+        
         const payload = {
           recipe_type: "ingredient_detection",
           suggestion: meal.food_suggestions[0] || "Health Meal",
-          instructions: data.instructions || "",
+          instructions: rawInstructions, // Store raw instructions, not HTML formatted
           ingredients: JSON.stringify(meal.ingredients_used || []),
           detected_foods: JSON.stringify(meal.ingredients_used || []),
           analysis_id: analysisId,
-          youtube: resData?.YoutubeSearch?.[0]?.link || "",
-          google: resData?.GoogleSearch?.[0]?.link || "",
-          resources: JSON.stringify(resData || {})
+          youtube_link: youtubeLink, // Use correct field name
+          google_link: googleLink, // Use correct field name
+          resources_link: resourcesJson // Use correct field name
         };
 
         try {

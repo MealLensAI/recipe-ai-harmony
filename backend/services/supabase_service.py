@@ -172,7 +172,7 @@ class SupabaseService:
         resources_json = resources_json or kwargs.get('resources')
         
         try:
-            # First try RPC function (using correct Supabase column names: youtube_link, google_link, resources_link)
+            # First try RPC function (using actual Supabase column names: youtube, google, resources)
             try:
                 insert_data = {
                     'p_user_id': user_id,
@@ -182,9 +182,9 @@ class SupabaseService:
                     'p_ingredients': ingredients,
                     'p_detected_foods': detected_foods,
                     'p_analysis_id': analysis_id,
-                    'p_youtube_link': youtube_url,
-                    'p_google_link': google_url,
-                    'p_resources_link': resources_json
+                    'p_youtube': youtube_url,
+                    'p_google': google_url,
+                    'p_resources': resources_json
                 }
                 insert_data = {k: v for k, v in insert_data.items() if v is not None}
                 result = self.supabase.rpc('add_detection_history', insert_data).execute()
@@ -220,14 +220,14 @@ class SupabaseService:
                 direct_insert['detected_foods'] = detected_foods
             if analysis_id and analysis_id.strip():
                 direct_insert['analysis_id'] = analysis_id
-            # Map to actual Supabase column names (youtube_link, google_link, resources_link)
+            # Map to actual Supabase column names (youtube, google, resources - NOT _link)
             # Only add if not empty
             if youtube_url and youtube_url.strip():
-                direct_insert['youtube_link'] = youtube_url
+                direct_insert['youtube'] = youtube_url
             if google_url and google_url.strip():
-                direct_insert['google_link'] = google_url
+                direct_insert['google'] = google_url
             if resources_json and resources_json.strip() and resources_json != "{}":
-                direct_insert['resources_link'] = resources_json
+                direct_insert['resources'] = resources_json
             
             print(f"📝 Direct insert data: user_id={user_id}, recipe_type={recipe_type}, has_youtube={bool(youtube_url)}, has_google={bool(google_url)}, has_resources={bool(resources_json)}")
             
@@ -257,16 +257,23 @@ class SupabaseService:
         Returns:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
-        # Supabase uses youtube_link, google_link, resources_link (no mapping needed)
+        # Map field names to actual Supabase column names (youtube, google, resources - NOT _link)
+        column_mapping = {
+            'youtube_link': 'youtube',
+            'google_link': 'google',
+            'resources_link': 'resources'
+        }
+        
         # Convert updates to use correct column names
         mapped_updates = {}
         for key, value in updates.items():
-            # Use the key as-is (Supabase uses _link suffix)
+            # Map to actual column name if needed
+            db_column = column_mapping.get(key, key)
             # Only add non-empty values
             if value and (isinstance(value, str) and value.strip() and value != "{}"):
-                mapped_updates[key] = value
+                mapped_updates[db_column] = value
             elif not isinstance(value, str) and value:
-                mapped_updates[key] = value
+                mapped_updates[db_column] = value
         
         if not mapped_updates:
             print(f"⚠️ No valid updates to apply for analysis_id: {analysis_id}")
@@ -301,11 +308,15 @@ class SupabaseService:
             
             # Fallback: Direct table update
             print(f"📝 Using direct table update for detection history")
-            result = self.supabase.table('detection_history')\
+            query = self.supabase.table('detection_history')\
                 .update(mapped_updates)\
-                .eq('analysis_id', analysis_id)\
-                .eq('user_id', user_id)\
-                .execute()
+                .eq('analysis_id', analysis_id)
+            
+            # Only filter by user_id if it's provided (for testing with None user_id)
+            if user_id:
+                query = query.eq('user_id', user_id)
+            
+            result = query.execute()
             
             if result.data and len(result.data) > 0:
                 print(f"✅ Detection history updated via direct update for analysis_id: {analysis_id}")

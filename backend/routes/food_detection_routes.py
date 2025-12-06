@@ -474,24 +474,25 @@ def update_detection_history():
     google_url = validated.get('google_link') or validated.get('google') or ''
     resources_json = validated.get('resources_link') or validated.get('resources') or ''
 
-    # Build updates dict (only include fields that are provided)
+    # Build updates dict (only include fields that are provided and non-empty)
     updates = {}
-    if 'suggestion' in validated and validated.get('suggestion') is not None:
+    if 'suggestion' in validated and validated.get('suggestion') is not None and validated.get('suggestion').strip():
         updates['suggestion'] = validated.get('suggestion')
-    if 'instructions' in validated and validated.get('instructions') is not None:
+    if 'instructions' in validated and validated.get('instructions') is not None and validated.get('instructions').strip():
         updates['instructions'] = validated.get('instructions')
-    if 'ingredients' in validated and validated.get('ingredients') is not None:
+    if 'ingredients' in validated and validated.get('ingredients') is not None and validated.get('ingredients').strip():
         updates['ingredients'] = validated.get('ingredients')
-    if 'detected_foods' in validated and validated.get('detected_foods') is not None:
+    if 'detected_foods' in validated and validated.get('detected_foods') is not None and validated.get('detected_foods').strip():
         updates['detected_foods'] = validated.get('detected_foods')
-    if youtube_url:
+    if youtube_url and youtube_url.strip():
         updates['youtube_link'] = youtube_url
-    if google_url:
+    if google_url and google_url.strip():
         updates['google_link'] = google_url
-    if resources_json:
+    if resources_json and resources_json.strip() and resources_json != "{}":
         updates['resources_link'] = resources_json
 
-    print(f"[UPDATE_DETECTION_HISTORY] Update payload: {list(updates.keys())}")
+    print(f"[UPDATE_DETECTION_HISTORY] Update payload for analysis_id {analysis_id}: {list(updates.keys())}")
+    print(f"[UPDATE_DETECTION_HISTORY] Update details: has_instructions={bool(updates.get('instructions'))}, has_youtube={bool(updates.get('youtube_link'))}, has_google={bool(updates.get('google_link'))}, has_resources={bool(updates.get('resources_link'))}")
 
     success, error = supabase_service.update_detection_history(
         analysis_id=analysis_id,
