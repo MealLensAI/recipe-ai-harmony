@@ -84,8 +84,9 @@ class EmailService:
 
         auto_fallback_enabled = auto_fallback_env.strip().lower() in ('1', 'true', 'yes', 'on')
         if auto_fallback_enabled:
-            # Append common ports (465 SSL, 587 STARTTLS, 25 plain) if not already present
-            for fallback_port in (465, 587, 25):
+            # Prioritize modern ports (587 STARTTLS, 465 SSL) over port 25
+            # Port 25 is often blocked by ISPs and should be tried last with a shorter timeout
+            for fallback_port in (587, 465, 25):
                 if fallback_port not in candidate_ports:
                     candidate_ports.append(fallback_port)
 
@@ -110,31 +111,49 @@ class EmailService:
         last_error: Optional[Exception] = None
         self.last_error_message = None
         self.last_error_port = None
-        context = ssl.create_default_context()
+        
+        # Check if SSL verification should be disabled (development only)
+        verify_ssl_env = os.environ.get('SMTP_VERIFY_SSL', 'true')
+        verify_ssl = verify_ssl_env.strip().lower() not in ('0', 'false', 'no', 'off')
+        
+        # Create SSL context with or without verification
+        if verify_ssl:
+            context = ssl.create_default_context()
+        else:
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            print("[EmailService] ⚠️  WARNING: SSL certificate verification is DISABLED (development mode only)")
 
         for port in self.smtp_port_candidates:
-            for attempt in range(1, self.smtp_retry_attempts + 1):
+            # Use shorter timeout for port 25 since it's often blocked by ISPs
+            # This prevents long waits when port 25 is unavailable
+            port_timeout = 5 if port == 25 else self.smtp_timeout
+            # Skip retries for port 25 to fail fast and move to next port
+            max_attempts = 1 if port == 25 else self.smtp_retry_attempts
+            
+            for attempt in range(1, max_attempts + 1):
                 try:
                     # Decide whether to use SSL for this port
                     port_use_ssl = self.smtp_use_ssl if self._smtp_use_ssl_explicit else (port == 465)
+                    # Determine if STARTTLS should be attempted (for non-SSL ports)
+                    should_attempt_starttls = True
+                    if not self._smtp_use_ssl_explicit and port == 25:
+                        # Some providers block STARTTLS on port 25; try plain first
+                        should_attempt_starttls = False
 
                     if port_use_ssl:
                         with smtplib.SMTP_SSL(
                             self.smtp_host,
                             port,
-                            timeout=self.smtp_timeout,
+                            timeout=port_timeout,
                             context=context
                         ) as server:
                             server.login(self.smtp_user, self.smtp_password)
                             server.send_message(msg)
                     else:
-                        with smtplib.SMTP(self.smtp_host, port, timeout=self.smtp_timeout) as server:
+                        with smtplib.SMTP(self.smtp_host, port, timeout=port_timeout) as server:
                             server.ehlo()
-
-                            should_attempt_starttls = True
-                            if not self._smtp_use_ssl_explicit and port == 25:
-                                # Some providers block STARTTLS on port 25; try plain first
-                                should_attempt_starttls = False
 
                             if should_attempt_starttls:
                                 if server.has_extn('starttls'):
@@ -155,30 +174,141 @@ class EmailService:
                     self.last_error_message = f"SMTP Authentication failed on port {port}: {str(auth_exc)}"
                     self.last_error_port = port
                     print(f"[EmailService] ❌ Authentication failed on port {port} (attempt {attempt}): {auth_exc}")
-                    # Don't retry on auth errors - they won't succeed
+                    # Don't retry on auth errors - they won't succeed, move to next port
                     break
+                except ssl.SSLError as ssl_exc:
+                    # Handle SSL certificate verification errors
+                    last_error = ssl_exc
+                    error_msg = str(ssl_exc)
+                    if 'CERTIFICATE_VERIFY_FAILED' in str(ssl_exc) or 'certificate verify failed' in error_msg.lower():
+                        # If SSL verification is enabled, try disabling it as fallback (same as test script)
+                        if verify_ssl:
+                            print(f"[EmailService] ⚠️  SSL certificate verification failed on port {port}")
+                            print(f"[EmailService] 💡 Retrying without SSL verification (set SMTP_VERIFY_SSL=false in .env to avoid this message)")
+                            # Retry with SSL verification disabled (matches test script logic)
+                            context_no_verify = ssl.create_default_context()
+                            context_no_verify.check_hostname = False
+                            context_no_verify.verify_mode = ssl.CERT_NONE
+                            try:
+                                if port_use_ssl:
+                                    # Port 465 with SSL
+                                    with smtplib.SMTP_SSL(
+                                        self.smtp_host,
+                                        port,
+                                        timeout=port_timeout,
+                                        context=context_no_verify
+                                    ) as server:
+                                        server.login(self.smtp_user, self.smtp_password)
+                                        server.send_message(msg)
+                                else:
+                                    # Port 587 or 25 with STARTTLS
+                                    with smtplib.SMTP(self.smtp_host, port, timeout=port_timeout) as server:
+                                        server.ehlo()
+                                        if should_attempt_starttls and server.has_extn('starttls'):
+                                            server.starttls(context=context_no_verify)
+                                            server.ehlo()
+                                        server.login(self.smtp_user, self.smtp_password)
+                                        server.send_message(msg)
+                                print(f"[EmailService] ✅ Email sent to {to_email} via port {port} without SSL verification")
+                                print(f"[EmailService] ⚠️  WARNING: SSL verification is disabled. This should only be used in development!")
+                                self.last_error_message = None
+                                self.last_error_port = None
+                                return True
+                            except Exception as retry_exc:
+                                print(f"[EmailService] ❌ Retry without SSL verification also failed: {retry_exc}")
+                                self.last_error_message = f"SSL certificate verification failed and retry without verification also failed: {str(retry_exc)}"
+                        else:
+                            self.last_error_message = f"SSL error on port {port}: {error_msg}"
+                    else:
+                        self.last_error_message = f"SSL error on port {port}: {error_msg}"
+                    self.last_error_port = port
+                    print(f"[EmailService] ❌ SSL error on port {port} (attempt {attempt}): {ssl_exc}")
+                    if attempt < max_attempts:
+                        time.sleep(min(2 * attempt, 5))
+                except (TimeoutError, OSError) as timeout_exc:
+                    # Handle timeouts and connection errors (port 25 is often blocked)
+                    last_error = timeout_exc
+                    error_msg = str(timeout_exc)
+                    if 'timed out' in error_msg.lower() or 'timeout' in error_msg.lower():
+                        self.last_error_message = f"Connection to port {port} timed out (port may be blocked)"
+                    else:
+                        self.last_error_message = f"Connection failed on port {port}: {error_msg}"
+                    self.last_error_port = port
+                    print(f"[EmailService] ❌ Connection timeout/error on port {port} (attempt {attempt}): {timeout_exc}")
+                    # For port 25, skip retries and move to next port immediately
+                    if port == 25:
+                        break
+                    if attempt < max_attempts:
+                        time.sleep(min(2 * attempt, 5))
                 except smtplib.SMTPConnectError as conn_exc:
                     last_error = conn_exc
                     self.last_error_message = f"SMTP Connection failed on port {port}: {str(conn_exc)}"
                     self.last_error_port = port
                     print(f"[EmailService] ❌ Connection failed on port {port} (attempt {attempt}): {conn_exc}")
-                    if attempt < self.smtp_retry_attempts:
+                    # For port 25, skip retries and move to next port immediately
+                    if port == 25:
+                        break
+                    if attempt < max_attempts:
                         time.sleep(min(2 * attempt, 5))
                 except smtplib.SMTPException as smtp_exc:
                     last_error = smtp_exc
                     self.last_error_message = f"SMTP error on port {port}: {str(smtp_exc)}"
                     self.last_error_port = port
                     print(f"[EmailService] ❌ SMTP error on port {port} (attempt {attempt}): {smtp_exc}")
-                    if attempt < self.smtp_retry_attempts:
+                    if attempt < max_attempts:
                         time.sleep(min(2 * attempt, 5))
                 except Exception as exc:
                     last_error = exc
-                    self.last_error_message = f"Unexpected error on port {port}: {str(exc)}"
+                    error_str = str(exc)
+                    # Check if it's an SSL error wrapped in a generic exception
+                    if isinstance(exc, ssl.SSLError) or 'CERTIFICATE_VERIFY_FAILED' in error_str or 'certificate verify failed' in error_str.lower():
+                        # Handle SSL errors that might be caught here
+                        if verify_ssl and ('CERTIFICATE_VERIFY_FAILED' in error_str or 'certificate verify failed' in error_str.lower()):
+                            print(f"[EmailService] ⚠️  SSL certificate verification failed on port {port} (caught as generic exception)")
+                            print(f"[EmailService] 💡 Retrying without SSL verification (set SMTP_VERIFY_SSL=false in .env to avoid this message)")
+                            context_no_verify = ssl.create_default_context()
+                            context_no_verify.check_hostname = False
+                            context_no_verify.verify_mode = ssl.CERT_NONE
+                            try:
+                                if port_use_ssl:
+                                    with smtplib.SMTP_SSL(
+                                        self.smtp_host,
+                                        port,
+                                        timeout=port_timeout,
+                                        context=context_no_verify
+                                    ) as server:
+                                        server.login(self.smtp_user, self.smtp_password)
+                                        server.send_message(msg)
+                                else:
+                                    with smtplib.SMTP(self.smtp_host, port, timeout=port_timeout) as server:
+                                        server.ehlo()
+                                        if should_attempt_starttls and server.has_extn('starttls'):
+                                            server.starttls(context=context_no_verify)
+                                            server.ehlo()
+                                        server.login(self.smtp_user, self.smtp_password)
+                                        server.send_message(msg)
+                                print(f"[EmailService] ✅ Email sent to {to_email} via port {port} without SSL verification")
+                                print(f"[EmailService] ⚠️  WARNING: SSL verification is disabled. This should only be used in development!")
+                                self.last_error_message = None
+                                self.last_error_port = None
+                                return True
+                            except Exception as retry_exc:
+                                print(f"[EmailService] ❌ Retry without SSL verification also failed: {retry_exc}")
+                                self.last_error_message = f"SSL certificate verification failed and retry without verification also failed: {str(retry_exc)}"
+                                self.last_error_port = port
+                                if attempt < max_attempts:
+                                    time.sleep(min(2 * attempt, 5))
+                                continue
+                    
+                    self.last_error_message = f"Unexpected error on port {port}: {error_str}"
                     self.last_error_port = port
                     print(f"[EmailService] ❌ Attempt {attempt} on port {port} to send email to {to_email} failed: {exc}")
+                    # For timeout errors on port 25, skip retries
+                    if port == 25 and ('timeout' in error_str.lower() or 'timed out' in error_str.lower()):
+                        break
                     import traceback
                     print(f"[EmailService] Traceback: {traceback.format_exc()}")
-                    if attempt < self.smtp_retry_attempts:
+                    if attempt < max_attempts:
                         time.sleep(min(2 * attempt, 5))
 
         print(f"Failed to send email to {to_email}: {last_error}")

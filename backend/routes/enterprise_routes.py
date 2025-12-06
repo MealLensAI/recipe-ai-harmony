@@ -229,22 +229,41 @@ def register_enterprise():
                 current_app.logger.error(f"[ORG REGISTER] Missing required field: {field}")
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
-        supabase = get_supabase_client()
+        # Get Supabase client with better error handling
+        try:
+            supabase = get_supabase_client()
+            if not supabase:
+                current_app.logger.error(f"[ORG REGISTER] Supabase client is None")
+                return jsonify({'error': 'Database connection unavailable. Please try again later.'}), 503
+        except Exception as supabase_error:
+            error_msg = str(supabase_error).lower()
+            current_app.logger.error(f"[ORG REGISTER] Failed to get Supabase client: {str(supabase_error)}", exc_info=True)
+            if 'disconnected' in error_msg or 'connection' in error_msg or 'unavailable' in error_msg:
+                return jsonify({'error': 'Database connection unavailable. Please try again later.'}), 503
+            return jsonify({'error': 'Failed to connect to database. Please try again later.'}), 503
         
         # Check if user can create organizations
-        current_app.logger.info(f"[ORG REGISTER] Checking if user {request.user_id} can create organizations")
-        can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
-        current_app.logger.info(f"[ORG REGISTER] Permission check result: can_create={can_create}, reason={reason}")
+        try:
+            current_app.logger.info(f"[ORG REGISTER] Checking if user {request.user_id} can create organizations")
+            can_create, reason = check_user_can_create_organizations(request.user_id, supabase, getattr(request, 'user_metadata', None))
+            current_app.logger.info(f"[ORG REGISTER] Permission check result: can_create={can_create}, reason={reason}")
+        except Exception as perm_error:
+            current_app.logger.error(f"[ORG REGISTER] Error checking permissions: {str(perm_error)}", exc_info=True)
+            return jsonify({'error': 'Failed to verify permissions. Please try again later.'}), 500
         
         if not can_create:
             current_app.logger.error(f"[ORG REGISTER] User {request.user_id} cannot create organizations: {reason}")
             return jsonify({'error': reason}), 403
         
         # Check if enterprise with this email already exists
-        existing = supabase.table('enterprises').select('id').eq('email', data['email']).execute()
-        if existing.data:
-            current_app.logger.error(f"[ORG REGISTER] Organization with email {data['email']} already exists")
-            return jsonify({'error': 'An organization with this email already exists'}), 400
+        try:
+            existing = supabase.table('enterprises').select('id').eq('email', data['email']).execute()
+            if existing.data:
+                current_app.logger.error(f"[ORG REGISTER] Organization with email {data['email']} already exists")
+                return jsonify({'error': 'An organization with this email already exists'}), 400
+        except Exception as check_error:
+            current_app.logger.error(f"[ORG REGISTER] Error checking existing enterprise: {str(check_error)}", exc_info=True)
+            return jsonify({'error': 'Failed to verify organization email. Please try again later.'}), 500
         
         # Create enterprise
         enterprise_data = {
@@ -256,12 +275,21 @@ def register_enterprise():
             'created_by': request.user_id
         }
         
-        current_app.logger.info(f"[ORG REGISTER] Creating enterprise with data: {enterprise_data}")
-        result = supabase.table('enterprises').insert(enterprise_data).execute()
+        try:
+            current_app.logger.info(f"[ORG REGISTER] Creating enterprise with data: {enterprise_data}")
+            result = supabase.table('enterprises').insert(enterprise_data).execute()
+        except Exception as insert_error:
+            error_msg = str(insert_error).lower()
+            current_app.logger.error(f"[ORG REGISTER] Error inserting enterprise: {str(insert_error)}", exc_info=True)
+            if 'unique' in error_msg or 'duplicate' in error_msg:
+                return jsonify({'error': 'An organization with this email already exists'}), 400
+            if 'disconnected' in error_msg or 'connection' in error_msg:
+                return jsonify({'error': 'Database connection lost. Please try again.'}), 503
+            return jsonify({'error': 'Failed to create organization. Please try again later.'}), 500
         
         if not result.data:
             current_app.logger.error(f"[ORG REGISTER] Failed to create enterprise - no data returned from Supabase")
-            return jsonify({'error': 'Failed to create enterprise'}), 500
+            return jsonify({'error': 'Failed to create enterprise. Please try again later.'}), 500
         
         current_app.logger.info(f"[ORG REGISTER] ✅ Successfully created enterprise: {result.data[0]}")
         return jsonify({
@@ -271,8 +299,15 @@ def register_enterprise():
         }), 201
         
     except Exception as e:
-        current_app.logger.error(f"[ORG REGISTER]  Exception during organization registration: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to register enterprise: {str(e)}'}), 500
+        error_msg = str(e).lower()
+        current_app.logger.error(f"[ORG REGISTER] Unexpected exception during organization registration: {str(e)}", exc_info=True)
+        # Provide user-friendly error messages
+        if 'disconnected' in error_msg or 'connection' in error_msg:
+            return jsonify({'error': 'Database connection unavailable. Please try again later.'}), 503
+        if 'timeout' in error_msg:
+            return jsonify({'error': 'Request timed out. Please try again.'}), 504
+        # Generic error message to avoid exposing internal details
+        return jsonify({'error': 'Failed to register organization. Please try again later.'}), 500
 
 
 @enterprise_bp.route('/api/enterprise/can-create', methods=['GET'])
