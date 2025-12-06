@@ -172,7 +172,7 @@ class SupabaseService:
         resources_json = resources_json or kwargs.get('resources')
         
         try:
-            # First try RPC function
+            # First try RPC function (using correct Supabase column names: youtube_link, google_link, resources_link)
             try:
                 insert_data = {
                     'p_user_id': user_id,
@@ -209,21 +209,24 @@ class SupabaseService:
             }
             
             # Only add non-empty optional fields (prevents empty string to JSONB issues)
-            if suggestion:
+            # Check for both None and empty string
+            if suggestion and suggestion.strip():
                 direct_insert['suggestion'] = suggestion
-            if instructions:
+            if instructions and instructions.strip():
                 direct_insert['instructions'] = instructions
-            if ingredients:
+            if ingredients and ingredients.strip():
                 direct_insert['ingredients'] = ingredients
-            if detected_foods:
+            if detected_foods and detected_foods.strip():
                 direct_insert['detected_foods'] = detected_foods
-            if analysis_id:
+            if analysis_id and analysis_id.strip():
                 direct_insert['analysis_id'] = analysis_id
-            if youtube_url:
+            # Map to actual Supabase column names (youtube_link, google_link, resources_link)
+            # Only add if not empty
+            if youtube_url and youtube_url.strip():
                 direct_insert['youtube_link'] = youtube_url
-            if google_url:
+            if google_url and google_url.strip():
                 direct_insert['google_link'] = google_url
-            if resources_json:
+            if resources_json and resources_json.strip() and resources_json != "{}":
                 direct_insert['resources_link'] = resources_json
             
             print(f"📝 Direct insert data: user_id={user_id}, recipe_type={recipe_type}, has_youtube={bool(youtube_url)}, has_google={bool(google_url)}, has_resources={bool(resources_json)}")
@@ -244,36 +247,78 @@ class SupabaseService:
 
     def update_detection_history(self, analysis_id: str, user_id: str, updates: dict) -> tuple[bool, str | None]:
         """
-        Updates an existing food detection event using RPC.
+        Updates an existing food detection event using RPC, with fallback to direct table update.
 
         Args:
             analysis_id (str): The unique ID of the analysis session to update.
             user_id (str): The Supabase user ID (for RLS check).
-            updates (dict): A dictionary of fields to update.
+            updates (dict): A dictionary of fields to update (can use either _link or direct names).
 
         Returns:
             tuple[bool, str | None]: (True, None) on success, (False, error_message) on failure.
         """
+        # Supabase uses youtube_link, google_link, resources_link (no mapping needed)
+        # Convert updates to use correct column names
+        mapped_updates = {}
+        for key, value in updates.items():
+            # Use the key as-is (Supabase uses _link suffix)
+            # Only add non-empty values
+            if value and (isinstance(value, str) and value.strip() and value != "{}"):
+                mapped_updates[key] = value
+            elif not isinstance(value, str) and value:
+                mapped_updates[key] = value
+        
+        if not mapped_updates:
+            print(f"⚠️ No valid updates to apply for analysis_id: {analysis_id}")
+            return False, "No valid updates provided"
+        
+        print(f"📝 Updating detection history for analysis_id: {analysis_id} with fields: {list(mapped_updates.keys())}")
+        
         try:
-            # Convert updates to RPC parameters
-            rpc_params = {
-                'p_analysis_id': analysis_id,
-                'p_user_id': user_id
-            }
+            # First try RPC function
+            try:
+                rpc_params = {
+                    'p_analysis_id': analysis_id,
+                    'p_user_id': user_id
+                }
+                
+                # Add update fields with p_ prefix for RPC
+                for key, value in mapped_updates.items():
+                    rpc_params[f'p_{key}'] = value
+                
+                result = self.supabase.rpc('update_detection_history', rpc_params).execute()
+                
+                if result.data and len(result.data) > 0 and result.data[0].get('status') == 'success':
+                    print(f"✅ Detection history updated via RPC for analysis_id: {analysis_id}")
+                    return True, None
+                else:
+                    error = result.data[0].get('message') if (result.data and len(result.data) > 0) else 'RPC returned non-success status'
+                    print(f"⚠️ RPC update failed: {error}, falling back to direct update")
+                    # Fall through to direct update
+            except Exception as rpc_error:
+                print(f"⚠️ RPC update failed: {rpc_error}, falling back to direct update")
+                # Fall through to direct update
             
-            # Add update fields
-            for key, value in updates.items():
-                rpc_params[f'p_{key}'] = value
+            # Fallback: Direct table update
+            print(f"📝 Using direct table update for detection history")
+            result = self.supabase.table('detection_history')\
+                .update(mapped_updates)\
+                .eq('analysis_id', analysis_id)\
+                .eq('user_id', user_id)\
+                .execute()
             
-            result = self.supabase.rpc('update_detection_history', rpc_params).execute()
-            
-            if result.data and len(result.data) > 0 and result.data[0].get('status') == 'success':
+            if result.data and len(result.data) > 0:
+                print(f"✅ Detection history updated via direct update for analysis_id: {analysis_id}")
                 return True, None
             else:
-                error = result.data[0].get('message') if (result.data and len(result.data) > 0) else 'No record found or user not authorized to update this record.'
-                return False, error
+                error_msg = 'No record found or update had no effect'
+                print(f"❌ Direct update failed: {error_msg}")
+                return False, error_msg
+                
         except Exception as e:
-            return False, str(e)
+            error_msg = str(e)
+            print(f"❌ Error in update_detection_history: {error_msg}")
+            return False, error_msg
 
     def get_detection_history(self, user_id: str) -> tuple[list | None, str | None]:
         """

@@ -32,6 +32,7 @@ const AIResponsePage: FC = () => {
   const [ingredientList, setIngredientList] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [detectedIngredients, setDetectedIngredients] = useState<string>("")
+  const [detectedIngredientsArray, setDetectedIngredientsArray] = useState<string[]>([]) // Store original array for updates
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [instructions, setInstructions] = useState<string>("")
   const [resources, setResources] = useState<any>(null)
@@ -91,6 +92,7 @@ const AIResponsePage: FC = () => {
 
     setIsLoading(true)
     setDetectedIngredients("")
+    setDetectedIngredientsArray([])
     setSuggestions([])
     setInstructions("")
     setResources(null)
@@ -151,9 +153,57 @@ const AIResponsePage: FC = () => {
       }
 
       setAnalysisId(data.analysis_id)
-      setDetectedIngredients((data.response || []).join(', '))
+      const ingredientsArray = data.response || []
+      setDetectedIngredientsArray(ingredientsArray)
+      setDetectedIngredients(ingredientsArray.join(', '))
       setSuggestions(data.food_suggestions || [])
       setShowResults(true)
+
+      // Save initial detection to Supabase (ingredients + suggestions)
+      if (token && ingredientsArray && ingredientsArray.length > 0) {
+        const payload = {
+          recipe_type: "ingredient_detection",
+          suggestion: "", // No suggestion selected yet, just initial detection
+          instructions: "", // Instructions will be added when user clicks a suggestion
+          ingredients: JSON.stringify(data.response || []),
+          detected_foods: JSON.stringify(data.response || []),
+          analysis_id: data.analysis_id || "",
+          youtube_link: "",
+          google_link: "",
+          resources_link: "{}"
+        };
+
+        try {
+          console.log("[AIResponse] Saving initial detection to history:", {
+            analysis_id: data.analysis_id,
+            ingredients_count: data.response?.length || 0,
+            suggestions_count: data.food_suggestions?.length || 0
+          });
+
+          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (historyResponse.ok) {
+            console.log("[AIResponse] ✅ Successfully saved initial detection to history");
+          } else {
+            const errorText = await historyResponse.text();
+            console.error("[AIResponse] ❌ Failed to save initial detection to history:", errorText);
+          }
+        } catch (historyError) {
+          console.error("[AIResponse] ❌ Error saving initial detection to history:", historyError);
+        }
+      } else {
+        console.warn("[AIResponse] ⚠️ Cannot save initial detection - missing data:", {
+          hasToken: !!token,
+          hasResponse: !!(data.response && data.response.length > 0)
+        });
+      }
     } catch (error) {
       console.error("Error processing ingredients:", error)
       
@@ -257,7 +307,9 @@ const AIResponsePage: FC = () => {
       }
 
       setHealthMeals(data.meal_options || [])
-      setDetectedIngredients(data.main_ingredients || "")
+      const mainIngredients = data.main_ingredients || ""
+      setDetectedIngredients(mainIngredients)
+      setDetectedIngredientsArray(mainIngredients ? mainIngredients.split(', ').filter(Boolean) : [])
       setShowHealthResults(true)
     } catch (error) {
       console.error("Error generating health meals:", error)
@@ -319,31 +371,56 @@ const AIResponsePage: FC = () => {
       const resData = await resRes.json()
       setResources(resData)
 
-      // Now POST to backend
+      // Update existing detection history record with suggestion details
       if (
         token &&
         detectedIngredients.length &&
         instrData.instructions &&
-        resData
+        resData &&
+        analysisId
       ) {
         const payload = {
-          recipe_type: "ingredient_detection",
+          analysis_id: analysisId,
           suggestion: suggestion || "",
           instructions: instrData.instructions || "",
-          ingredients: JSON.stringify(detectedIngredients || []), // Use actual detected ingredients
-          detected_foods: JSON.stringify(detectedIngredients || []),
-          analysis_id: analysisId || "",
+          ingredients: JSON.stringify(detectedIngredientsArray.length > 0 ? detectedIngredientsArray : detectedIngredients.split(', ').filter(Boolean)),
+          detected_foods: JSON.stringify(detectedIngredientsArray.length > 0 ? detectedIngredientsArray : detectedIngredients.split(', ').filter(Boolean)),
           youtube: resData?.YoutubeSearch?.[0]?.link || "",
           google: resData?.GoogleSearch?.[0]?.link || "",
           resources: JSON.stringify(resData || {})
         };
-        await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload)
+
+        try {
+          console.log("[AIResponse] Updating detection history with suggestion:", {
+            analysis_id: analysisId,
+            suggestion: suggestion
+          });
+
+          const updateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (updateResponse.ok) {
+            console.log("[AIResponse] ✅ Successfully updated detection history with suggestion");
+          } else {
+            const errorText = await updateResponse.text();
+            console.error("[AIResponse] ❌ Failed to update detection history:", errorText);
+          }
+        } catch (updateError) {
+          console.error("[AIResponse] ❌ Error updating detection history:", updateError);
+        }
+      } else {
+        console.warn("[AIResponse] ⚠️ Cannot update detection history - missing data:", {
+          hasToken: !!token,
+          hasDetectedIngredients: detectedIngredients.length > 0,
+          hasInstructions: !!instrData.instructions,
+          hasResources: !!resData,
+          hasAnalysisId: !!analysisId
         });
       }
     } catch (error) {

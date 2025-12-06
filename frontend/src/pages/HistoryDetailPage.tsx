@@ -79,18 +79,56 @@ const HistoryDetailPage = () => {
   useEffect(() => {
     if (cachedItem && historyDetail) {
       try {
+        let resourcesToParse = null;
+        
         if (historyDetail.resources_link && typeof historyDetail.resources_link === 'string' && historyDetail.resources_link.trim() !== '{}' && historyDetail.resources_link.trim() !== '') {
-          const parsed = JSON.parse(historyDetail.resources_link);
-          setResources(parsed);
+          resourcesToParse = historyDetail.resources_link;
         } else if (historyDetail.resources && typeof historyDetail.resources === 'string' && historyDetail.resources.trim() !== '{}' && historyDetail.resources.trim() !== '') {
-          const parsed = JSON.parse(historyDetail.resources);
+          resourcesToParse = historyDetail.resources;
+        }
+        
+        if (resourcesToParse) {
+          const parsed = JSON.parse(resourcesToParse);
+          console.log("[HistoryDetail] Parsed resources from cache:", {
+            hasYoutubeSearch: !!(parsed?.YoutubeSearch),
+            youtubeCount: parsed?.YoutubeSearch?.length || 0,
+            hasGoogleSearch: !!(parsed?.GoogleSearch),
+            googleCount: parsed?.GoogleSearch?.length || 0,
+            keys: Object.keys(parsed || {})
+          });
           setResources(parsed);
+        } else {
+          console.log("[HistoryDetail] No resources found in cache item:", {
+            hasResourcesLink: !!historyDetail.resources_link,
+            hasResources: !!historyDetail.resources,
+            youtubeLink: !!historyDetail.youtube_link,
+            googleLink: !!historyDetail.google_link
+          });
         }
       } catch (e) {
-        // Ignore parse errors
+        console.error("[HistoryDetail] Error parsing resources from cache:", e);
       }
     }
   }, [cachedItem, historyDetail])
+
+  // Debug: Log resources state
+  useEffect(() => {
+    if (historyDetail) {
+      console.log("[HistoryDetail] Resources state:", {
+        recipeType: historyDetail.recipe_type,
+        hasResources: !!resources,
+        resourcesKeys: resources ? Object.keys(resources) : [],
+        hasYoutubeSearch: !!(resources?.YoutubeSearch),
+        youtubeCount: resources?.YoutubeSearch?.length || 0,
+        hasGoogleSearch: !!(resources?.GoogleSearch),
+        googleCount: resources?.GoogleSearch?.length || 0,
+        youtubeLink: !!historyDetail.youtube_link,
+        googleLink: !!historyDetail.google_link,
+        resourcesLinkField: historyDetail.resources_link?.substring(0, 100),
+        resourcesField: historyDetail.resources?.substring(0, 100)
+      });
+    }
+  }, [resources, historyDetail])
 
   // Reuse the Detect Food page formatting for instructions
   const formatInstructionsForDisplay = (raw: string) => {
@@ -153,13 +191,40 @@ const HistoryDetailPage = () => {
             
             // Parse resources
             try {
+              let resourcesToParse = null;
+              
               if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
-                setResources(JSON.parse(detail.resources_link))
+                resourcesToParse = detail.resources_link;
               } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
-                setResources(JSON.parse(detail.resources))
+                resourcesToParse = detail.resources;
+              }
+              
+              if (resourcesToParse) {
+                const parsed = JSON.parse(resourcesToParse);
+                console.log("[HistoryDetail] Parsed resources from API:", {
+                  hasYoutubeSearch: !!(parsed?.YoutubeSearch),
+                  youtubeCount: parsed?.YoutubeSearch?.length || 0,
+                  hasGoogleSearch: !!(parsed?.GoogleSearch),
+                  googleCount: parsed?.GoogleSearch?.length || 0,
+                  keys: Object.keys(parsed || {})
+                });
+                setResources(parsed);
+              } else {
+                console.log("[HistoryDetail] No resources found in API response:", {
+                  hasResourcesLink: !!detail.resources_link,
+                  resourcesLinkValue: detail.resources_link?.substring(0, 100),
+                  hasResources: !!detail.resources,
+                  resourcesValue: detail.resources?.substring(0, 100),
+                  youtubeLink: !!detail.youtube_link,
+                  googleLink: !!detail.google_link,
+                  allKeys: Object.keys(detail || {})
+                });
               }
             } catch (e) {
-              // Ignore parse errors
+              console.error("[HistoryDetail] Error parsing resources from API:", e, {
+                resourcesLink: detail.resources_link?.substring(0, 100),
+                resources: detail.resources?.substring(0, 100)
+              });
             }
           } else {
             setError("History entry not found")

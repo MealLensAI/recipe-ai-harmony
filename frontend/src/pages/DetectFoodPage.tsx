@@ -19,6 +19,7 @@ const DetectFoodPage = () => {
   const [resources, setResources] = useState<any>(null)
   const [loadingResources, setLoadingResources] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [savedAnalysisId, setSavedAnalysisId] = useState<string>("") // Store the analysis_id used for saving
   const { toast } = useToast()
   const { token, isAuthenticated, loading } = useAuth()
 
@@ -70,6 +71,7 @@ const DetectFoodPage = () => {
     setDetectedFoods([])
     setResources(null)
     setShowResults(false)
+    setSavedAnalysisId("") // Reset analysis_id
     const formData = new FormData()
     formData.append("image", selectedImage)
 
@@ -99,6 +101,11 @@ const DetectFoodPage = () => {
         return
       }
 
+      // Generate analysis_id if not provided by AI API
+      const analysisId = data.analysis_id || `food-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log("[DetectFood] Using analysis_id:", analysisId);
+      setSavedAnalysisId(analysisId); // Store for later use (though we'll use the const directly)
+
       // Format instructions like in the HTML version
       let formattedInstructions = data.instructions || ""
 
@@ -115,18 +122,27 @@ const DetectFoodPage = () => {
       setShowResults(true)
 
       // Save to detection history
-      if (token && data.food_detected && data.instructions) {
+      if (token && data.food_detected && data.food_detected.length > 0 && data.instructions) {
+        // Use raw instructions (before HTML formatting) for storage
+        const rawInstructions = data.instructions || "";
+        
         const payload = {
           recipe_type: "food_detection",
           suggestion: data.food_detected.join(", "),
-          instructions: data.instructions,
+          instructions: rawInstructions, // Store raw instructions, not HTML formatted
           ingredients: JSON.stringify(data.food_detected || []),
           detected_foods: JSON.stringify(data.food_detected || []),
-          analysis_id: data.analysis_id || "",
-          youtube_link: "",
-          google_link: "",
-          resources_link: "{}"
+          analysis_id: analysisId
+          // YouTube, Google, and resources will be added later when fetched
         };
+
+        console.log("[DetectFood] Saving to detection history:", {
+          recipe_type: payload.recipe_type,
+          hasSuggestion: !!payload.suggestion,
+          hasInstructions: !!payload.instructions,
+          ingredientsCount: data.food_detected?.length || 0,
+          analysis_id: payload.analysis_id
+        });
 
         try {
           const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
@@ -138,20 +154,38 @@ const DetectFoodPage = () => {
             body: JSON.stringify(payload)
           });
 
+          const responseData = await historyResponse.json();
+          
           if (historyResponse.ok) {
-            console.log("[DetectFood] ✅ Saved to detection history");
+            console.log("[DetectFood] ✅ Saved to detection history:", responseData);
+            toast({
+              title: "Success",
+              description: "Detection saved to history",
+              variant: "default",
+            });
           } else {
-            const errorText = await historyResponse.text();
-            console.error("[DetectFood] ❌ Failed to save to history:", errorText);
+            console.error("[DetectFood] ❌ Failed to save to history:", responseData);
+            toast({
+              title: "Warning",
+              description: `Failed to save to history: ${responseData.message || 'Unknown error'}`,
+              variant: "destructive",
+            });
           }
         } catch (historyError) {
           console.error("[DetectFood] ❌ Error saving to history:", historyError);
+          toast({
+            title: "Error",
+            description: "Failed to save detection to history",
+            variant: "destructive",
+          });
         }
       } else {
         console.warn("[DetectFood] ⚠️ Cannot save to history - missing data:", {
           hasToken: !!token,
-          hasFoodDetected: !!data.food_detected,
-          hasInstructions: !!data.instructions
+          hasFoodDetected: !!(data.food_detected && data.food_detected.length > 0),
+          hasInstructions: !!data.instructions,
+          foodDetected: data.food_detected,
+          instructions: data.instructions ? data.instructions.substring(0, 50) + "..." : "none"
         });
       }
 
@@ -181,8 +215,9 @@ const DetectFoodPage = () => {
             console.log("[DetectFood] Resources data received:", resData)
             setResources(resData)
 
-            // Update history with resources
-            if (token && data.analysis_id) {
+            // Update history with resources - use the analysisId from the current scope
+            // Use analysisId directly (from line 105) to avoid React state timing issues
+            if (token && analysisId) {
               // Only update if we have actual resources data
               const hasResources = resData && (
                 (resData.YoutubeSearch && resData.YoutubeSearch.length > 0) ||
@@ -190,21 +225,26 @@ const DetectFoodPage = () => {
               );
 
               if (hasResources) {
+                const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
+                const googleLink = resData?.GoogleSearch?.[0]?.link || "";
+                const resourcesJson = JSON.stringify(resData);
+                
+                console.log("[DetectFood] Preparing to update with resources:", {
+                  analysisId: analysisId,
+                  hasYoutube: !!youtubeLink,
+                  youtubeLink: youtubeLink.substring(0, 50) + "...",
+                  hasGoogle: !!googleLink,
+                  googleLink: googleLink.substring(0, 50) + "...",
+                  resourcesLength: resourcesJson.length
+                });
+                
                 const updatePayload = {
-                  food_analysis_id: data.analysis_id,
-                  youtube_link: resData?.YoutubeSearch?.[0]?.link || "",
-                  google_link: resData?.GoogleSearch?.[0]?.link || "",
-                  resources_link: JSON.stringify(resData)
+                  food_analysis_id: analysisId, // Use the analysisId from current scope (line 105)
+                  youtube_link: youtubeLink,
+                  google_link: googleLink,
+                  resources_link: resourcesJson
                 };
 
-                console.log("[DetectFood] Updating history with resources:", {
-                  food_analysis_id: data.analysis_id,
-                  hasYoutube: !!resData?.YoutubeSearch?.[0]?.link,
-                  youtubeCount: resData?.YoutubeSearch?.length || 0,
-                  hasGoogle: !!resData?.GoogleSearch?.[0]?.link,
-                  googleCount: resData?.GoogleSearch?.length || 0,
-                  resourcesKeys: resData ? Object.keys(resData) : []
-                });
 
                 try {
                   // Wait a bit to ensure the initial history save completed
@@ -244,9 +284,11 @@ const DetectFoodPage = () => {
                 console.warn("[DetectFood] No resources to save - empty YoutubeSearch and GoogleSearch");
               }
             } else {
-              console.warn("[DetectFood] Cannot update history - missing token or analysis_id", {
+              console.warn("[DetectFood] Cannot update history - missing token or analysisId", {
                 hasToken: !!token,
-                hasAnalysisId: !!data.analysis_id
+                hasAnalysisId: !!analysisId,
+                analysisId: analysisId,
+                savedAnalysisId: savedAnalysisId
               });
             }
           }

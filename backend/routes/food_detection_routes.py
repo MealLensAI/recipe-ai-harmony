@@ -245,14 +245,14 @@ def update_food_detect_resources():
       current_app.logger.error("[FOOD_DETECT_RESOURCES] Missing food_analysis_id")
       return jsonify({'status': 'error', 'message': 'Missing food_analysis_id for resources update.'}), 400
 
-  updates = {
-      'youtube_link': youtube_link or None,
-      'google_link': google_link or None,
-      'resources_link': resources_link or None
-  }
-
-  # Remove None values
-  updates = {k: v for k, v in updates.items() if v is not None}
+  # Build updates dict - only include non-empty values
+  updates = {}
+  if youtube_link and youtube_link.strip():
+      updates['youtube_link'] = youtube_link
+  if google_link and google_link.strip():
+      updates['google_link'] = google_link
+  if resources_link and resources_link.strip() and resources_link != "{}":
+      updates['resources_link'] = resources_link
 
   current_app.logger.info(f"[FOOD_DETECT_RESOURCES] Update payload: {list(updates.keys())}")
 
@@ -335,12 +335,21 @@ def create_detection_history():
     else:
         data = request.form.to_dict()
 
-    print("Received payload for detection_history:", data)  # Debug print
+    print(f"[DETECTION_HISTORY] Received payload from user {user_id}:", data)  # Debug print
 
     schema = DetectionHistorySchema()
     try:
         validated = schema.load(data)
+        print(f"[DETECTION_HISTORY] Validated payload:", {
+            'recipe_type': validated.get('recipe_type'),
+            'has_suggestion': bool(validated.get('suggestion')),
+            'has_instructions': bool(validated.get('instructions')),
+            'has_ingredients': bool(validated.get('ingredients')),
+            'has_detected_foods': bool(validated.get('detected_foods')),
+            'analysis_id': validated.get('analysis_id')
+        })
     except ValidationError as err:
+        print(f"[DETECTION_HISTORY] Validation error: {err.messages}")
         return jsonify({'status': 'error', 'message': err.messages}), 400
 
     # Stringify detected_foods and ingredients to match Supabase text columns
@@ -368,6 +377,7 @@ def create_detection_history():
     })
 
     # Insert all validated fields, including shared_recipes fields
+    print(f"[DETECTION_HISTORY] Attempting to save for user {user_id}...")
     success, error = supabase_service.save_detection_history(
         user_id=user_id,
         recipe_type=validated.get('recipe_type'),
@@ -381,9 +391,11 @@ def create_detection_history():
         resources_json=resources_json
     )
     if not success:
-        print(f"[ERROR] Failed to save detection history: {error}")
-        return jsonify({'status': 'error', 'message': f'Failed to save detection history: {error}'}), 500
+        error_msg = str(error) if error else "Unknown error"
+        print(f"[ERROR] Failed to save detection history for user {user_id}: {error_msg}")
+        return jsonify({'status': 'error', 'message': f'Failed to save detection history: {error_msg}'}), 500
 
+    print(f"[DETECTION_HISTORY] ✅ Successfully saved detection history for user {user_id}")
     return jsonify({'status': 'success', 'message': 'Detection history saved.'}), 201
 
 @food_detection_bp.route('/detection_history', methods=['GET'])
@@ -420,6 +432,77 @@ def get_detection_history():
     except Exception as e:
         current_app.logger.error(f"Unexpected error in get_detection_history: {str(e)}")
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+@food_detection_bp.route('/detection_history', methods=['PUT'])
+def update_detection_history():
+    """
+    Updates an existing detection history record by analysis_id.
+    Receives detection data from the frontend and updates it in detection_history via Supabase.
+    """
+    supabase_service = current_app.supabase_service
+    user_id, error = get_user_id_from_token()
+
+    if error:
+        return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+    # Accept both JSON and form data
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
+
+    analysis_id = data.get('analysis_id')
+    if not analysis_id:
+        return jsonify({'status': 'error', 'message': 'analysis_id is required for update.'}), 400
+
+    print(f"[UPDATE_DETECTION_HISTORY] Updating record with analysis_id: {analysis_id} for user: {user_id}")
+
+    schema = DetectionHistorySchema()
+    try:
+        validated = schema.load(data)
+    except ValidationError as err:
+        return jsonify({'status': 'error', 'message': err.messages}), 400
+
+    # Stringify detected_foods and ingredients to match Supabase text columns
+    if isinstance(validated.get('detected_foods'), list):
+        validated['detected_foods'] = json.dumps(validated['detected_foods'])
+    if isinstance(validated.get('ingredients'), list):
+        validated['ingredients'] = json.dumps(validated['ingredients'])
+
+    # Support both legacy and new field names for backwards compatibility
+    youtube_url = validated.get('youtube_link') or validated.get('youtube') or ''
+    google_url = validated.get('google_link') or validated.get('google') or ''
+    resources_json = validated.get('resources_link') or validated.get('resources') or ''
+
+    # Build updates dict (only include fields that are provided)
+    updates = {}
+    if 'suggestion' in validated and validated.get('suggestion') is not None:
+        updates['suggestion'] = validated.get('suggestion')
+    if 'instructions' in validated and validated.get('instructions') is not None:
+        updates['instructions'] = validated.get('instructions')
+    if 'ingredients' in validated and validated.get('ingredients') is not None:
+        updates['ingredients'] = validated.get('ingredients')
+    if 'detected_foods' in validated and validated.get('detected_foods') is not None:
+        updates['detected_foods'] = validated.get('detected_foods')
+    if youtube_url:
+        updates['youtube_link'] = youtube_url
+    if google_url:
+        updates['google_link'] = google_url
+    if resources_json:
+        updates['resources_link'] = resources_json
+
+    print(f"[UPDATE_DETECTION_HISTORY] Update payload: {list(updates.keys())}")
+
+    success, error = supabase_service.update_detection_history(
+        analysis_id=analysis_id,
+        user_id=user_id,
+        updates=updates
+    )
+    if not success:
+        print(f"[ERROR] Failed to update detection history: {error}")
+        return jsonify({'status': 'error', 'message': f'Failed to update detection history: {error}'}), 500
+
+    return jsonify({'status': 'success', 'message': 'Detection history updated.'}), 200
 
 @food_detection_bp.route('/detection_history/<record_id>', methods=['DELETE'])
 def delete_detection_history(record_id):
