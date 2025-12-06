@@ -30,15 +30,20 @@ const Settings = () => {
   const [localLoading, setLocalLoading] = useState(false);
   const [isFormExpanded, setIsFormExpanded] = useState(true);
   const [showSavedData, setShowSavedData] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Check if user has saved data on mount - if yes, collapse form and show table
+  // Check if user has saved data on initial load only - if yes, collapse form and show table
   useEffect(() => {
-    if (settings.hasSickness && settings.age && settings.gender && settings.sicknessType) {
-      // User has complete health information, show table view
-      setIsFormExpanded(false);
-      setShowSavedData(true);
+    // Only run this check once when settings are first loaded
+    if (!hasInitialized && !loading) {
+      setHasInitialized(true);
+      if (settings.hasSickness && settings.age && settings.gender && settings.sicknessType) {
+        // User has complete health information, show table view
+        setIsFormExpanded(false);
+        setShowSavedData(true);
+      }
     }
-  }, [settings.hasSickness, settings.age, settings.gender, settings.sicknessType]);
+  }, [loading, hasInitialized, settings.hasSickness, settings.age, settings.gender, settings.sicknessType]);
 
   useEffect(() => {
     if (error) {
