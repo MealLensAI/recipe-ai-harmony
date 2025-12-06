@@ -1398,9 +1398,43 @@ export default function EnterpriseDashboard() {
               {/* User Health Information Management */}
               {selectedEnterprise && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                  <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-slate-900">Member Health Information</h2>
-                    <p className="mt-1 text-sm text-slate-500">View and edit health information for organization members</p>
+                  <div className="mb-8 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900">Member Health Information</h2>
+                      <p className="mt-1 text-sm text-slate-500">View and edit health information for organization members</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (editingUserSettings?.userId && selectedEnterprise?.id) {
+                          const user = users.find(u => u.user_id === editingUserSettings.userId);
+                          if (user) {
+                            toast({
+                              title: "Refreshing...",
+                              description: "Loading updated health information",
+                            });
+                            // Reload user settings and history
+                            await handleEditUserSettings(user.user_id, user.email, user.first_name, user.last_name);
+                            toast({
+                              title: "Refreshed",
+                              description: "Health information updated",
+                            });
+                          }
+                        } else {
+                          toast({
+                            title: "No User Selected",
+                            description: "Please select a member first to refresh their data",
+                            variant: "default",
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                      disabled={!editingUserSettings?.userId}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Refresh Data
+                    </Button>
                   </div>
 
                   {/* User Selector */}
@@ -1733,9 +1767,33 @@ export default function EnterpriseDashboard() {
                   {/* User's Health Information History - Show when user is selected */}
                   {editingUserSettings && (
                     <Card className="mt-6 border-slate-200">
-                      <CardHeader className="border-b border-slate-200">
-                        <CardTitle className="text-lg">Health Information History for {editingUserSettings.userName}</CardTitle>
-                        <p className="text-sm text-slate-500 mt-1">View all changes made to this member's health profile</p>
+                      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200">
+                        <div>
+                          <CardTitle className="text-lg">Health Information History for {editingUserSettings.userName}</CardTitle>
+                          <p className="text-sm text-slate-500 mt-1">View all changes made to this member's health profile</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            if (editingUserSettings?.userId && selectedEnterprise?.id) {
+                              toast({
+                                title: "Refreshing...",
+                                description: "Loading updated history",
+                              });
+                              await loadUserHealthHistory(editingUserSettings.userId);
+                              toast({
+                                title: "Refreshed",
+                                description: "History updated",
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                          disabled={!editingUserSettings?.userId}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Refresh
+                        </Button>
                       </CardHeader>
                       <CardContent className="p-6">
                         {userHealthHistory.length === 0 ? (
