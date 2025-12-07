@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Utensils, BookOpen, CalendarDays, Clock, Search, Play, Settings as SettingsIcon, Trash2 } from "lucide-react"
 import { useAuth, safeGetItem, safeRemoveItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
+import Logo from "@/components/Logo"
 
 interface SharedRecipe {
   id: string
@@ -158,8 +159,8 @@ export function HistoryPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
-            <Utensils className="h-8 w-8 text-white" />
+          <div className="flex items-center justify-center mx-auto">
+            <Logo size="lg" />
           </div>
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>

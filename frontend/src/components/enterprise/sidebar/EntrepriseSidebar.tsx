@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import Logo from '@/components/Logo';
 
 const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -92,10 +93,7 @@ export default function EnterpriseSidebar({
     <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r border-slate-200 bg-white flex flex-col">
       {/* Logo */}
       <div className="flex items-center gap-2.5 border-b border-slate-200 px-6 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500">
-          <Building2 className="h-5 w-5 text-white" />
-        </div>
-        <span className="text-lg font-semibold text-slate-900">MealLens</span>
+        <Logo size="sm" />
       </div>
 
       {/* Navigation */}

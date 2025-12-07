@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Lock, Loader2, Utensils } from "lucide-react"
+import { Lock, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { api, APIError } from "@/lib/api"
 import { useAuth } from "@/lib/utils"
+import Logo from "@/components/Logo"
 
 function useHashParams() {
     const { hash } = useLocation()
@@ -88,13 +89,8 @@ const ResetPassword: React.FC = () => {
             <div className="w-full max-w-md relative z-10">
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center mb-4">
-                        <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-lg">
-                            <Utensils className="h-8 w-8 text-white" />
-                        </div>
+                        <Logo size="lg" />
                     </div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-2">
-                        MealLensAI
-                    </h1>
                     <p className="text-gray-600 text-lg">Set a new password</p>
                 </div>
 

@@ -2,11 +2,12 @@
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Upload, Loader2, Utensils } from "lucide-react"
+import { Upload, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
 import { useToast } from "@/hooks/use-toast"
 import LoadingSpinner from "@/components/LoadingSpinner"
+import Logo from "@/components/Logo"
 
 const DetectFoodPage = () => {
   const navigate = useNavigate()
@@ -31,8 +32,8 @@ const DetectFoodPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl shadow-lg mx-auto">
-            <Utensils className="h-8 w-8 text-white" />
+          <div className="flex items-center justify-center mx-auto">
+            <Logo size="lg" />
           </div>
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>

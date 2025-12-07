@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { LogOut, Utensils, Camera, User, Settings, ChevronDown, Building2 } from "lucide-react"
+import Logo from "@/components/Logo"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,14 +58,10 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo and App Name */}
           <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-md">
-              <Utensils className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
-            </div>
+            <Logo size="sm" />
             <div>
-              <h1 className="text-base sm:text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                MealLensAI
-              </h1>
-              <p className="text-xs text-gray-500 hidden sm:block">Smart Kitchen Assistant</p>
+              <p className="text-xs text-gray-500 hidden sm:block">End cooking burnout</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Better Health From Your Food.</p>
             </div>
           </div>
 

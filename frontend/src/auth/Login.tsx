@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff, Mail, Lock, Utensils, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
 import { useAuth, safeSetItem, safeGetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
+import Logo from "@/components/Logo"
 
 const Login = () => {
   const navigate = useNavigate()
@@ -215,14 +216,10 @@ const Login = () => {
         {/* Logo Section */}
         <div className="text-center mb-4 sm:mb-8">
           <div className="flex items-center justify-center mb-3 sm:mb-4">
-            <div className="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl sm:rounded-2xl shadow-lg">
-              <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-            </div>
+            <Logo size="lg" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-1 sm:mb-2">
-            MealLensAI
-          </h1>
-          <p className="text-gray-600 text-sm sm:text-lg">Smart Food Detection & Recipe Generation</p>
+          <p className="text-gray-600 text-sm sm:text-lg">End cooking burnout</p>
+          <p className="text-gray-600 text-sm sm:text-lg">Better Health From Your Food.</p>
         </div>
 
         {/* Login Card */}

@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
-import { Utensils, ArrowRight, ArrowLeft, User, MapPin, HeartPulse, Sparkles } from "lucide-react"
+import { ArrowRight, ArrowLeft, User, MapPin, HeartPulse, Sparkles } from "lucide-react"
 import { useSicknessSettings, type SicknessSettings } from "@/hooks/useSicknessSettings"
+import Logo from "@/components/Logo"
 
 const Onboarding: React.FC = () => {
     const navigate = useNavigate()
@@ -173,9 +174,7 @@ const Onboarding: React.FC = () => {
                 return (
                     <div className="space-y-6 text-center">
                         <div className="flex justify-center">
-                            <div className="w-20 h-20 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center shadow-lg">
-                                <Utensils className="h-10 w-10 text-white" />
-                            </div>
+                            <Logo size="xl" />
                         </div>
                         <div className="space-y-2">
                             <h2 className="text-3xl font-bold text-gray-900">Welcome to MealLensAI</h2>
@@ -360,11 +359,8 @@ const Onboarding: React.FC = () => {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="inline-flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center shadow-md">
-                            <Utensils className="h-6 w-6 text-white" />
-                        </div>
+                        <Logo size="sm" />
                         <div>
-                            <div className="text-lg font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">MealLensAI</div>
                             <div className="text-xs text-gray-500">Profile Setup</div>
                         </div>
                     </div>
