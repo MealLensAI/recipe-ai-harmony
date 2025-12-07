@@ -18,10 +18,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Expose the port the app runs on
-EXPOSE 5000
+EXPOSE 5001
 
 # Set the environment variable for Flask to run in production mode
 ENV FLASK_ENV=production
 
 # Start the Flask application
-CMD ["flask", "run", "--host", "0.0.0.0", "--port=5000"]
+CMD ["flask", "run", "--host", "0.0.0.0", "--port=5001"]
