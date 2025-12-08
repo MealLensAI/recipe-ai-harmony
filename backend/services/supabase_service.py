@@ -835,32 +835,48 @@ class SupabaseService:
                 normalized_settings = json.loads(json.dumps(settings_data))
             
             # Calculate changed fields BEFORE saving
+            # Always use proper field names, never indices
             changed_fields = []
+            
+            # Define the expected field names for health_profile settings
+            expected_fields = ['hasSickness', 'sicknessType', 'age', 'gender', 'height', 'weight', 
+                              'waist', 'activityLevel', 'goal', 'location']
+            
             if isinstance(existing_settings, dict) and isinstance(normalized_settings, dict):
                 if len(existing_settings) > 0:
+                    # Compare existing vs new settings
                     all_keys = set(list(existing_settings.keys()) + list(normalized_settings.keys()))
                     for key in all_keys:
-                        old_value = existing_settings.get(key)
-                        new_value = normalized_settings.get(key)
-                        try:
-                            old_str = json.dumps(old_value, sort_keys=True) if old_value is not None else None
-                            new_str = json.dumps(new_value, sort_keys=True) if new_value is not None else None
-                            if old_str != new_str:
-                                changed_fields.append(key)
-                        except:
-                            if old_value != new_value:
-                                changed_fields.append(key)
+                        # Only track expected field names, skip any numeric keys or unexpected fields
+                        if isinstance(key, str) and (key in expected_fields or not key.isdigit()):
+                            old_value = existing_settings.get(key)
+                            new_value = normalized_settings.get(key)
+                            try:
+                                old_str = json.dumps(old_value, sort_keys=True) if old_value is not None else None
+                                new_str = json.dumps(new_value, sort_keys=True) if new_value is not None else None
+                                if old_str != new_str:
+                                    changed_fields.append(key)
+                            except:
+                                if old_value != new_value:
+                                    changed_fields.append(key)
                 else:
-                    # First save - all fields are new
+                    # First save - all fields are new, but only include expected field names
                     changed_fields = [key for key, value in normalized_settings.items() 
-                                     if value is not None and value != '']
+                                     if isinstance(key, str) and key in expected_fields 
+                                     and value is not None and value != '']
             
-            # If no changes, include all fields with values
+            # If no changes detected, include all fields with values (but only expected field names)
             if not changed_fields:
                 changed_fields = [key for key, value in normalized_settings.items() 
-                                if value is not None and value != '']
-                if not changed_fields:
-                    changed_fields = list(normalized_settings.keys())
+                                if isinstance(key, str) and key in expected_fields
+                                and value is not None and value != '']
+            
+            # Ensure we always have at least the fields that have values
+            if not changed_fields and isinstance(normalized_settings, dict):
+                # Fallback: get all non-numeric keys that have values
+                changed_fields = [key for key, value in normalized_settings.items() 
+                                if isinstance(key, str) and not key.isdigit()
+                                and value is not None and value != '']
             
             print(f"[DEBUG] Changed fields: {changed_fields}")
             

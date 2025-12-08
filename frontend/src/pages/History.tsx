@@ -469,12 +469,17 @@ export function HistoryPage() {
                               .trim();
                           };
 
-                          // Filter out numbered removed items (like "0 (removed)", "1 (removed)", etc.)
+                          // Filter out numbered removed items and numeric indices
                           const meaningfulFields = record.changed_fields 
-                            ? record.changed_fields.filter((field: string) => {
+                            ? record.changed_fields.filter((field: any) => {
+                                // Convert to string if needed
+                                const fieldStr = String(field);
+                                // Filter out fields that are just numbers (indices like 0, 1, 2, etc.)
+                                const isNumericIndex = /^\d+$/.test(fieldStr);
                                 // Filter out fields that are just numbers followed by " (removed)"
-                                const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(field);
-                                return !isNumberedRemoved;
+                                const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(fieldStr);
+                                // Only keep string field names (not numbers or numeric indices)
+                                return !isNumericIndex && !isNumberedRemoved && typeof field === 'string';
                               })
                             : [];
 

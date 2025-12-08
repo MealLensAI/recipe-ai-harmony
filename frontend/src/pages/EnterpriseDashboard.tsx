@@ -1296,11 +1296,17 @@ export default function EnterpriseDashboard() {
                         </TableHeader>
                         <TableBody>
                           {settingsHistory.map((record) => {
-                            // Filter out numbered removed items
+                            // Filter out numbered removed items and numeric indices
                             const meaningfulFields = record.changed_fields 
-                              ? record.changed_fields.filter((field: string) => {
-                                  const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(field);
-                                  return !isNumberedRemoved;
+                              ? record.changed_fields.filter((field: any) => {
+                                  // Convert to string if needed
+                                  const fieldStr = String(field);
+                                  // Filter out fields that are just numbers (indices like 0, 1, 2, etc.)
+                                  const isNumericIndex = /^\d+$/.test(fieldStr);
+                                  // Filter out fields that are just numbers followed by " (removed)"
+                                  const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(fieldStr);
+                                  // Only keep string field names (not numbers or numeric indices)
+                                  return !isNumericIndex && !isNumberedRemoved && typeof field === 'string';
                                 })
                               : [];
 
@@ -1816,9 +1822,15 @@ export default function EnterpriseDashboard() {
                                 {userHealthHistory.map((record) => {
                                   // Filter out numbered removed items
                                   const meaningfulFields = record.changed_fields 
-                                    ? record.changed_fields.filter((field: string) => {
-                                        const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(field);
-                                        return !isNumberedRemoved;
+                                    ? record.changed_fields.filter((field: any) => {
+                                        // Convert to string if needed
+                                        const fieldStr = String(field);
+                                        // Filter out fields that are just numbers (indices like 0, 1, 2, etc.)
+                                        const isNumericIndex = /^\d+$/.test(fieldStr);
+                                        // Filter out fields that are just numbers followed by " (removed)"
+                                        const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(fieldStr);
+                                        // Only keep string field names (not numbers or numeric indices)
+                                        return !isNumericIndex && !isNumberedRemoved && typeof field === 'string';
                                       })
                                     : [];
 
