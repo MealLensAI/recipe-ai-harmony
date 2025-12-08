@@ -155,6 +155,24 @@ const Settings = () => {
       const result = await saveSettings(settings);
 
       if (result.success) {
+        // Clear settings history cache to force refresh on History page
+        try {
+          const userId = localStorage.getItem('user_id') || undefined;
+          const cacheKey = userId ? `meallensai_settings_history_cache_${userId}` : 'meallensai_settings_history_cache';
+          const timestampKey = userId ? `meallensai_settings_history_cache_timestamp_${userId}` : 'meallensai_settings_history_cache_timestamp';
+          localStorage.removeItem(cacheKey);
+          localStorage.removeItem(timestampKey);
+          console.log('✅ Cleared settings history cache after save');
+        } catch (cacheError) {
+          console.warn('Failed to clear history cache:', cacheError);
+        }
+        
+        // Reload settings to get the latest from backend (ensures hasSickness is preserved)
+        await reloadSettings();
+        
+        // Dispatch event to notify History page to refresh
+        window.dispatchEvent(new CustomEvent('settingsSaved'));
+        
         // Collapse form and show saved data
         setIsFormExpanded(false);
         setShowSavedData(true);

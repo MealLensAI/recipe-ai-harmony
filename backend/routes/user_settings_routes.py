@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from utils.auth_utils import get_user_id_from_token, log_error
+import json
 
 user_settings_bp = Blueprint('user_settings', __name__)
 
@@ -35,8 +36,15 @@ def save_user_settings():
                 'message': 'Settings saved successfully'
             }
             if saved_record:
+                # Ensure settings_data is a dict, not a string
+                settings_data_response = saved_record.get('settings_data', {})
+                if isinstance(settings_data_response, str):
+                    try:
+                        settings_data_response = json.loads(settings_data_response)
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        settings_data_response = {}
                 response_payload.update({
-                    'settings': saved_record.get('settings_data', {}),
+                    'settings': settings_data_response,
                     'settings_type': saved_record.get('settings_type'),
                     'updated_at': saved_record.get('updated_at')
                 })

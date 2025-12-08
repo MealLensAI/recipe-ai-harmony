@@ -199,7 +199,17 @@ export const useSicknessSettings = () => {
       const result = await api.saveUserSettings('health_profile', payload);
 
       if (result.status === 'success') {
-        const updated = normalizeSettings(result.settings || payload);
+        // Use the payload (what we sent) as the source of truth, but merge with any server response
+        // This ensures hasSickness and all other fields are preserved
+        const serverSettings = result.settings || {};
+        const updated = normalizeSettings({
+          ...payload,
+          ...serverSettings, // Server response takes precedence for any fields it provides
+          hasSickness: payload.hasSickness !== undefined ? payload.hasSickness : (serverSettings.hasSickness || false)
+        });
+        console.log('✅ Health settings saved. Payload:', payload);
+        console.log('✅ Server response:', serverSettings);
+        console.log('✅ Final normalized settings:', updated);
         lastSavedRef.current = updated;
         setSettings(updated);
         setHasExistingData(true);

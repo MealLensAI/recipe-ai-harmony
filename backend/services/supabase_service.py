@@ -810,13 +810,71 @@ class SupabaseService:
             print(f"[DEBUG] save_user_settings called: user_id={user_id}, type={settings_type}")
             print(f"[DEBUG] settings_data: {settings_data}")
             
-            # First try RPC function
+            # Get existing settings BEFORE saving (for history comparison)
+            print(f"[DEBUG] Getting existing settings for comparison...")
+            existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
+            record_exists = bool(existing.data and len(existing.data) > 0)
+            
+            # Parse existing settings
+            existing_settings = {}
+            if record_exists:
+                existing_settings_raw = existing.data[0].get('settings_data', {})
+                if isinstance(existing_settings_raw, str):
+                    try:
+                        existing_settings = json.loads(existing_settings_raw)
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        existing_settings = {}
+                elif isinstance(existing_settings_raw, dict):
+                    existing_settings = existing_settings_raw
+            
+            print(f"[DEBUG] Existing settings: {existing_settings}")
+            
+            # Normalize new settings
+            normalized_settings = settings_data
+            if isinstance(settings_data, dict):
+                normalized_settings = json.loads(json.dumps(settings_data))
+            
+            # Calculate changed fields BEFORE saving
+            changed_fields = []
+            if isinstance(existing_settings, dict) and isinstance(normalized_settings, dict):
+                if len(existing_settings) > 0:
+                    all_keys = set(list(existing_settings.keys()) + list(normalized_settings.keys()))
+                    for key in all_keys:
+                        old_value = existing_settings.get(key)
+                        new_value = normalized_settings.get(key)
+                        try:
+                            old_str = json.dumps(old_value, sort_keys=True) if old_value is not None else None
+                            new_str = json.dumps(new_value, sort_keys=True) if new_value is not None else None
+                            if old_str != new_str:
+                                changed_fields.append(key)
+                        except:
+                            if old_value != new_value:
+                                changed_fields.append(key)
+                else:
+                    # First save - all fields are new
+                    changed_fields = [key for key, value in normalized_settings.items() 
+                                     if value is not None and value != '']
+            
+            # If no changes, include all fields with values
+            if not changed_fields:
+                changed_fields = [key for key, value in normalized_settings.items() 
+                                if value is not None and value != '']
+                if not changed_fields:
+                    changed_fields = list(normalized_settings.keys())
+            
+            print(f"[DEBUG] Changed fields: {changed_fields}")
+            
+            # Try RPC first
+            rpc_success = False
+            persisted_record = None
+            timestamp = datetime.utcnow().isoformat() + 'Z'
+            
             try:
                 print(f"[DEBUG] Attempting RPC upsert_user_settings...")
                 result = self.supabase.rpc('upsert_user_settings', {
                     'p_user_id': user_id,
                     'p_settings_type': settings_type,
-                    'p_settings_data': json.dumps(settings_data) if isinstance(settings_data, dict) else settings_data
+                    'p_settings_data': json.dumps(normalized_settings) if isinstance(normalized_settings, dict) else normalized_settings
                 }).execute()
                 
                 print(f"[DEBUG] RPC result: {result.data}")
@@ -825,66 +883,71 @@ class SupabaseService:
                     data = result.data[0] if isinstance(result.data, list) else result.data
                     if data.get('status') == 'success':
                         print(f"[SUCCESS] Settings saved via RPC")
-                        return True, None
+                        rpc_success = True
+                        # Get the saved record for history
+                        saved_record, fetch_error = self.get_user_settings(user_id, settings_type)
+                        print(f"[DEBUG] Saved record from get_user_settings: {saved_record}")
+                        if saved_record:
+                            # get_user_settings returns {'settings_data': {...}, 'settings_type': ..., ...}
+                            if 'settings_data' in saved_record:
+                                settings_data_saved = saved_record['settings_data']
+                                if isinstance(settings_data_saved, str):
+                                    try:
+                                        settings_data_saved = json.loads(settings_data_saved)
+                                    except:
+                                        settings_data_saved = normalized_settings
+                                persisted_record = {'settings_data': settings_data_saved}
+                            else:
+                                # If it's the raw record format
+                                persisted_record = {'settings_data': saved_record.get('settings_data', normalized_settings)}
+                        else:
+                            print(f"[WARNING] Could not fetch saved record, using normalized_settings")
+                            persisted_record = {'settings_data': normalized_settings}
+                        print(f"[DEBUG] Persisted record for history: {persisted_record}")
                     else:
                         error = data.get('message', 'Failed to save settings')
                         print(f"[WARNING] RPC error: {error}, falling back to direct insert")
-                        # Fall through to direct insert
             except Exception as rpc_error:
                 print(f"[WARNING] RPC failed: {rpc_error}, falling back to direct insert")
-                # Fall through to direct insert
             
-            # Fallback: Direct table upsert to guarantee persistence
-            print(f"[DEBUG] Using direct table upsert for user_id={user_id}, type={settings_type}")
+            # If RPC didn't succeed, use direct table upsert
+            if not rpc_success:
+                print(f"[DEBUG] Using direct table upsert for user_id={user_id}, type={settings_type}")
+                
+                upsert_payload = {
+                    'user_id': user_id,
+                    'settings_type': settings_type,
+                    'settings_data': normalized_settings,
+                    'updated_at': timestamp
+                }
+                if not record_exists:
+                    upsert_payload['created_at'] = timestamp
+                
+                result = (
+                    self.supabase
+                        .table('user_settings')
+                        .upsert(
+                            upsert_payload,
+                            on_conflict='user_id,settings_type',
+                            returning='representation'
+                        )
+                        .execute()
+                )
+                print(f"[DEBUG] Upsert result: {result.data}")
+                
+                if not result.data:
+                    print(f"[ERROR] No data returned from upsert operation")
+                    return False, 'Failed to save settings via upsert'
+                
+                persisted_record = result.data[0]
             
-            print(f"[DEBUG] Checking if settings record exists...")
-            existing = self.supabase.table('user_settings').select('*').eq('user_id', user_id).eq('settings_type', settings_type).execute()
-            print(f"[DEBUG] Existing records: {existing.data}")
-            record_exists = bool(existing.data and len(existing.data) > 0)
-            existing_settings = existing.data[0].get('settings_data', {}) if record_exists else None
+            # Ensure we have persisted_record
+            if not persisted_record:
+                print(f"[ERROR] No persisted record available for history")
+                return False, 'Failed to save settings'
             
-            normalized_settings = settings_data
-            if isinstance(settings_data, dict):
-                # Ensure the payload is JSON serializable and detached from React proxies
-                normalized_settings = json.loads(json.dumps(settings_data))
-            
-            timestamp = datetime.utcnow().isoformat() + 'Z'
-            upsert_payload = {
-                'user_id': user_id,
-                'settings_type': settings_type,
-                'settings_data': normalized_settings,
-                'updated_at': timestamp
-            }
-            if not record_exists:
-                upsert_payload['created_at'] = timestamp
-            
-            result = (
-                self.supabase
-                    .table('user_settings')
-                    .upsert(
-                        upsert_payload,
-                        on_conflict='user_id,settings_type',
-                        returning='representation'
-                    )
-                    .execute()
-            )
-            print(f"[DEBUG] Upsert result: {result.data}")
-            
-            if not result.data:
-                print(f"[ERROR] No data returned from upsert operation")
-                return False, 'Failed to save settings via upsert'
-            
-            persisted_record = result.data[0]
-            changed_fields = []
-            if isinstance(existing_settings, dict) and isinstance(normalized_settings, dict):
-                for key in normalized_settings.keys():
-                    if existing_settings.get(key) != normalized_settings.get(key):
-                        changed_fields.append(key)
-                for key in existing_settings.keys():
-                    if key not in normalized_settings:
-                        changed_fields.append(f"{key} (removed)")
-            elif isinstance(normalized_settings, dict):
-                changed_fields = list(normalized_settings.keys())
+            # ALWAYS create history entry after settings are saved (both RPC and direct paths)
+            print(f"[DEBUG] ✅ Settings saved, now creating history entry...")
             
             try:
                 # Use admin client to bypass RLS for history insert
@@ -895,25 +958,39 @@ class SupabaseService:
                     os.getenv('SUPABASE_SERVICE_ROLE_KEY')
                 )
                 
+                # Get settings_data from persisted record
+                settings_data_for_history = persisted_record.get('settings_data', normalized_settings)
+                if isinstance(settings_data_for_history, str):
+                    try:
+                        settings_data_for_history = json.loads(settings_data_for_history)
+                    except (json.JSONDecodeError, ValueError, TypeError):
+                        settings_data_for_history = normalized_settings
+                
                 history_data = {
                     'user_id': user_id,
                     'settings_type': settings_type,
-                    'settings_data': persisted_record.get('settings_data', normalized_settings),
-                    'previous_settings_data': existing_settings,
+                    'settings_data': settings_data_for_history,
+                    'previous_settings_data': existing_settings if existing_settings else {},
                     'changed_fields': changed_fields,
                     'created_at': timestamp,
                     'created_by': user_id
                 }
                 
+                print(f"[DEBUG] Inserting history with {len(changed_fields)} changed fields: {changed_fields}")
                 history_result = admin_client.table('user_settings_history').insert(history_data).execute()
-                print(f"[DEBUG] ✅ Saved settings history with {len(changed_fields)} changed fields")
-                print(f"[DEBUG] History record ID: {history_result.data[0]['id'] if history_result.data else 'unknown'}")
+                
+                if history_result.data and len(history_result.data) > 0:
+                    print(f"[DEBUG] ✅ Saved settings history successfully")
+                    print(f"[DEBUG] History record ID: {history_result.data[0].get('id', 'unknown')}")
+                else:
+                    print(f"[ERROR] History insert returned no data!")
             except Exception as history_error:
                 print(f"[ERROR] ❌ Failed to save settings history: {history_error}")
                 import traceback
                 traceback.print_exc()
+                print(f"[WARNING] Settings saved but history was not recorded")
             
-            print(f"[SUCCESS] Settings saved via direct table upsert")
+            print(f"[SUCCESS] Settings saved successfully")
             return True, None
                 
         except Exception as e:

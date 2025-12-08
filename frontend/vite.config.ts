@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://api.meallensai.com/5001/',
+        target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
         ws: true,

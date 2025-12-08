@@ -246,6 +246,7 @@ export function HistoryPage() {
           setSettingsHistory(historyData)
           // Cache the data
           setCachedSettingsHistory(historyData, userId)
+          console.log('✅ Settings history loaded:', historyData.length, 'records')
         }
       } catch (err) {
         console.error("Error fetching settings history:", err)
@@ -256,6 +257,43 @@ export function HistoryPage() {
     // Load in background - don't block
     fetchSettingsHistory().catch(console.error)
   }, [activeTab, isAuthenticated, authLoading, api, userId, cachedSettingsHistory])
+
+  // Listen for settings saved event to refresh history
+  useEffect(() => {
+    const handleSettingsSaved = () => {
+      console.log('🔄 Settings saved event received, refreshing history...')
+      if (activeTab === "settings" && isAuthenticated && !authLoading) {
+        // Clear cache and fetch fresh data
+        try {
+          const userId = localStorage.getItem('user_id') || undefined;
+          const cacheKey = userId ? `meallensai_settings_history_cache_${userId}` : 'meallensai_settings_history_cache';
+          const timestampKey = userId ? `meallensai_settings_history_cache_timestamp_${userId}` : 'meallensai_settings_history_cache_timestamp';
+          localStorage.removeItem(cacheKey);
+          localStorage.removeItem(timestampKey);
+        } catch (e) {
+          console.warn('Failed to clear cache:', e)
+        }
+        // Fetch fresh history
+        api.getUserSettingsHistory('health_profile', 50)
+          .then((result: any) => {
+            if (result.status === 'success') {
+              const historyData = result.history || []
+              setSettingsHistory(historyData)
+              setCachedSettingsHistory(historyData, userId)
+              console.log('✅ History refreshed after save:', historyData.length, 'records')
+            }
+          })
+          .catch((err) => {
+            console.error("Error refreshing settings history:", err)
+          })
+      }
+    }
+
+    window.addEventListener('settingsSaved', handleSettingsSaved)
+    return () => {
+      window.removeEventListener('settingsSaved', handleSettingsSaved)
+    }
+  }, [activeTab, isAuthenticated, authLoading, api, userId])
 
   const handleDeleteHistory = async (recordId: string) => {
     if (!window.confirm('Are you sure you want to delete this settings history entry? This action cannot be undone.')) {
@@ -408,6 +446,29 @@ export function HistoryPage() {
                       </thead>
                       <tbody className="divide-y">
                         {settingsHistory.map((record, index) => {
+                          // Helper function to format field names for display
+                          const formatFieldName = (fieldName: string): string => {
+                            const fieldMap: Record<string, string> = {
+                              'hasSickness': 'Health Condition',
+                              'sicknessType': 'Condition Type',
+                              'age': 'Age',
+                              'gender': 'Gender',
+                              'height': 'Height',
+                              'weight': 'Weight',
+                              'waist': 'Waist Circumference',
+                              'activityLevel': 'Activity Level',
+                              'goal': 'Health Goal',
+                              'location': 'Location'
+                            };
+                            
+                            // Remove " (removed)" suffix if present
+                            const cleanField = fieldName.replace(' (removed)', '');
+                            return fieldMap[cleanField] || cleanField
+                              .replace(/([A-Z])/g, ' $1')
+                              .replace(/^./, str => str.toUpperCase())
+                              .trim();
+                          };
+
                           // Filter out numbered removed items (like "0 (removed)", "1 (removed)", etc.)
                           const meaningfulFields = record.changed_fields 
                             ? record.changed_fields.filter((field: string) => {
@@ -428,27 +489,30 @@ export function HistoryPage() {
                               })
                             : [];
 
+                          // If no changed_fields but we have data, show all fields that have values
+                          const fieldsToDisplay = meaningfulFields.length > 0 
+                            ? meaningfulFields 
+                            : meaningfulData.map(([key]) => key);
+
                           return (
                           <tr key={record.id || index} className="hover:bg-gray-50">
                             <td className="py-3 text-gray-600 whitespace-nowrap">
                               {formatDate(record.created_at)}
                             </td>
                             <td className="py-3">
-                                {meaningfulFields.length > 0 ? (
+                                {fieldsToDisplay.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                    {meaningfulFields.map((field: string, idx: number) => (
+                                    {fieldsToDisplay.map((field: string, idx: number) => (
                                     <span
                                       key={idx}
                                       className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800"
                                     >
-                                        {field.replace(' (removed)', '')}
+                                        {formatFieldName(field)}
                                     </span>
                                   ))}
                                 </div>
-                                ) : meaningfulData.length > 0 ? (
+                                ) : (
                                   <span className="text-gray-500 italic">Settings updated</span>
-                              ) : (
-                                <span className="text-gray-500 italic">Initial setup</span>
                               )}
                             </td>
                             <td className="py-3">
@@ -460,7 +524,20 @@ export function HistoryPage() {
                                     {meaningfulData.length > 0 ? (
                                       meaningfulData.map(([key, value]: [string, any]) => {
                                         // Format field names for display
-                                        const formattedKey = key
+                                        const fieldNameMap: Record<string, string> = {
+                                          'hasSickness': 'Has Health Condition',
+                                          'sicknessType': 'Condition Type',
+                                          'age': 'Age',
+                                          'gender': 'Gender',
+                                          'height': 'Height (cm)',
+                                          'weight': 'Weight (kg)',
+                                          'waist': 'Waist Circumference (cm)',
+                                          'activityLevel': 'Activity Level',
+                                          'goal': 'Health Goal',
+                                          'location': 'Location'
+                                        };
+                                        
+                                        const formattedKey = fieldNameMap[key] || key
                                           .replace(/([A-Z])/g, ' $1')
                                           .replace(/^./, str => str.toUpperCase())
                                           .trim();
