@@ -200,7 +200,7 @@ export const APP_CONFIG = {
                   ? (import.meta as any).env.VITE_API_URL 
                   : '',
         // AI API URL - defaults to production AI server
-        ai_api_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_AI_API_URL) || 'https://ai-utu2.onrender.com',
+        ai_api_url: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_AI_API_URL) || 'https://api.meallensai.com/7017',
         timeout: 30000
     },
 
