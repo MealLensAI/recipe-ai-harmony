@@ -13,37 +13,26 @@ from services.email_service import email_service
 from supabase import Client
 
 def get_frontend_url():
-    """Get the frontend URL from environment or auto-detect from request origin"""
-    # Priority 1: Environment variable (for local development and production)
+    """Get the frontend URL from FRONTEND_URL environment variable only"""
+    # Ensure .env is loaded (in case function is called before app initialization)
+    try:
+        from dotenv import load_dotenv
+        env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+        load_dotenv(env_path)
+    except:
+        pass  # If dotenv fails, assume env vars are already loaded
+    
+    # Only use FRONTEND_URL from environment variable
     frontend_url = os.environ.get('FRONTEND_URL')
     if frontend_url:
-        print(f"🔍 Using FRONTEND_URL from env: {frontend_url}")
-        return frontend_url.rstrip('/')
-    
-    # Priority 2: Request Origin header (works for both dev and production)
-    # But only if it's not the backend URL
-    origin = request.headers.get('Origin')
-    if origin:
-        # Don't use backend URL as frontend URL
-        backend_urls = ['meallens.onrender.com', 'localhost:5000', 'localhost:5001', '127.0.0.1:5000', '127.0.0.1:5001']
-        if not any(backend_url in origin for backend_url in backend_urls):
-            print(f"🔍 Using Origin header: {origin}")
-            return origin.rstrip('/')
-    
-    # Priority 3: Referer header as fallback
-    referer = request.headers.get('Referer')
-    if referer:
-        from urllib.parse import urlparse
-        parsed = urlparse(referer)
-        frontend_url = f"{parsed.scheme}://{parsed.netloc}"
-        # Don't use backend URL as frontend URL
-        backend_urls = ['meallens.onrender.com', 'localhost:5000', 'localhost:5001', '127.0.0.1:5000', '127.0.0.1:5001']
-        if not any(backend_url in frontend_url for backend_url in backend_urls):
-            print(f"🔍 Using Referer header: {frontend_url}")
+        frontend_url = frontend_url.strip()
+        if frontend_url:
+            print(f"🔍 Using FRONTEND_URL from env: {frontend_url}")
             return frontend_url.rstrip('/')
     
-    # Last resort: Production URL
-    print(f"🔍 No env/origin/referer found, using production URL")
+    # If FRONTEND_URL is not set, log warning and use production default
+    print(f"⚠️ WARNING: FRONTEND_URL not set in environment. Using production default.")
+    print(f"⚠️ Please set FRONTEND_URL in backend/.env file")
     return 'https://www.meallensai.com'
 
 enterprise_bp = Blueprint('enterprise', __name__)

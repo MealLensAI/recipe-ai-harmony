@@ -582,7 +582,7 @@ class EmailService:
         to_email: str, 
         enterprise_name: str, 
         inviter_name: str,
-        login_url: str = os.environ.get('FRONTEND_URL', 'https://www.meallensai.com') + "/accept-invitation"
+        login_url: str = None
     ) -> bool:
         """
         Send an email to a user who was created by an organization admin
@@ -603,6 +603,16 @@ class EmailService:
         if not self.is_configured:
             print("Email not configured. User creation email not sent.")
             return False
+        
+        # If login_url not provided, construct it from FRONTEND_URL env var
+        if not login_url:
+            frontend_url = os.environ.get('FRONTEND_URL')
+            if frontend_url:
+                frontend_url = frontend_url.strip().rstrip('/')
+                login_url = f"{frontend_url}/accept-invitation"
+            else:
+                print("⚠️ WARNING: FRONTEND_URL not set in environment. Using production default for login URL.")
+                login_url = "https://www.meallensai.com/accept-invitation"
         
         try:
             msg = MIMEMultipart('alternative')
