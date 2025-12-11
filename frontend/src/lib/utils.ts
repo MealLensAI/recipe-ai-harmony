@@ -214,7 +214,9 @@ export function useProvideAuth(): AuthContextType {
           setUser(() => parsedUser as User)
           console.log('✅ Auth state restored from storage')
 
-          if (!skipVerification && (!token || !user)) {
+          // Only verify token if not skipping verification and we have valid stored data
+          // Use storedToken and parsedUser instead of stale closure values (token, user)
+          if (!skipVerification && storedToken && parsedUser) {
             try {
               const { api } = await import('./api')
               const profileResult = await api.getUserProfile()
@@ -262,7 +264,7 @@ export function useProvideAuth(): AuthContextType {
       lifecycleRef.current.isRefreshing = false
       setLoading(false)
     }
-  }, [clearSession, token, user])
+  }, [clearSession])
 
   // Initialize auth state
   useEffect(() => {

@@ -82,8 +82,18 @@ const Login = () => {
         }
         safeSetItem('user_data', JSON.stringify(userData))
 
-        // Update auth context
-        await refreshAuth()
+        // Update auth context - skip verification since we just logged in
+        await refreshAuth(true)
+
+        // Wait for React to process state updates before proceeding
+        // This ensures isAuthenticated is true when ProtectedRoute checks it
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              resolve(undefined)
+            }, 50)
+          })
+        })
 
         toast({
           title: "Welcome back!",
