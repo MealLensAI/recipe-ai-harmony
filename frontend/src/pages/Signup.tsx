@@ -232,7 +232,7 @@ const Signup = () => {
           if (isOrganizationSignup) {
             navigate('/enterprise', { replace: true })
           } else {
-            navigate("/", { replace: true })
+            navigate("/onboarding", { replace: true })
           }
         } else {
           toast({

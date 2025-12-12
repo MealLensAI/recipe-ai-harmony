@@ -274,6 +274,84 @@ def logout_user():
     return resp, 200
 
 
+@auth_bp.route('/refresh-token', methods=['POST'])
+def refresh_token():
+    """
+    Refresh the session using a refresh token.
+    Returns new access and refresh tokens, and updates the httpOnly cookie.
+    """
+    try:
+        data = request.get_json() or {}
+        refresh_token = data.get('refresh_token')
+
+        if not refresh_token:
+            return jsonify({'status': 'error', 'message': 'Refresh token is required'}), 400
+
+        # Get Supabase client (anon key is fine for refreshing)
+        supabase = get_supabase_client(use_admin=False)
+        if not supabase:
+             return jsonify({'status': 'error', 'message': 'Database service not available'}), 500
+
+        # Refresh session
+        try:
+            response = supabase.auth.refresh_session(refresh_token)
+        except Exception as e:
+            current_app.logger.warning(f"Supabase refresh failed: {str(e)}")
+            return jsonify({'status': 'error', 'message': 'Invalid or expired refresh token'}), 401
+
+        if not response.session:
+            return jsonify({'status': 'error', 'message': 'Failed to refresh session'}), 401
+
+        # Extract new tokens
+        new_access_token = response.session.access_token
+        new_refresh_token = response.session.refresh_token
+        user = response.user
+        
+        if not new_access_token:
+             return jsonify({'status': 'error', 'message': 'No access token returned'}), 401
+
+        # Build response
+        payload = {
+            'status': 'success',
+            'message': 'Token refreshed successfully',
+            'access_token': new_access_token,
+            'refresh_token': new_refresh_token,
+            'user_id': user.id if user else None,
+             'user_data': {
+                'id': user.id,
+                'email': user.email,
+                'metadata': user.user_metadata
+            } if user else None
+        }
+
+        # Set cookie
+        from flask import make_response
+        resp = make_response(jsonify(payload))
+        
+        # 7-day cookie
+        max_age = 7 * 24 * 60 * 60
+        try:
+            is_dev = current_app.debug or (request.host.split(':')[0] in ['127.0.0.1', 'localhost'])
+            cookie_secure = False if is_dev else True
+            cookie_samesite = 'Lax' if is_dev else 'None'
+            resp.set_cookie(
+                'access_token',
+                value=new_access_token,
+                max_age=max_age,
+                secure=cookie_secure,
+                httponly=True,
+                samesite=cookie_samesite
+            )
+        except Exception as e:
+            current_app.logger.warning(f"Failed to set access_token cookie: {str(e)}")
+
+        return resp, 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error refreshing token: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Server error during token refresh'}), 500
+
+
 
 
 
