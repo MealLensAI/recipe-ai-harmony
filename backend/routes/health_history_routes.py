@@ -108,6 +108,47 @@ def create_health_history():
     print(f"[HEALTH_HISTORY] ✅ Successfully saved health history for user {user_id}")
     return jsonify({'status': 'success', 'message': 'Health history saved.'}), 201
 
+@health_history_bp.route('/health_history/<record_id>', methods=['GET'])
+def get_health_history_by_id(record_id):
+    """
+    Retrieves a specific health history record by ID. Requires authentication.
+    """
+    try:
+        user_id, error = get_user_id_from_token()
+        
+        if error:
+            current_app.logger.warning(f"Authentication failed: {error}")
+            return jsonify({'status': 'error', 'message': f'Authentication failed: {error}'}), 401
+
+        current_app.logger.info(f"Fetching health history record {record_id} for user: {user_id}")
+        
+        supabase_service = current_app.supabase_service
+        # Direct query to get a specific record
+        try:
+            table_result = supabase_service.supabase.table('detection_history')\
+                .select('*')\
+                .eq('id', record_id)\
+                .eq('user_id', user_id)\
+                .execute()
+            
+            if table_result.data and len(table_result.data) > 0:
+                record = table_result.data[0]
+                current_app.logger.info(f"Successfully retrieved record {record_id}")
+                return jsonify({
+                    'status': 'success',
+                    'data': record
+                }), 200
+            else:
+                current_app.logger.warning(f"Record {record_id} not found for user {user_id}")
+                return jsonify({'status': 'error', 'message': 'Record not found'}), 404
+        except Exception as e:
+            current_app.logger.error(f"Database error fetching record {record_id}: {str(e)}")
+            return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in get_health_history_by_id: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
 @health_history_bp.route('/health_history/<record_id>', methods=['DELETE'])
 def delete_health_history(record_id):
     """

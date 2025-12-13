@@ -69,6 +69,47 @@ const HistoryDetailPage = () => {
       }
 
       try {
+        // First try to fetch the specific record by ID (more efficient)
+        try {
+          if (!id) throw new Error("No ID provided")
+          const result = await api.getDetectionHistoryById(id)
+          
+          if (result.status === 'success') {
+            const resultAny = result as any
+            const raw = resultAny.data || resultAny
+            
+            if (raw) {
+              // Log raw data to debug
+              console.log('[HistoryDetailPage] Raw data from API (by ID):', {
+                id: raw.id,
+                recipe_type: raw.recipe_type,
+                suggestion: raw.suggestion,
+                instructions: raw.instructions,
+                instructionsType: typeof raw.instructions,
+                instructionsLength: raw.instructions?.length || 0,
+                resources: raw.resources,
+                resources_link: raw.resources_link,
+                resourcesType: typeof raw.resources,
+                resourcesLength: raw.resources?.length || 0,
+                allKeys: Object.keys(raw)
+              });
+
+              const detail: HistoryDetail = {
+                ...raw,
+                // Handle both resources_link and resources field names
+                resources_link: raw.resources_link || raw.resources || undefined,
+                // Ensure instructions is properly set
+                instructions: raw.instructions || undefined
+              }
+              setHistoryDetail(detail)
+              return
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to fetch by ID, falling back to full list:", err)
+        }
+
+        // Fallback: fetch all and find the one we need
         const result = await api.getDetectionHistory()
 
         if (result.status === 'success') {
@@ -87,9 +128,27 @@ const HistoryDetailPage = () => {
           const raw = historyData.find((item: any) => item.id === id)
 
           if (raw) {
+            // Log raw data to debug
+            console.log('[HistoryDetailPage] Raw data from API (from list):', {
+              id: raw.id,
+              recipe_type: raw.recipe_type,
+              suggestion: raw.suggestion,
+              instructions: raw.instructions,
+              instructionsType: typeof raw.instructions,
+              instructionsLength: raw.instructions?.length || 0,
+              resources: raw.resources,
+              resources_link: raw.resources_link,
+              resourcesType: typeof raw.resources,
+              resourcesLength: raw.resources?.length || 0,
+              allKeys: Object.keys(raw)
+            });
+
             const detail: HistoryDetail = {
               ...raw,
-              resources_link: raw.resources_link || raw.resources || undefined
+              // Handle both resources_link and resources field names
+              resources_link: raw.resources_link || raw.resources || undefined,
+              // Ensure instructions is properly set
+              instructions: raw.instructions || undefined
             }
             setHistoryDetail(detail)
           } else {
@@ -106,6 +165,28 @@ const HistoryDetailPage = () => {
 
     const fetchHistoryDetailBackground = async () => {
       try {
+        if (!id) return
+        // Try to fetch by ID first
+        try {
+          const result = await api.getDetectionHistoryById(id)
+          if (result.status === 'success') {
+            const resultAny = result as any
+            const raw = resultAny.data || resultAny
+            if (raw) {
+              const detail: HistoryDetail = {
+                ...raw,
+                resources_link: raw.resources_link || raw.resources || undefined,
+                instructions: raw.instructions || undefined
+              }
+              setHistoryDetail(detail)
+              return
+            }
+          }
+        } catch (err) {
+          console.warn("Background fetch by ID failed, using fallback:", err)
+        }
+
+        // Fallback to full list
         const result = await api.getDetectionHistory()
         if (result.status === 'success') {
           let historyData = []
@@ -124,7 +205,8 @@ const HistoryDetailPage = () => {
           if (raw) {
             const detail: HistoryDetail = {
               ...raw,
-              resources_link: raw.resources_link || raw.resources || undefined
+              resources_link: raw.resources_link || raw.resources || undefined,
+              instructions: raw.instructions || undefined
             }
             setHistoryDetail(detail)
           }
