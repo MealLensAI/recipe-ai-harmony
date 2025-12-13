@@ -979,15 +979,15 @@ const Index = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex bg-[#f5f5f5] rounded-full px-1.5 py-1.5">
+            <div className="inline-flex items-center bg-[#f8f9fa] border border-gray-200 rounded-full p-1">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`px-6 py-2 rounded-full text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`px-5 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
                     selectedDay === day
-                      ? 'bg-white text-gray-900 shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
-                      : 'text-[#9ca3af] hover:text-gray-600'
+                      ? 'bg-white text-gray-800 border border-gray-200'
+                      : 'text-gray-400 hover:text-gray-500'
                   }`}
                 >
                   {day}
