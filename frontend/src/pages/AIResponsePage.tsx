@@ -490,7 +490,7 @@ const AIResponsePage: FC = () => {
             {/* Detected Ingredients Card - Figma style */}
             {/* Width: 782px, Height: auto, Radius: 15px, Border: 1px #E7E7E7, Padding: 32px top/bottom, 24px left/right, Gap: 20px */}
             <div 
-              className="bg-white rounded-[15px] border border-[#E7E7E7] mb-8"
+              className="bg-white rounded-[15px] border border-[#E7E7E7] mb-8 max-w-[782px]"
               style={{ padding: '32px 24px' }}
             >
               {/* 2 columns layout with separator lines */}
