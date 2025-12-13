@@ -114,6 +114,7 @@ export function HistoryPage() {
   const [activeFilter, setActiveFilter] = useState<string>("ingredient_detection")
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [expandedDetails, setExpandedDetails] = useState<string | null>(null)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
 
@@ -591,26 +592,60 @@ export function HistoryPage() {
                         </div>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <button
-                          onClick={() => {
-                            // Show details in a modal or expandable section
-                            const details = record.settings_data || {};
-                            const detailsText = Object.entries(details)
-                              .filter(([key]) => !/^\d+$/.test(key))
-                              .map(([key, value]) => `${formatFieldName(key)}: ${value}`)
-                              .join('\n');
-                            alert(detailsText || 'No details available');
-                          }}
-                          className="flex items-center gap-1.5 text-[#1A76E3] font-medium hover:underline"
-                          style={{ 
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontSize: '16px',
-                            fontWeight: 400
-                          }}
-                        >
-                          <Play className="w-3 h-3 fill-[#1A76E3]" />
-                          View details
-                        </button>
+                        <div>
+                          <button
+                            onClick={() => setExpandedDetails(expandedDetails === record.id ? null : record.id)}
+                            className="flex items-center gap-1.5 text-[#1A76E3] font-medium hover:underline mb-2"
+                            style={{ 
+                              fontFamily: "'Work Sans', sans-serif",
+                              fontSize: '16px',
+                              fontWeight: 400
+                            }}
+                          >
+                            <Play className={`w-3 h-3 fill-[#1A76E3] transition-transform ${expandedDetails === record.id ? 'rotate-90' : ''}`} />
+                            View details
+                          </button>
+                          {expandedDetails === record.id && record.settings_data && (
+                            <div className="mt-2 p-3 bg-gray-50 rounded-lg space-y-1.5">
+                              {Object.entries(record.settings_data)
+                                .filter(([key]) => !/^\d+$/.test(key) && record.settings_data[key] !== null && record.settings_data[key] !== undefined && record.settings_data[key] !== '')
+                                .map(([key, value]: [string, any]) => {
+                                  const fieldNameMap: Record<string, string> = {
+                                    'hasSickness': 'Has Health Condition',
+                                    'sicknessType': 'Condition Type',
+                                    'age': 'Age',
+                                    'gender': 'Gender',
+                                    'height': 'Height (cm)',
+                                    'weight': 'Weight (kg)',
+                                    'waist': 'Waist Circumference (cm)',
+                                    'activityLevel': 'Activity Level',
+                                    'goal': 'Health Goal',
+                                    'location': 'Location'
+                                  };
+                                  
+                                  const formattedKey = fieldNameMap[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+                                  
+                                  let formattedValue = String(value);
+                                  if (typeof value === 'boolean') {
+                                    formattedValue = value ? 'Yes' : 'No';
+                                  } else if (key === 'gender') {
+                                    formattedValue = String(value).charAt(0).toUpperCase() + String(value).slice(1);
+                                  } else if (key === 'activityLevel') {
+                                    formattedValue = String(value).split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                  } else if (key === 'goal') {
+                                    formattedValue = String(value).charAt(0).toUpperCase() + String(value).slice(1);
+                                  }
+
+                                  return (
+                                    <div key={key} className="flex justify-between gap-4 text-sm">
+                                      <span className="font-medium text-gray-700">{formattedKey}:</span>
+                                      <span className="text-gray-600 text-right">{formattedValue}</span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <button
