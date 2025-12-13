@@ -899,7 +899,7 @@ const Index = () => {
           <div className="relative">
 <button
             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[71px] gap-[17px] px-4 rounded-[20px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[48px] gap-3 px-4 rounded-[15px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
               <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
@@ -973,12 +973,12 @@ const Index = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex items-center h-[57px] bg-[#F7F7F7] border border-[#E7E7E7] rounded-[15px] p-[10px] gap-[10px]">
+            <div className="inline-flex items-center h-[48px] bg-[#F7F7F7] border border-[#E7E7E7] rounded-[12px] p-1 gap-1">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`w-[110px] h-[41px] rounded-[10px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`px-4 py-2 rounded-[8px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
                     selectedDay === day
                       ? 'bg-white text-gray-800 border border-[#E7E7E7]'
                       : 'text-gray-400 hover:text-gray-500'
