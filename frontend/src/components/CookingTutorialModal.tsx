@@ -9,7 +9,7 @@ interface CookingTutorialModalProps {
   recipeName: string;
   ingredients?: string[];
   preloadedInstructions?: string;
-  preloadedResources?: string;
+  preloadedResources?: string; // JSON string from history
 }
 
 const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({ 
@@ -25,106 +25,56 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
   const { instructions: fetchedInstructions, youtubeVideos: fetchedYoutubeVideos, webResources: fetchedWebResources, loading, loadingResources, generateContent } = useTutorialContent();
   const { user } = useAuth();
 
-  // Parse and format preloaded resources
-  const [formattedYoutubeVideos, setFormattedYoutubeVideos] = useState<any[]>([]);
-  const [formattedWebResources, setFormattedWebResources] = useState<any[]>([]);
-
-  // Helper to extract YouTube video ID
+  // Helper to extract YouTube video ID from URL
   const getYouTubeVideoId = (url: string) => {
-    if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
-    return (match && match[2] && match[2].length === 11) ? match[2] : null;
+    return (match && match[2].length === 11) ? match[2] : null;
   };
-
-  useEffect(() => {
-    if (preloadedResources) {
-      try {
-        const parsed = typeof preloadedResources === 'string' ? JSON.parse(preloadedResources) : preloadedResources;
-        
-        // Format YouTube videos
-        const ytResults = (parsed?.YoutubeSearch || parsed?.youtube || []).flat().map((item: any) => ({
-          title: item.title || 'Untitled Video',
-          thumbnail: item.thumbnail || (getYouTubeVideoId(item.link) ? `https://img.youtube.com/vi/${getYouTubeVideoId(item.link)}/maxresdefault.jpg` : ''),
-          url: item.link || item.url || '',
-          videoId: getYouTubeVideoId(item.link || item.url),
-          channel: item.channel || '',
-        }));
-        setFormattedYoutubeVideos(ytResults);
-
-        // Format Google resources
-        const googleResults = (parsed?.GoogleSearch || parsed?.google || []).flat().map((item: any) => ({
-          title: item.title || 'Untitled Article',
-          description: item.description || '',
-          url: item.link || item.url || '',
-          image: item.image || '',
-        }));
-        setFormattedWebResources(googleResults);
-      } catch (e) {
-        console.error('Error parsing preloaded resources:', e);
-        setFormattedYoutubeVideos([]);
-        setFormattedWebResources([]);
-      }
-    } else {
-      setFormattedYoutubeVideos([]);
-      setFormattedWebResources([]);
-    }
-  }, [preloadedResources]);
-
-  // Format preloaded instructions if needed
-  const formatInstructions = (raw: string) => {
-    if (!raw) return '';
-    // Check if already HTML (contains tags)
-    if (raw.includes('<') && raw.includes('>')) {
-      return raw;
-    }
-    // Otherwise format markdown to HTML
-    let html = raw;
-    html = html.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>');
-    html = html.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>');
-    html = html.replace(/(\d+\.)/g, '<br>$1');
-    html = html.replace(/\n/g, '<br>');
-    return html;
-  };
-
-  // Determine if we should fetch from API
-  // Only fetch if we don't have preloaded instructions AND don't have preloaded resources
-  const hasPreloadedData = !!(preloadedInstructions || preloadedResources);
-  const shouldFetch = !hasPreloadedData;
 
   // Use preloaded data if available, otherwise use fetched data
-  const instructions = preloadedInstructions ? formatInstructions(preloadedInstructions) : fetchedInstructions;
-  const youtubeVideos = formattedYoutubeVideos.length > 0 ? formattedYoutubeVideos : fetchedYoutubeVideos;
-  const webResources = formattedWebResources.length > 0 ? formattedWebResources : fetchedWebResources;
-
-  // Determine if we should show loading - NEVER show loading if we have preloaded data
-  const isActuallyLoading = hasPreloadedData ? false : (loading || loadingResources);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('[CookingTutorialModal] State:', {
-      hasPreloadedData,
-      hasInstructions: !!preloadedInstructions,
-      hasResources: !!preloadedResources,
-      shouldFetch,
-      isActuallyLoading,
-      loading,
-      loadingResources,
-      instructionsLength: instructions?.length || 0,
-      youtubeVideosCount: youtubeVideos.length,
-      webResourcesCount: webResources.length
-    });
-  }, [hasPreloadedData, preloadedInstructions, preloadedResources, shouldFetch, isActuallyLoading, loading, loadingResources, instructions, youtubeVideos, webResources]);
+  const instructions = preloadedInstructions || fetchedInstructions;
+  const youtubeVideos = preloadedResources ? (() => {
+    try {
+      const resources = JSON.parse(preloadedResources);
+      const videos = resources.YoutubeSearch || resources.youtube || resources.YouTube || [];
+      // Flatten nested arrays if needed and normalize structure
+      const flatVideos = Array.isArray(videos) ? videos.flat() : [];
+      return flatVideos.map((video: any) => {
+        // Normalize video structure - handle both formats
+        if (video.link) {
+          const videoId = getYouTubeVideoId(video.link);
+          return {
+            title: video.title || video.name || 'Video',
+            link: video.link,
+            thumbnail: video.thumbnail || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ''),
+            videoId: videoId || video.videoId
+          };
+        }
+        return video; // Already in correct format
+      });
+    } catch {
+      return fetchedYoutubeVideos;
+    }
+  })() : fetchedYoutubeVideos;
+  
+  const webResources = preloadedResources ? (() => {
+    try {
+      const resources = JSON.parse(preloadedResources);
+      const articles = resources.GoogleSearch || resources.google || resources.Google || [];
+      // Flatten nested arrays if needed
+      return Array.isArray(articles) ? articles.flat() : [];
+    } catch {
+      return fetchedWebResources;
+    }
+  })() : fetchedWebResources;
 
   useEffect(() => {
     // Only fetch if we don't have preloaded data
-    if (isOpen && recipeName && shouldFetch && !hasPreloadedData) {
-      console.log('[CookingTutorialModal] Fetching content from API (no preloaded data)');
+    if (isOpen && recipeName && !preloadedInstructions && !preloadedResources) {
       generateContent(recipeName, ingredients);
-    } else if (hasPreloadedData) {
-      console.log('[CookingTutorialModal] Using preloaded data, skipping API call');
     }
-  }, [isOpen, recipeName, ingredients, shouldFetch, hasPreloadedData]);
+  }, [isOpen, recipeName, ingredients, preloadedInstructions, preloadedResources]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -251,8 +201,8 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             </div>
           </div>
 
-          {/* Loading State - only show if we're actually fetching */}
-          {isActuallyLoading ? (
+          {/* Loading State - only show if no preloaded data */}
+          {loading && !preloadedInstructions && !preloadedResources ? (
             <div className="flex flex-col items-center justify-center py-20">
               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Loading content...</p>
@@ -260,7 +210,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           ) : (
             <>
               {/* Recipe Tab Content */}
-              {activeTab === 'recipe' && (
+              {activeTab === 'recipe' && instructions && (
                 <div>
                   {/* Health Tip */}
                   <div className="flex items-start gap-2 mb-5">
@@ -274,32 +224,28 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   </div>
 
                   {/* Recipe Content - left aligned */}
-                  {instructions ? (
-                    <div 
-                      className="text-left"
-                      style={{ 
-                        fontFamily: "'Work Sans', sans-serif",
-                        fontSize: '15px',
-                        lineHeight: '170%',
-                        color: '#414141'
-                      }}
-                      dangerouslySetInnerHTML={{ __html: instructions }}
-                    />
-                  ) : hasPreloadedData ? (
-                    <p className="text-gray-500 text-left">No instructions available for this recipe.</p>
-                  ) : null}
+                  <div 
+                    className="text-left"
+                    style={{ 
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontSize: '15px',
+                      lineHeight: '170%',
+                      color: '#414141'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: instructions }}
+                  />
                 </div>
               )}
 
               {/* Videos Tab Content */}
               {activeTab === 'videos' && (
                 <div>
-                  {isActuallyLoading ? (
+                  {loadingResources && !preloadedResources ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading video tutorials...</p>
                     </div>
-                  ) : youtubeVideos.length > 0 ? (
+                  ) : (Array.isArray(youtubeVideos) && youtubeVideos.length > 0) ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                       {youtubeVideos.map((video, index) => (
                         <div 
@@ -316,7 +262,14 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                             <div className="absolute inset-0 flex items-center justify-center">
                               <div 
                                 className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
-                                onClick={() => video.videoId && setSelectedVideo(video.videoId)}
+                                onClick={() => {
+                                  if (video.videoId) {
+                                    setSelectedVideo(video.videoId);
+                                  } else if (video.link) {
+                                    const videoId = getYouTubeVideoId(video.link);
+                                    if (videoId) setSelectedVideo(videoId);
+                                  }
+                                }}
                               >
                                 <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
                               </div>
@@ -330,7 +283,14 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                               {video.title}
                             </h4>
                             <button
-                              onClick={() => video.videoId && setSelectedVideo(video.videoId)}
+                              onClick={() => {
+                                if (video.videoId) {
+                                  setSelectedVideo(video.videoId);
+                                } else if (video.link) {
+                                  const videoId = getYouTubeVideoId(video.link);
+                                  if (videoId) setSelectedVideo(videoId);
+                                }
+                              }}
                               className="w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
                             >
                               Watch Tutorial
@@ -350,12 +310,12 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Articles Tab Content */}
               {activeTab === 'articles' && (
                 <div>
-                  {isActuallyLoading ? (
+                  {loadingResources && !preloadedResources ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading articles...</p>
                     </div>
-                  ) : webResources.length > 0 ? (
+                  ) : (Array.isArray(webResources) && webResources.length > 0) ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                       {webResources.map((resource, index) => (
                         <div 

@@ -205,9 +205,20 @@ const HistoryDetailPage = () => {
     }
   }, [historyDetail]);
 
-  // Parse resources and pass to CookingTutorialModal
-  // The modal will handle displaying instructions, videos, and articles
-  // We need to modify CookingTutorialModal to accept pre-loaded data
+  // Parse resources_link if it's a string
+  const getResourcesLink = () => {
+    if (!historyDetail.resources_link) return undefined;
+    try {
+      // If it's already a string, return it
+      if (typeof historyDetail.resources_link === 'string') {
+        return historyDetail.resources_link;
+      }
+      // If it's an object, stringify it
+      return JSON.stringify(historyDetail.resources_link);
+    } catch {
+      return undefined;
+    }
+  };
 
   return (
     <CookingTutorialModal
@@ -216,7 +227,7 @@ const HistoryDetailPage = () => {
       recipeName={getRecipeName()}
       ingredients={getIngredients()}
       preloadedInstructions={historyDetail.instructions}
-      preloadedResources={historyDetail.resources_link}
+      preloadedResources={getResourcesLink()}
     />
   )
 }
