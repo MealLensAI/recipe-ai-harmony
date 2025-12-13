@@ -87,17 +87,25 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
     return html;
   };
 
-  // Use preloaded data if available, otherwise fetch
+  // Determine if we should fetch from API
+  // Only fetch if we don't have preloaded instructions AND don't have preloaded resources
+  const hasPreloadedData = !!(preloadedInstructions || preloadedResources);
+  const shouldFetch = !hasPreloadedData;
+
+  // Use preloaded data if available, otherwise use fetched data
   const instructions = preloadedInstructions ? formatInstructions(preloadedInstructions) : fetchedInstructions;
   const youtubeVideos = formattedYoutubeVideos.length > 0 ? formattedYoutubeVideos : fetchedYoutubeVideos;
   const webResources = formattedWebResources.length > 0 ? formattedWebResources : fetchedWebResources;
-  const shouldFetch = !preloadedInstructions && !preloadedResources;
 
   useEffect(() => {
-    if (isOpen && recipeName && shouldFetch) {
+    // Only fetch if we don't have preloaded data
+    if (isOpen && recipeName && shouldFetch && !hasPreloadedData) {
+      console.log('[CookingTutorialModal] Fetching content from API (no preloaded data)');
       generateContent(recipeName, ingredients);
+    } else if (hasPreloadedData) {
+      console.log('[CookingTutorialModal] Using preloaded data, skipping API call');
     }
-  }, [isOpen, recipeName, ingredients, shouldFetch]);
+  }, [isOpen, recipeName, ingredients, shouldFetch, hasPreloadedData]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -224,8 +232,8 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             </div>
           </div>
 
-          {/* Loading State */}
-          {(loading && shouldFetch) ? (
+          {/* Loading State - only show if we're actually fetching */}
+          {(loading && shouldFetch && !hasPreloadedData) ? (
             <div className="flex flex-col items-center justify-center py-20">
               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Loading content...</p>
@@ -263,7 +271,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Videos Tab Content */}
               {activeTab === 'videos' && (
                 <div>
-                  {(loadingResources && shouldFetch) ? (
+                  {(loadingResources && shouldFetch && !hasPreloadedData) ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading video tutorials...</p>
@@ -319,7 +327,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Articles Tab Content */}
               {activeTab === 'articles' && (
                 <div>
-                  {(loadingResources && shouldFetch) ? (
+                  {(loadingResources && shouldFetch && !hasPreloadedData) ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading articles...</p>
