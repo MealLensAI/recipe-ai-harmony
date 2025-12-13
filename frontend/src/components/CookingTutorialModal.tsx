@@ -8,24 +8,96 @@ interface CookingTutorialModalProps {
   onClose: () => void;
   recipeName: string;
   ingredients?: string[];
+  preloadedInstructions?: string;
+  preloadedResources?: string;
 }
 
 const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({ 
   isOpen, 
   onClose, 
   recipeName,
-  ingredients = []
+  ingredients = [],
+  preloadedInstructions,
+  preloadedResources
 }) => {
   const [activeTab, setActiveTab] = useState<'recipe' | 'videos' | 'articles'>('recipe');
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  const { instructions, youtubeVideos, webResources, loading, loadingResources, generateContent } = useTutorialContent();
+  const { instructions: fetchedInstructions, youtubeVideos: fetchedYoutubeVideos, webResources: fetchedWebResources, loading, loadingResources, generateContent } = useTutorialContent();
   const { user } = useAuth();
 
+  // Parse and format preloaded resources
+  const [formattedYoutubeVideos, setFormattedYoutubeVideos] = useState<any[]>([]);
+  const [formattedWebResources, setFormattedWebResources] = useState<any[]>([]);
+
+  // Helper to extract YouTube video ID
+  const getYouTubeVideoId = (url: string) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2] && match[2].length === 11) ? match[2] : null;
+  };
+
   useEffect(() => {
-    if (isOpen && recipeName) {
+    if (preloadedResources) {
+      try {
+        const parsed = typeof preloadedResources === 'string' ? JSON.parse(preloadedResources) : preloadedResources;
+        
+        // Format YouTube videos
+        const ytResults = (parsed?.YoutubeSearch || parsed?.youtube || []).flat().map((item: any) => ({
+          title: item.title || 'Untitled Video',
+          thumbnail: item.thumbnail || (getYouTubeVideoId(item.link) ? `https://img.youtube.com/vi/${getYouTubeVideoId(item.link)}/maxresdefault.jpg` : ''),
+          url: item.link || item.url || '',
+          videoId: getYouTubeVideoId(item.link || item.url),
+          channel: item.channel || '',
+        }));
+        setFormattedYoutubeVideos(ytResults);
+
+        // Format Google resources
+        const googleResults = (parsed?.GoogleSearch || parsed?.google || []).flat().map((item: any) => ({
+          title: item.title || 'Untitled Article',
+          description: item.description || '',
+          url: item.link || item.url || '',
+          image: item.image || '',
+        }));
+        setFormattedWebResources(googleResults);
+      } catch (e) {
+        console.error('Error parsing preloaded resources:', e);
+        setFormattedYoutubeVideos([]);
+        setFormattedWebResources([]);
+      }
+    } else {
+      setFormattedYoutubeVideos([]);
+      setFormattedWebResources([]);
+    }
+  }, [preloadedResources]);
+
+  // Format preloaded instructions if needed
+  const formatInstructions = (raw: string) => {
+    if (!raw) return '';
+    // Check if already HTML (contains tags)
+    if (raw.includes('<') && raw.includes('>')) {
+      return raw;
+    }
+    // Otherwise format markdown to HTML
+    let html = raw;
+    html = html.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>');
+    html = html.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>');
+    html = html.replace(/(\d+\.)/g, '<br>$1');
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  };
+
+  // Use preloaded data if available, otherwise fetch
+  const instructions = preloadedInstructions ? formatInstructions(preloadedInstructions) : fetchedInstructions;
+  const youtubeVideos = formattedYoutubeVideos.length > 0 ? formattedYoutubeVideos : fetchedYoutubeVideos;
+  const webResources = formattedWebResources.length > 0 ? formattedWebResources : fetchedWebResources;
+  const shouldFetch = !preloadedInstructions && !preloadedResources;
+
+  useEffect(() => {
+    if (isOpen && recipeName && shouldFetch) {
       generateContent(recipeName, ingredients);
     }
-  }, [isOpen, recipeName, ingredients]);
+  }, [isOpen, recipeName, ingredients, shouldFetch]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -153,7 +225,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           </div>
 
           {/* Loading State */}
-          {loading ? (
+          {(loading && shouldFetch) ? (
             <div className="flex flex-col items-center justify-center py-20">
               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Loading content...</p>
@@ -191,7 +263,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Videos Tab Content */}
               {activeTab === 'videos' && (
                 <div>
-                  {loadingResources ? (
+                  {(loadingResources && shouldFetch) ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading video tutorials...</p>
@@ -247,7 +319,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Articles Tab Content */}
               {activeTab === 'articles' && (
                 <div>
-                  {loadingResources ? (
+                  {(loadingResources && shouldFetch) ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading articles...</p>
