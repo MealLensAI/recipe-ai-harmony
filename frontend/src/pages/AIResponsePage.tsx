@@ -1,9 +1,9 @@
 "use client"
 
 import type { FC } from "react"
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Upload, X, Check, AlertTriangle, ChevronDown } from "lucide-react"
+import { Upload, X, Check, ChevronDown } from "lucide-react"
 import "@/styles/ai-response.css"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
@@ -29,6 +29,104 @@ interface DetectedIngredient {
   name: string
   healthInfo: string
   isWarning: boolean
+}
+
+// MealCard component that fetches images like Diet Planner
+const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ meal, onViewDetails }) => {
+  const [foodImage, setFoodImage] = useState<string>('')
+  const [imageLoading, setImageLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchFoodImage = async () => {
+      const foodName = meal.food_suggestions?.[0] || "healthy meal"
+      try {
+        const response = await fetch('https://get-images-qa23.onrender.com/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: foodName }),
+        })
+        if (!response.ok) throw new Error('HTTP error')
+        const data = await response.json()
+        if (data.image_url && !data.error) {
+          setFoodImage(data.image_url)
+        } else {
+          setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
+        }
+      } catch (error) {
+        setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
+      } finally {
+        setImageLoading(false)
+      }
+    }
+    fetchFoodImage()
+  }, [meal.food_suggestions])
+
+  return (
+    <div className="bg-white rounded-[15px] border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+      {/* Meal Image - Same size as Diet Planner cards */}
+      <div className="relative h-[140px] overflow-hidden bg-gray-100">
+        {imageLoading ? (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <img 
+            src={foodImage} 
+            alt={meal.food_suggestions?.[0] || "Meal"}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop'
+            }}
+          />
+        )}
+        {/* Calorie Badge */}
+        <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+          🔥 {meal.calories}kcal
+        </div>
+      </div>
+
+      {/* Meal Info */}
+      <div className="p-4">
+        <h4 className="font-semibold text-gray-800 text-[14px] mb-3 line-clamp-2 leading-tight">
+          {meal.food_suggestions?.[0] || "Health Meal"}
+        </h4>
+
+        {/* Nutrition Info - Compact */}
+        <div className="flex gap-2 mb-3">
+          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
+            <span className="text-sm">🍖</span>
+            <p className="font-bold text-gray-800 text-[13px]">{meal.protein}g</p>
+            <p className="text-[10px] text-gray-500">Protein</p>
+          </div>
+          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
+            <span className="text-sm">🌾</span>
+            <p className="font-bold text-gray-800 text-[13px]">{meal.carbs}g</p>
+            <p className="text-[10px] text-gray-500">Carbs</p>
+          </div>
+          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
+            <span className="text-sm">💧</span>
+            <p className="font-bold text-gray-800 text-[13px]">{meal.fat}g</p>
+            <p className="text-[10px] text-gray-500">Fats</p>
+          </div>
+        </div>
+
+        {/* Health Benefit */}
+        <div className="flex items-start gap-1.5 mb-3">
+          <span className="text-green-500 text-sm">✓</span>
+          <p className="text-[12px] text-orange-500 line-clamp-2 leading-relaxed">{meal.health_benefit}</p>
+        </div>
+
+        {/* View Details Button */}
+        <button
+          onClick={onViewDetails}
+          className="w-full py-2.5 border-[1.5px] border-[#1A76E3] text-[#1A76E3] rounded-[10px] text-[13px] font-semibold hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+        >
+          View Meal Details
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const AIResponsePage: FC = () => {
@@ -370,8 +468,13 @@ const AIResponsePage: FC = () => {
         {!isLoading && showResults && (
           <div>
             {/* Header with Detect Button */}
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-semibold text-gray-800">Detected Ingredients</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 
+                className="text-[24px] font-medium tracking-[0.03em] leading-[130%]"
+                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+              >
+                Detected Ingredients
+              </h2>
               <button
                 onClick={handleNewDetection}
                 className="px-6 py-3 bg-[#1A76E3] text-white rounded-[15px] font-semibold hover:bg-blue-600 transition-colors"
@@ -380,98 +483,49 @@ const AIResponsePage: FC = () => {
               </button>
             </div>
 
-            {/* Detected Ingredients Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
-              {detectedIngredients.map((ingredient, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    ingredient.isWarning ? 'bg-red-100' : 'bg-blue-100'
-                  }`}>
-                    {ingredient.isWarning ? (
-                      <AlertTriangle className="w-4 h-4 text-red-500" />
-                    ) : (
-                      <Check className="w-4 h-4 text-blue-500" />
-                    )}
+            {/* Detected Ingredients Card - Figma style */}
+            <div className="bg-white rounded-[15px] border border-gray-100 p-6 mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
+                {detectedIngredients.map((ingredient, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      ingredient.isWarning ? 'bg-blue-500' : 'bg-blue-500'
+                    }`}>
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800 text-[15px]">{ingredient.name}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={`text-sm ${ingredient.isWarning ? '' : ''}`}>
+                          {ingredient.isWarning ? '⚠️' : '💡'}
+                        </span>
+                        <p className={`text-[13px] ${ingredient.isWarning ? 'text-red-500' : 'text-green-500'}`}>
+                          {ingredient.healthInfo}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-800">{ingredient.name}</p>
-                    <p className={`text-xs ${ingredient.isWarning ? 'text-red-500' : 'text-blue-500'}`}>
-                      {ingredient.healthInfo}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            {/* Suggested Meals Section */}
+            {/* Suggested Meals Section - Left aligned */}
             <div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-6">
+              <h3 
+                className="text-[20px] font-semibold mb-5 text-left"
+                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+              >
                 Suggested Meals ({healthMeals.length})
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Grid with same card size as Diet Planner */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                 {healthMeals.map((meal, index) => (
-                  <div 
-                    key={index} 
-                    className="bg-white rounded-[20px] border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
-                  >
-                    {/* Meal Image */}
-                    <div className="relative h-[180px] overflow-hidden">
-                      <img 
-                        src={meal.image} 
-                        alt={meal.food_suggestions?.[0] || "Meal"}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop'
-                        }}
-                      />
-                      {/* Calorie Badge */}
-                      <div className="absolute bottom-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                        🔥 {meal.calories}kcal
-                      </div>
-                    </div>
-
-                    {/* Meal Info */}
-                    <div className="p-5">
-                      <h4 className="font-semibold text-gray-800 text-lg mb-3 line-clamp-2">
-                        {meal.food_suggestions?.[0] || "Health Meal"}
-                      </h4>
-
-                      {/* Nutrition Info */}
-                      <div className="flex gap-3 mb-4">
-                        <div className="flex-1 bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-3 text-center">
-                          <span className="text-lg">🍖</span>
-                          <p className="font-bold text-gray-800">{meal.protein}g</p>
-                          <p className="text-xs text-gray-500">Protein</p>
-                        </div>
-                        <div className="flex-1 bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-3 text-center">
-                          <span className="text-lg">🌾</span>
-                          <p className="font-bold text-gray-800">{meal.carbs}g</p>
-                          <p className="text-xs text-gray-500">Carbs</p>
-                        </div>
-                        <div className="flex-1 bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-3 text-center">
-                          <span className="text-lg">💧</span>
-                          <p className="font-bold text-gray-800">{meal.fat}g</p>
-                          <p className="text-xs text-gray-500">Fats</p>
-                        </div>
-                      </div>
-
-                      {/* Health Benefit */}
-                      <div className="flex items-start gap-2 mb-4">
-                        <span className="text-green-500">✓</span>
-                        <p className="text-sm text-orange-500 line-clamp-2">{meal.health_benefit}</p>
-                      </div>
-
-                      {/* View Details Button */}
-                      <button
-                        onClick={() => handleViewMealDetails(meal)}
-                        className="w-full py-3 border-2 border-[#1A76E3] text-[#1A76E3] rounded-xl font-semibold hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
-                      >
-                        View Meal Details
-                      </button>
-                    </div>
-                  </div>
+                  <MealCard 
+                    key={index}
+                    meal={meal}
+                    onViewDetails={() => handleViewMealDetails(meal)}
+                  />
                 ))}
               </div>
             </div>
