@@ -488,28 +488,50 @@ const AIResponsePage: FC = () => {
             </div>
 
             {/* Detected Ingredients Card - Figma style */}
-            <div className="bg-white rounded-[15px] border border-gray-100 p-6 mb-8">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-4">
-                {detectedIngredients.map((ingredient, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      ingredient.isWarning ? 'bg-blue-500' : 'bg-blue-500'
-                    }`}>
-                      <Check className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800 text-[15px]">{ingredient.name}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className={`text-sm ${ingredient.isWarning ? '' : ''}`}>
-                          {ingredient.isWarning ? '⚠️' : '💡'}
-                        </span>
-                        <p className={`text-[13px] ${ingredient.isWarning ? 'text-red-500' : 'text-green-500'}`}>
-                          {ingredient.healthInfo}
-                        </p>
+            {/* Width: 782px, Height: auto, Radius: 15px, Border: 1px #E7E7E7, Padding: 32px top/bottom, 24px left/right, Gap: 20px */}
+            <div 
+              className="bg-white rounded-[15px] border border-[#E7E7E7] mb-8"
+              style={{ padding: '32px 24px' }}
+            >
+              {/* 2 columns layout with separator lines */}
+              <div className="flex flex-col gap-5">
+                {/* Group ingredients into rows of 2 */}
+                {Array.from({ length: Math.ceil(detectedIngredients.length / 2) }, (_, rowIndex) => {
+                  const startIdx = rowIndex * 2
+                  const rowIngredients = detectedIngredients.slice(startIdx, startIdx + 2)
+                  const isLastRow = rowIndex === Math.ceil(detectedIngredients.length / 2) - 1
+                  
+                  return (
+                    <div key={rowIndex}>
+                      {/* Row with 2 ingredients */}
+                      <div className="grid grid-cols-2 gap-5">
+                        {rowIngredients.map((ingredient, colIndex) => (
+                          <div key={colIndex} className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-blue-500">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800 text-[15px]">{ingredient.name}</p>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-sm">
+                                  {ingredient.isWarning ? '⚠️' : '💡'}
+                                </span>
+                                <p className={`text-[13px] ${ingredient.isWarning ? 'text-red-500' : 'text-green-500'}`}>
+                                  {ingredient.healthInfo}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                      
+                      {/* Separator line - Width: 735px, Border: 1px #E7E7E7 */}
+                      {!isLastRow && (
+                        <div className="border-b border-[#E7E7E7] mt-5" />
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
