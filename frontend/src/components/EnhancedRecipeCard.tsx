@@ -121,22 +121,22 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 <h3 className="text-[15px] font-bold text-gray-900 mb-4 line-clamp-2 leading-snug">{name}</h3>
 
                 {hasNutritionData && (
-                    <div className="flex gap-3 mb-4">
+                    <div className="flex gap-[2px] mb-4">
                         {/* Protein */}
-                        <div className="flex-1 bg-[#FEF5EF] rounded-xl p-3 text-center border border-[#FDE8DC]">
-                            <div className="text-[#A67C5B] text-lg mb-1">🍖</div>
+                        <div className="w-[79px] h-[90px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
+                            <div className="text-base">🍖</div>
                             <div className="text-sm font-bold text-gray-800">{protein}g</div>
                             <div className="text-xs text-gray-500">Protein</div>
                         </div>
                         {/* Carbs */}
-                        <div className="flex-1 bg-[#FEF5EF] rounded-xl p-3 text-center border border-[#FDE8DC]">
-                            <div className="text-[#C4956A] text-lg mb-1">🌾</div>
+                        <div className="w-[79px] h-[90px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
+                            <div className="text-base">🌾</div>
                             <div className="text-sm font-bold text-gray-800">{carbs}g</div>
                             <div className="text-xs text-gray-500">Carbs</div>
                         </div>
                         {/* Fats */}
-                        <div className="flex-1 bg-[#FEF5EF] rounded-xl p-3 text-center border border-[#FDE8DC]">
-                            <div className="text-[#E879A9] text-lg mb-1">💧</div>
+                        <div className="w-[79px] h-[90px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
+                            <div className="text-base">💧</div>
                             <div className="text-sm font-bold text-gray-800">{fat}g</div>
                             <div className="text-xs text-gray-500">Fats</div>
                         </div>
