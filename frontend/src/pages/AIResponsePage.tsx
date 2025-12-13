@@ -1,17 +1,17 @@
 "use client"
 
 import type { FC } from "react"
-import React, { useState } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
+import { Upload, X, Check, ChevronDown } from "lucide-react"
 import "@/styles/ai-response.css"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
 import LoadingSpinner from "@/components/LoadingSpinner"
-import Logo from "@/components/Logo"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 import Swal from 'sweetalert2'
-
+import { api } from "@/lib/api"
+import CookingTutorialModal from "@/components/CookingTutorialModal"
 
 interface HealthMeal {
   calories: number
@@ -22,254 +22,217 @@ interface HealthMeal {
   health_benefit: string
   ingredients_used: string[]
   protein: number
+  image?: string
+}
+
+interface DetectedIngredient {
+  name: string
+  healthInfo: string
+  isWarning: boolean
+}
+
+// MealCard component that fetches images like Diet Planner
+const MealCard: React.FC<{ meal: HealthMeal; onViewDetails: () => void }> = ({ meal, onViewDetails }) => {
+  const [foodImage, setFoodImage] = useState<string>('')
+  const [imageLoading, setImageLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchFoodImage = async () => {
+      const foodName = meal.food_suggestions?.[0] || "healthy meal"
+      try {
+        const response = await fetch('https://get-images-qa23.onrender.com/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: foodName }),
+        })
+        if (!response.ok) throw new Error('HTTP error')
+        const data = await response.json()
+        if (data.image_url && !data.error) {
+          setFoodImage(data.image_url)
+        } else {
+          setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
+        }
+      } catch (error) {
+        setFoodImage('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop')
+      } finally {
+        setImageLoading(false)
+      }
+    }
+    fetchFoodImage()
+  }, [meal.food_suggestions])
+
+  return (
+    <div className="bg-white rounded-[15px] border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+      {/* Meal Image - Same size as Diet Planner cards */}
+      <div className="relative h-[140px] overflow-hidden bg-gray-100">
+        {imageLoading ? (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <img 
+            src={foodImage} 
+            alt={meal.food_suggestions?.[0] || "Meal"}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop'
+            }}
+          />
+        )}
+        {/* Calorie Badge */}
+        <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
+          🔥 {meal.calories}kcal
+        </div>
+      </div>
+
+      {/* Meal Info */}
+      <div className="p-4">
+        <h4 className="font-semibold text-gray-800 text-[14px] mb-3 line-clamp-2 leading-tight">
+          {meal.food_suggestions?.[0] || "Health Meal"}
+        </h4>
+
+        {/* Nutrition Info - Compact */}
+        <div className="flex gap-2 mb-3">
+          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
+            <span className="text-sm">🍖</span>
+            <p className="font-bold text-gray-800 text-[13px]">{meal.protein}g</p>
+            <p className="text-[10px] text-gray-500">Protein</p>
+          </div>
+          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
+            <span className="text-sm">🌾</span>
+            <p className="font-bold text-gray-800 text-[13px]">{meal.carbs}g</p>
+            <p className="text-[10px] text-gray-500">Carbs</p>
+          </div>
+          <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] border border-[#FDE8DC] rounded-[10px] p-2 text-center flex flex-col items-center justify-center gap-[2px]">
+            <span className="text-sm">💧</span>
+            <p className="font-bold text-gray-800 text-[13px]">{meal.fat}g</p>
+            <p className="text-[10px] text-gray-500">Fats</p>
+          </div>
+        </div>
+
+        {/* Health Benefit */}
+        <div className="flex items-start gap-1.5 mb-3">
+          <span className="text-green-500 text-sm">✓</span>
+          <p className="text-[12px] text-orange-500 line-clamp-2 leading-relaxed">{meal.health_benefit}</p>
+        </div>
+
+        {/* View Details Button */}
+        <button
+          onClick={onViewDetails}
+          className="w-full py-2.5 border-[1.5px] border-[#1A76E3] text-[#1A76E3] rounded-[10px] text-[13px] font-semibold hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+        >
+          View Meal Details
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const AIResponsePage: FC = () => {
   const navigate = useNavigate()
-  const [inputType, setInputType] = useState<"image" | "ingredient_list">("image")
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showIngredientModal, setShowIngredientModal] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [ingredientList, setIngredientList] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [detectedIngredients, setDetectedIngredients] = useState<string>("")
-  const [detectedIngredientsArray, setDetectedIngredientsArray] = useState<string[]>([]) // Store original array for updates
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [instructions, setInstructions] = useState<string>("")
-  const [resources, setResources] = useState<any>(null)
-  const [analysisId, setAnalysisId] = useState<string>("")
-  const [loadingResources, setLoadingResources] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const { token, isAuthenticated, loading } = useAuth()
-
-  // Health-focused meal generation state
-  const [isHealthMode, setIsHealthMode] = useState(false)
+  const [detectedIngredients, setDetectedIngredients] = useState<DetectedIngredient[]>([])
   const [healthMeals, setHealthMeals] = useState<HealthMeal[]>([])
-  const [showHealthResults, setShowHealthResults] = useState(false)
-  const [showMealModal, setShowMealModal] = useState(false)
-  const [selectedMealForModal, setSelectedMealForModal] = useState<HealthMeal | null>(null)
+  const [showResults, setShowResults] = useState(false)
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [showCookingModal, setShowCookingModal] = useState(false)
+  const [selectedMealName, setSelectedMealName] = useState("")
+  const [selectedMealIngredients, setSelectedMealIngredients] = useState<string[]>([])
+  
+  const { user, isAuthenticated, loading } = useAuth()
   const { settings: sicknessSettings, isHealthProfileComplete } = useSicknessSettings()
-
-  // Set health mode to true by default if user has health conditions
-  React.useEffect(() => {
-    if (sicknessSettings.hasSickness && isHealthProfileComplete()) {
-      setIsHealthMode(true)
-    }
-  }, [sicknessSettings.hasSickness, isHealthProfileComplete])
 
   if (loading) {
     return <LoadingSpinner />
   }
+
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center mx-auto">
-            <Logo size="lg" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
-            <p className="text-gray-600">
-              Please log in to use the AI Kitchen feature and save your recipe discoveries to history.
-            </p>
-            <Button
-              onClick={() => navigate('/landing')}
-              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-            >
-              Go to Landing Page
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
+    navigate('/login')
+    return null
   }
 
+  const handleUploadClick = () => {
+    setShowUploadModal(true)
+  }
 
-  const handleDiscoverRecipes = async () => {
-    if (sicknessSettings.hasSickness && isHealthMode) {
-      await handleHealthMealGeneration()
-      return
+  const handleListIngredientsClick = () => {
+    setShowIngredientModal(true)
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setSelectedImage(file)
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
     }
+  }
 
-    setIsLoading(true)
-    setDetectedIngredients("")
-    setDetectedIngredientsArray([])
-    setSuggestions([])
-    setInstructions("")
-    setResources(null)
-    setShowResults(false)
-    setHealthMeals([])
-    setShowHealthResults(false)
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const file = event.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      setSelectedImage(file)
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
-    const formData = new FormData()
-    if (inputType === "image" && selectedImage) {
-      formData.append("image_or_ingredient_list", "image")
-      formData.append("image", selectedImage)
-    } else if (inputType === "ingredient_list" && ingredientList.trim()) {
-      formData.append("image_or_ingredient_list", "ingredient_list")
-      formData.append("ingredient_list", ingredientList)
-    } else {
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+  }
+
+  const handleDetect = async (inputType: "image" | "ingredient_list" = "image") => {
+    if (inputType === "image" && !selectedImage) {
       Swal.fire({
         icon: 'warning',
-        title: 'Missing Input',
-        text: 'Please provide an image or ingredient list',
-        confirmButtonColor: '#f97316'
+        title: 'No Image Selected',
+        text: 'Please upload or capture an image first.',
+        confirmButtonColor: '#1A76E3'
       })
-      setIsLoading(false)
       return
     }
 
-    try {
-      console.log('[AIResponsePage] Starting ingredient detection with API:', `${APP_CONFIG.api.ai_api_url}/process`)
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/process`, {
-        method: "POST",
-        body: formData,
-        signal: controller.signal
+    if (inputType === "ingredient_list" && !ingredientList.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Ingredients',
+        text: 'Please enter your ingredients.',
+        confirmButtonColor: '#1A76E3'
       })
-
-      clearTimeout(timeoutId)
-
-      console.log('[AIResponsePage] API response status:', response.status, response.statusText)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('[AIResponsePage] API error response:', errorText)
-        throw new Error(`Failed to process ingredients: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Process response:", data)
-
-      if (data.error) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: data.error,
-          confirmButtonColor: '#f97316'
-        })
-        return
-      }
-
-      setAnalysisId(data.analysis_id)
-      const ingredientsArray = data.response || []
-      setDetectedIngredientsArray(ingredientsArray)
-      setDetectedIngredients(ingredientsArray.join(', '))
-      setSuggestions(data.food_suggestions || [])
-      setShowResults(true)
-
-      // Save initial detection to Supabase (ingredients + suggestions)
-      if (token && ingredientsArray && ingredientsArray.length > 0 && data.analysis_id) {
-        const payload = {
-          recipe_type: "ingredient_detection",
-          suggestion: "", // No suggestion selected yet, just initial detection
-          instructions: "", // Instructions will be added when user clicks a suggestion
-          ingredients: JSON.stringify(data.response || []),
-          detected_foods: JSON.stringify(data.response || []),
-          analysis_id: data.analysis_id || ""
-          // YouTube, Google, and resources will be added later when suggestion is clicked
-        };
-
-        try {
-          console.log("[AIResponse] Saving initial detection to history:", {
-            analysis_id: data.analysis_id,
-            ingredients_count: data.response?.length || 0,
-            suggestions_count: data.food_suggestions?.length || 0,
-            payload: payload
-          });
-
-          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const responseData = await historyResponse.json();
-
-          if (historyResponse.ok) {
-            console.log("[AIResponse] ✅ Successfully saved initial detection to history:", responseData);
-          } else {
-            console.error("[AIResponse] ❌ Failed to save initial detection to history:", responseData);
-            Swal.fire({
-              icon: 'warning',
-              title: 'History Save Warning',
-              text: `Failed to save to history: ${responseData.message || 'Unknown error'}`,
-              confirmButtonColor: '#f97316'
-            });
-          }
-        } catch (historyError) {
-          console.error("[AIResponse] ❌ Error saving initial detection to history:", historyError);
-          Swal.fire({
-            icon: 'error',
-            title: 'History Save Error',
-            text: 'Failed to save detection to history. Please try again.',
-            confirmButtonColor: '#f97316'
-          });
-        }
-      } else {
-        console.warn("[AIResponse] ⚠️ Cannot save initial detection - missing data:", {
-          hasToken: !!token,
-          hasResponse: !!(data.response && data.response.length > 0),
-          hasAnalysisId: !!data.analysis_id
-        });
-      }
-    } catch (error) {
-      console.error("Error processing ingredients:", error)
-      
-      if (error.name === 'AbortError') {
-        Swal.fire({
-          icon: 'error',
-          title: 'Connection Timeout',
-          text: 'The AI server is taking too long to respond. The external AI service may be temporarily unavailable. Please try again later or contact support if the issue persists.',
-          confirmButtonColor: '#f97316'
-        })
-      } else if (error.message.includes('Failed to fetch')) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Connection Failed',
-          text: 'Unable to connect to the AI server. The external AI service may be offline. Please try again later or contact support.',
-          confirmButtonColor: '#f97316'
-        })
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Processing Failed',
-          text: 'Failed to process ingredients. Please try again.',
-          confirmButtonColor: '#f97316'
-        })
-      }
-    } finally {
-      setIsLoading(false)
+      return
     }
-  }
 
-  const handleHealthMealGeneration = async () => {
-    if (!isHealthProfileComplete) {
+    if (!isHealthProfileComplete()) {
       Swal.fire({
         icon: 'info',
         title: 'Health Profile Required',
         text: 'Please complete your health profile in Settings first.',
-        confirmButtonColor: '#f97316'
+        confirmButtonColor: '#1A76E3'
       })
       return
     }
 
+    setShowUploadModal(false)
+    setShowIngredientModal(false)
     setIsLoading(true)
-    setHealthMeals([])
-    setShowHealthResults(false)
-    setDetectedIngredients("")
-    setSuggestions([])
-    setInstructions("")
-    setResources(null)
     setShowResults(false)
 
     const formData = new FormData()
-
-    // Add health profile data
     formData.append("age", sicknessSettings.age?.toString() || "")
     formData.append("weight", sicknessSettings.weight?.toString() || "")
     formData.append("height", sicknessSettings.height?.toString() || "")
@@ -278,22 +241,13 @@ const AIResponsePage: FC = () => {
     formData.append("activity_level", sicknessSettings.activityLevel || "")
     formData.append("condition", sicknessSettings.sicknessType || "")
     formData.append("goal", sicknessSettings.goal === "heal" ? "heal" : "manage")
-
+    
     if (inputType === "image" && selectedImage) {
       formData.append("image_or_ingredient_list", "image")
       formData.append("image", selectedImage)
-    } else if (inputType === "ingredient_list" && ingredientList.trim()) {
+    } else {
       formData.append("image_or_ingredient_list", "ingredient_list")
       formData.append("ingredient_list", ingredientList)
-    } else {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Missing Input',
-        text: 'Please provide an image or ingredient list',
-        confirmButtonColor: '#f97316'
-      })
-      setIsLoading(false)
-      return
     }
 
     try {
@@ -303,1025 +257,504 @@ const AIResponsePage: FC = () => {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to generate health meals")
+        throw new Error("Failed to detect ingredients")
       }
 
       const data = await response.json()
-      console.log("Health meal response:", data)
+      console.log("Detection response:", data)
 
       if (data.error) {
         Swal.fire({
           icon: 'error',
           title: 'Error',
           text: data.error,
-          confirmButtonColor: '#f97316'
+          confirmButtonColor: '#1A76E3'
         })
         return
       }
 
-      setHealthMeals(data.meal_options || [])
+      // Parse detected ingredients with health info
+      // Handle both ", " and "," separators, and also split by newlines
       const mainIngredients = data.main_ingredients || ""
-      setDetectedIngredients(mainIngredients)
-      setDetectedIngredientsArray(mainIngredients ? mainIngredients.split(', ').filter(Boolean) : [])
-      setShowHealthResults(true)
+      const ingredientsList = mainIngredients
+        .split(/[,\n]+/)  // Split by comma or newline
+        .map((s: string) => s.trim())  // Trim whitespace
+        .filter((s: string) => s.length > 0)  // Remove empty strings
+      
+      // Create ingredient objects with mock health info based on sickness type
+      const parsedIngredients: DetectedIngredient[] = ingredientsList.map((name: string) => {
+        // Simple health assessment based on ingredient and condition
+        const isHighRisk = checkIngredientRisk(name, sicknessSettings.sicknessType || "")
+        return {
+          name: name.charAt(0).toUpperCase() + name.slice(1),  // Capitalize first letter
+          healthInfo: isHighRisk 
+            ? `May affect ${sicknessSettings.sicknessType}` 
+            : `Good for ${sicknessSettings.sicknessType} management`,
+          isWarning: isHighRisk
+        }
+      })
+
+      setDetectedIngredients(parsedIngredients)
+
+      // Process meal options with placeholder images
+      const mealsWithImages = (data.meal_options || []).map((meal: HealthMeal, index: number) => ({
+        ...meal,
+        image: getMealImage(meal.food_suggestions?.[0] || "meal", index)
+      }))
+
+      setHealthMeals(mealsWithImages)
+      setShowResults(true)
     } catch (error) {
-      console.error("Error generating health meals:", error)
+      console.error("Error detecting ingredients:", error)
       Swal.fire({
         icon: 'error',
-        title: 'Generation Failed',
-        text: 'Failed to generate health meals. Please try again.',
-        confirmButtonColor: '#f97316'
+        title: 'Detection Failed',
+        text: 'Failed to detect ingredients. Please try again.',
+        confirmButtonColor: '#1A76E3'
       })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleSuggestionClick = async (suggestion: string) => {
-    setIsLoading(true)
-    setInstructions("")
-    setResources(null)
+  const checkIngredientRisk = (ingredient: string, condition: string): boolean => {
+    const lowerIngredient = ingredient.toLowerCase()
+    const lowerCondition = condition.toLowerCase()
+    
+    // High cholesterol risks
+    if (lowerCondition.includes('cholesterol')) {
+      return ['butter', 'cheese', 'bacon', 'sausage', 'fatty', 'fried'].some(r => lowerIngredient.includes(r))
+    }
+    // Diabetes risks
+    if (lowerCondition.includes('diabetes') || lowerCondition.includes('sugar')) {
+      return ['sugar', 'candy', 'sweet', 'syrup', 'honey'].some(r => lowerIngredient.includes(r))
+    }
+    // Heart disease risks
+    if (lowerCondition.includes('heart')) {
+      return ['salt', 'sodium', 'fried', 'processed'].some(r => lowerIngredient.includes(r))
+    }
+    return false
+  }
 
-    console.log('Starting to fetch instructions for:', suggestion)
+  const getMealImage = (_mealName: string, index: number): string => {
+    // Use Unsplash food images as placeholders
+    const foodImages = [
+      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1482049016gy215f-d4b5923e8331?w=400&h=300&fit=crop',
+    ]
+    return foodImages[index % foodImages.length]
+  }
 
+  const handleViewMealDetails = async (meal: HealthMeal) => {
+    const mealName = meal.food_suggestions?.[0] || "Health Meal"
+    setSelectedMealName(mealName)
+    setSelectedMealIngredients(meal.ingredients_used || [])
+    
+    // Open modal immediately so user sees it loading
+    setShowCookingModal(true)
+    
+    // Fetch instructions and resources, then save to history with complete data
     try {
-      // 1. Get cooking instructions first
-      const formData = new FormData()
-      formData.append("food_analysis_id", analysisId)
-      formData.append("food_choice_index", suggestion)
+      const sicknessInfo = sicknessSettings.sicknessType ? {
+        sicknessType: sicknessSettings.sicknessType
+      } : null
 
-      console.log('Fetching instructions with analysisId:', analysisId)
+      // 1. Get cooking instructions
+      const requestBody: any = {
+        food_name: mealName,
+        ingredients: meal.ingredients_used || []
+      }
 
-      const instrRes = await fetch(`${APP_CONFIG.api.ai_api_url}/instructions`, {
-        method: "POST",
-        body: formData,
+      if (sicknessInfo) {
+        requestBody.sickness = sicknessInfo.sicknessType
+      }
+
+      const endpoint = sicknessInfo 
+        ? `${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions` 
+        : `${APP_CONFIG.api.ai_api_url}/meal_plan_instructions`
+
+      const instrRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       })
+
+      if (!instrRes.ok) {
+        throw new Error(`Failed to fetch instructions: ${instrRes.status}`)
+      }
+
       const instrData = await instrRes.json()
-
-      console.log('Instructions API response:', instrData)
-
-      // Convert markdown to HTML (same as tutorial page)
-      let htmlInstructions = instrData.instructions || '';
-      htmlInstructions = htmlInstructions
-        .replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
-        .replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
-        .replace(/(\d+\.)/g, '<br>$1');
-
-      console.log('Converted HTML instructions:', htmlInstructions)
-      setInstructions(htmlInstructions);
-
-      // Instructions are loaded, now start loading resources
-      setIsLoading(false);
-      setLoadingResources(true);
+      let instructions = instrData.instructions || ''
 
       // 2. Get resources (YouTube and Google)
-      const resForm = new FormData()
-      resForm.append("food_choice_index", suggestion)
+      const formData = new FormData()
+      formData.append('food_choice_index', mealName)
+      
       const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
-        method: "POST",
-        body: resForm,
+        method: 'POST',
+        body: formData,
       })
+
+      if (!resRes.ok) {
+        throw new Error(`Failed to fetch resources: ${resRes.status}`)
+      }
+
       const resData = await resRes.json()
-      setResources(resData)
+      
+      // Extract YouTube and Google resources
+      const youtubeResults = (resData.YoutubeSearch || []).flat()
+      const googleResults = (resData.GoogleSearch || []).flat()
+      
+      // Get first YouTube link if available
+      const youtubeLink = youtubeResults.length > 0 ? youtubeResults[0].link : ""
+      
+      // Get first Google link if available
+      const googleLink = googleResults.length > 0 ? googleResults[0].link : ""
+      
+      // Create resources JSON with full data
+      const resourcesJson = JSON.stringify({
+        YoutubeSearch: youtubeResults,
+        GoogleSearch: googleResults
+      })
 
-      // Update existing detection history record with suggestion details
-      if (token && analysisId && instrData.instructions) {
-        // Use raw instructions (before HTML formatting) for storage
-        const rawInstructions = instrData.instructions || "";
-        const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
-        const googleLink = resData?.GoogleSearch?.[0]?.link || "";
-        const resourcesJson = JSON.stringify(resData || {});
-        
-        // Prepare ingredients array
-        const ingredientsArray = detectedIngredientsArray.length > 0 
-          ? detectedIngredientsArray 
-          : (detectedIngredients ? detectedIngredients.split(', ').filter(Boolean) : []);
-        
-        const payload = {
-          analysis_id: analysisId,
-          suggestion: suggestion || "",
-          instructions: rawInstructions, // Store raw instructions, not HTML formatted
-          ingredients: JSON.stringify(ingredientsArray),
-          detected_foods: JSON.stringify(ingredientsArray),
-          youtube_link: youtubeLink, // Use correct field name
-          google_link: googleLink, // Use correct field name
-          resources_link: resourcesJson // Use correct field name
-        };
-
-        try {
-          console.log("[AIResponse] Updating detection history with suggestion:", {
-            analysis_id: analysisId,
-            suggestion: suggestion,
-            hasInstructions: !!rawInstructions,
-            instructionsLength: rawInstructions.length,
-            hasYoutube: !!youtubeLink,
-            youtubeLink: youtubeLink ? youtubeLink.substring(0, 50) + "..." : "none",
-            hasGoogle: !!googleLink,
-            googleLink: googleLink ? googleLink.substring(0, 50) + "..." : "none",
-            resourcesLength: resourcesJson.length,
-            payload: payload
-          });
-
-          // Wait a bit to ensure the initial history save completed
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          const updateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const updateResult = await updateResponse.json();
-
-          if (updateResponse.ok && (updateResult.status === 'success' || updateResponse.status === 200)) {
-            console.log("[AIResponse] ✅ Successfully updated detection history with suggestion:", updateResult);
-            
-            // Also update resources separately using the same endpoint as DetectFoodPage (as a backup)
-            if (youtubeLink || googleLink || (resourcesJson && resourcesJson !== "{}")) {
-              try {
-                const resourcesUpdatePayload = {
-                  food_analysis_id: analysisId,
-                  youtube_link: youtubeLink,
-                  google_link: googleLink,
-                  resources_link: resourcesJson
-                };
-                
-                const resourcesUpdateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/food_detect_resources`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(resourcesUpdatePayload)
-                });
-                
-                const resourcesUpdateResult = await resourcesUpdateResponse.json();
-                if (resourcesUpdateResponse.ok && resourcesUpdateResult.status === 'success') {
-                  console.log("[AIResponse] ✅ Successfully updated resources separately:", resourcesUpdateResult);
-                } else {
-                  console.warn("[AIResponse] ⚠️ Resources update via separate endpoint failed (non-critical):", resourcesUpdateResult);
-                }
-              } catch (resourcesError) {
-                console.warn("[AIResponse] ⚠️ Error updating resources separately (non-critical):", resourcesError);
-              }
-            }
-          } else {
-            console.error("[AIResponse] ❌ Failed to update detection history:", updateResult);
-            // If update fails, try to create a new record instead
-            console.log("[AIResponse] Attempting to create new record instead of update...");
-            const createPayload = {
-              recipe_type: "ingredient_detection",
-              ...payload
-            };
-            const createResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(createPayload)
-            });
-            const createResult = await createResponse.json();
-            if (createResponse.ok) {
-              console.log("[AIResponse] ✅ Created new detection history record:", createResult);
-            } else {
-              console.error("[AIResponse] ❌ Failed to create new record:", createResult);
-            }
-          }
-        } catch (updateError) {
-          console.error("[AIResponse] ❌ Error updating detection history:", updateError);
-        }
+      // 3. Save to history with complete data
+      const analysisId = `ingredient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const historyData = {
+        recipe_type: "ingredient_detection",
+        suggestion: mealName,
+        instructions: instructions,
+        ingredients: JSON.stringify(meal.ingredients_used || []),
+        detected_foods: JSON.stringify(detectedIngredients.map(i => i.name)),
+        analysis_id: analysisId,
+        youtube_link: youtubeLink,
+        google_link: googleLink,
+        resources_link: resourcesJson
+      }
+      
+      console.log("[AIResponse] Saving ingredient detection to history with complete data:", {
+        ...historyData,
+        resources_link: "..." // Don't log full resources JSON
+      })
+      
+      const saveResult = await api.saveDetectionHistory(historyData)
+      
+      if (saveResult.status === 'success') {
+        console.log("[AIResponse] ✅ Ingredient detection saved to history successfully with resources")
       } else {
-        console.warn("[AIResponse] ⚠️ Cannot update detection history - missing data:", {
-          hasToken: !!token,
-          hasDetectedIngredients: detectedIngredients.length > 0,
-          hasInstructions: !!instrData.instructions,
-          hasResources: !!resData,
-          hasAnalysisId: !!analysisId
-        });
+        console.warn("[AIResponse] ⚠️ Failed to save to history:", saveResult.message)
       }
-    } catch (error) {
-      console.error('Error fetching content:', error);
-      setInstructions('Failed to load instructions. Please try again.');
-    } finally {
-      setIsLoading(false);
-      setLoadingResources(false);
+    } catch (historyError) {
+      console.error("[AIResponse] Error fetching resources or saving to history:", historyError)
+      // Modal is already open, it will handle loading its own content
     }
   }
 
-  const handleHealthMealInstructions = async (meal: HealthMeal) => {
-    setIsLoading(true)
-    setInstructions("")
-    setResources(null)
-
-    // Generate analysis ID for this health meal
-    const analysisId = `health-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    try {
-      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          food_name: meal.food_suggestions[0] || "Health Meal",
-          ingredients: meal.ingredients_used,
-          sickness: sicknessSettings.sicknessType
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to get health meal instructions")
-      }
-
-      const data = await response.json()
-      console.log("Health meal instructions response:", data)
-
-      if (data.error) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: data.error,
-          confirmButtonColor: '#f97316'
-        })
-        return
-      }
-
-      // Convert markdown to HTML (same as regular instructions)
-      let htmlInstructions = data.instructions || '';
-      htmlInstructions = htmlInstructions
-        .replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
-        .replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
-        .replace(/(\d+\.)/g, '<br>$1');
-
-      setInstructions(htmlInstructions)
-
-      // Instructions are loaded, now start loading resources
-      setIsLoading(false);
-      setLoadingResources(true);
-
-      // 2. Get resources (YouTube and Google) for the health meal
-      const resForm = new FormData()
-      resForm.append("food_choice_index", meal.food_suggestions[0] || "Health Meal")
-      const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
-        method: "POST",
-        body: resForm,
-      })
-      const resData = await resRes.json()
-      setResources(resData)
-
-      // 3. Save to detection history with resources (IMPORTANT FIX!)
-      if (token && meal.ingredients_used.length && data.instructions && resData) {
-        // Use raw instructions (before HTML formatting) for storage
-        const rawInstructions = data.instructions || "";
-        const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
-        const googleLink = resData?.GoogleSearch?.[0]?.link || "";
-        const resourcesJson = JSON.stringify(resData || {});
-        
-        console.log("[AIResponse] Saving health meal to history with resources:", {
-          analysis_id: analysisId,
-          suggestion: meal.food_suggestions[0],
-          hasInstructions: !!rawInstructions,
-          hasYoutube: !!youtubeLink,
-          hasGoogle: !!googleLink,
-          resourcesLength: resourcesJson.length
-        });
-        
-        const payload = {
-          recipe_type: "ingredient_detection",
-          suggestion: meal.food_suggestions[0] || "Health Meal",
-          instructions: rawInstructions, // Store raw instructions, not HTML formatted
-          ingredients: JSON.stringify(meal.ingredients_used || []),
-          detected_foods: JSON.stringify(meal.ingredients_used || []),
-          analysis_id: analysisId,
-          youtube_link: youtubeLink, // Use correct field name
-          google_link: googleLink, // Use correct field name
-          resources_link: resourcesJson // Use correct field name
-        };
-
-        try {
-          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
-
-          if (historyResponse.ok) {
-            console.log("[AIResponse] ✅ Successfully saved health meal to history");
-          } else {
-            console.error("[AIResponse] ❌ Failed to save health meal to history:", await historyResponse.text());
-          }
-        } catch (historyError) {
-          console.error("[AIResponse] ❌ Error saving health meal to history:", historyError);
-        }
-      } else {
-        console.warn("[AIResponse] ⚠️ Cannot save to history - missing data:", {
-          hasToken: !!token,
-          hasIngredients: meal.ingredients_used.length > 0,
-          hasInstructions: !!data.instructions,
-          hasResources: !!resData
-        });
-      }
-
-    } catch (error) {
-      console.error("Error fetching health meal instructions:", error)
-      Swal.fire({
-        icon: 'error',
-        title: 'Loading Failed',
-        text: 'Failed to load health meal instructions. Please try again.',
-        confirmButtonColor: '#f97316'
-      })
-    } finally {
-      setIsLoading(false);
-      setLoadingResources(false);
-    }
-  }
-
-  const handleViewMealInfo = (meal: HealthMeal, event: React.MouseEvent) => {
-    event.stopPropagation() // Prevent the button click from triggering
-    setSelectedMealForModal(meal)
-    setShowMealModal(true)
-  }
-
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  const getYouTubeVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+  const handleNewDetection = () => {
+    setShowResults(false)
+    setSelectedImage(null)
+    setImagePreview(null)
+    setIngredientList("")
+    setDetectedIngredients([])
+    setHealthMeals([])
   }
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-        background: "url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed",
-        padding: "1rem 0.5rem sm:2rem 1rem",
-        color: "#2D3436",
-        lineHeight: "1.6"
-      }}
-    >
-      <div className="max-w-[1400px] mx-auto px-2 sm:px-4">
-        <div
-          className="bg-[rgba(255,255,255,0.95)] rounded-2xl sm:rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-4 sm:p-8 lg:p-12 relative max-w-[800px] mx-auto"
-        >
-          {/* Title */}
-          <h1
-            className="text-2xl sm:text-3xl lg:text-[2.5rem] font-extrabold text-center mb-4 sm:mb-8 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent tracking-[-1px]"
-          >
-            Ingredient Detection
+    <div className="min-h-screen bg-[#f8fafc]">
+      {/* Header */}
+      <header 
+        className="px-8 h-[105px] flex items-center border-b"
+        style={{ 
+          backgroundColor: '#F9FBFE',
+          borderColor: '#F6FAFE',
+          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+        }}
+      >
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+            Ingredients Detector
           </h1>
-
-          {/* Health-aware detection badge */}
-          {sicknessSettings.hasSickness && (
-            <div className="absolute top-2 right-2 sm:top-4 sm:right-4">
-              <div className="inline-flex items-center bg-orange-100 text-orange-800 rounded-full px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mr-1 sm:mr-2"></div>
-                <span className="hidden sm:inline">Health-aware detection</span>
-                <span className="sm:hidden">Health-aware</span>
-              </div>
-            </div>
-          )}
-
-          {/* Input Form */}
-          <div className="mb-4">
-            <label className="block font-semibold text-lg text-[#2D3436] mb-3">
-              How would you like to start?
-            </label>
-            <select
-              className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
-              value={inputType}
-              onChange={(e) => setInputType(e.target.value as "image" | "ingredient_list")}
+          
+          {/* Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
-              <option value="image">Snap or Upload Ingredient Image</option>
-              <option value="ingredient_list">List Your Ingredients</option>
-            </select>
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showProfileDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowProfileDropdown(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
+                  <a href="/settings" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
+                  <a href="/history" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">History</a>
+                </div>
+              </>
+            )}
           </div>
-
-
-          {/* Image Input */}
-          {inputType === "image" && (
-            <div className="mb-4">
-              <label className="block font-semibold text-sm sm:text-lg text-[#2D3436] mb-2 sm:mb-3">
-                Share Your Food Image
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-xl sm:rounded-2xl p-3 sm:p-4 text-sm sm:text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
-              />
-              {imagePreview && (
-                <div className="flex justify-center mt-2.5">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full max-w-[400px] h-auto sm:h-[300px] object-cover rounded-xl sm:rounded-2xl"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Ingredient Input */}
-          {inputType === "ingredient_list" && (
-            <div className="mb-4">
-              <label className="block font-semibold text-sm sm:text-lg text-[#2D3436] mb-2 sm:mb-3">
-                What ingredients do you have?
-              </label>
-              <input
-                type="text"
-                value={ingredientList}
-                onChange={(e) => setIngredientList(e.target.value)}
-                placeholder="e.g., chicken, tomatoes, basil, olive oil"
-                className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-xl sm:rounded-2xl p-3 sm:p-4 text-sm sm:text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
-              />
-            </div>
-          )}
-
-          {/* Discover Button */}
-          <button
-            onClick={handleDiscoverRecipes}
-            disabled={isLoading || (sicknessSettings.hasSickness && isHealthMode && !isHealthProfileComplete)}
-            className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {(sicknessSettings.hasSickness && isHealthMode) ? "Generate Health Meals" : "Discover Recipes"}
-          </button>
-
-          {/* Loading Spinner */}
-          {isLoading && (
-            <div className="flex justify-center mt-8">
-              <div className="w-12 h-12 border-4 border-[rgba(255,107,107,0.3)] border-t-[#FF6B6B] rounded-full animate-spin"></div>
-            </div>
-          )}
-
-          {/* Health Meal Results */}
-          {showHealthResults && (
-            <div className="mt-4">
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-[#2D3436] mb-2 text-center">
-                  Health-Focused Meal Options
-                </h3>
-                <p className="text-gray-600 text-center">
-                  Meals tailored for {sicknessSettings.sicknessType} management
-                </p>
-              </div>
-
-              {/* Side by side layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* AI Detected Ingredients for Health Mode */}
-                <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]">
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Detected Ingredient
-                    </h5>
-                    <div className="text-left">
-                      <p className="text-lg text-gray-700">{detectedIngredients}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Recipe Suggestions */}
-                <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]">
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Recipe Suggestions
-                    </h5>
-                    <div className="flex flex-wrap gap-2">
-                      {healthMeals.map((meal, i) => (
-                        <div key={i} className="relative inline-block">
-                          <button
-                            onClick={() => handleHealthMealInstructions(meal)}
-                            disabled={isLoading}
-                            className="bg-white text-[#FF6B6B] border-2 border-[#FF6B6B] rounded-2xl px-3 py-3 m-2 transition-all duration-300 font-semibold text-base hover:bg-gradient-to-r hover:from-[#FF6B6B] hover:to-[#FF8E53] hover:text-white hover:border-transparent hover:translate-y-[-2px] hover:shadow-[0_4px_12px_rgba(255,107,107,0.2)] pr-10"
-                          >
-                            {meal.food_suggestions[0] || "Health Meal"}
-                          </button>
-
-                          {/* Small MORE INFO button inside bottom right corner */}
-                          <button
-                            onClick={(e) => handleViewMealInfo(meal, e)}
-                            className="absolute bottom-1 right-1 bg-orange-500 text-white rounded text-xs font-bold px-1 py-0 shadow-sm hover:bg-red-600 transition-colors"
-                            title="View meal details"
-                          >
-                            MORE INFO
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Instructions Section for Health Mode */}
-              {instructions && (
-                <div
-                  className="mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      Cooking Instructions
-                    </h5>
-                    <div
-                      className="leading-[1.4] m-0 text-left"
-                      style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
-                      dangerouslySetInnerHTML={{ __html: instructions }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Resources Section for Health Mode */}
-              {loadingResources && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-center">Loading video tutorials...</div>
-                    </div>
-                  </div>
-
-                  {/* Google Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-center">Loading articles...</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Resources Content for Health Mode */}
-              {resources && !loadingResources && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
-                        <div className="space-y-6">
-                          {resources.YoutubeSearch.map((item: any, idx: number) => {
-                            const videoId = getYouTubeVideoId(item.link);
-                            return videoId ? (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="relative w-full aspect-video bg-black">
-                                  <iframe
-                                    src={`https://www.youtube.com/embed/${videoId}`}
-                                    title={item.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    className="w-full h-full rounded-t-2xl"
-                                  />
-                                </div>
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
-                                </div>
-                              </div>
-                            ) : (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                                  >
-                                    Watch Tutorial
-                                  </a>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No video tutorials available.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Google Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
-                        <div className="space-y-6">
-                          {resources.GoogleSearch
-                            .filter((item: any) =>
-                              !item.title.toLowerCase().includes('gnu make') &&
-                              !item.description.toLowerCase().includes('gnu make')
-                            )
-                            .map((item: any, idx: number) => (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                                  >
-                                    Read More
-                                  </a>
-                                </div>
-                              </div>
-                            ))}
-                          {resources.GoogleSearch.filter((item: any) =>
-                            item.title.toLowerCase().includes('gnu make') ||
-                            item.description.toLowerCase().includes('gnu make')
-                          ).length > 0 && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-yellow-800 text-sm">
-                                  ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
-                                </p>
-                              </div>
-                            )}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No articles available.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-
-          {/* Results */}
-          {showResults && (
-            <div className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* AI Detected Ingredients */}
-                <div
-                  className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Detected Ingredient
-                    </h5>
-                    <div className="text-left">
-                      <p className="text-lg text-gray-700">{detectedIngredients}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Recipe Suggestions */}
-                <div
-                  className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Recipe Suggestions
-                    </h5>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestions.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSuggestionClick(suggestion)}
-                          disabled={isLoading}
-                          className="bg-white text-[#FF6B6B] border-2 border-[#FF6B6B] rounded-2xl px-3 py-3 m-2 transition-all duration-300 font-semibold text-base hover:bg-gradient-to-r hover:from-[#FF6B6B] hover:to-[#FF8E53] hover:text-white hover:border-transparent hover:translate-y-[-2px] hover:shadow-[0_4px_12px_rgba(255,107,107,0.2)]"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Instructions Section */}
-              {instructions && (
-                <div
-                  className="mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      Cooking Instructions
-                    </h5>
-                    <div
-                      className="leading-[1.4] m-0 text-left"
-                      style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
-                      dangerouslySetInnerHTML={{ __html: instructions }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Resources Section */}
-              {loadingResources && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-center">Loading video tutorials...</div>
-                    </div>
-                  </div>
-
-                  {/* Google Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-center">Loading articles...</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Resources Content */}
-              {resources && !loadingResources && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
-                        <div className="space-y-6">
-                          {resources.YoutubeSearch.map((item: any, idx: number) => {
-                            const videoId = getYouTubeVideoId(item.link);
-                            return videoId ? (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="relative w-full aspect-video bg-black">
-                                  <iframe
-                                    src={`https://www.youtube.com/embed/${videoId}`}
-                                    title={item.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    className="w-full h-full rounded-t-2xl"
-                                  />
-                                </div>
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
-                                </div>
-                              </div>
-                            ) : (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                                  >
-                                    Watch Tutorial
-                                  </a>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No video tutorials available.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Google Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
-                        <div className="space-y-6">
-                          {resources.GoogleSearch
-                            .filter((item: any) =>
-                              !item.title.toLowerCase().includes('gnu make') &&
-                              !item.description.toLowerCase().includes('gnu make')
-                            )
-                            .map((item: any, idx: number) => (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                                  >
-                                    Read More
-                                  </a>
-                                </div>
-                              </div>
-                            ))}
-                          {resources.GoogleSearch.filter((item: any) =>
-                            item.title.toLowerCase().includes('gnu make') ||
-                            item.description.toLowerCase().includes('gnu make')
-                          ).length > 0 && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-yellow-800 text-sm">
-                                  ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
-                                </p>
-                              </div>
-                            )}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No articles available.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="px-8 py-8">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-32">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+            <p className="text-xl text-gray-600 font-medium">Detecting Ingredients.....</p>
+          </div>
+        )}
+
+        {/* Initial State - Choose Detection Method */}
+        {!isLoading && !showResults && (
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-2xl font-semibold text-center text-gray-800 mb-2">
+              Choose how you want to detect
+            </h2>
+            <p className="text-center text-gray-500 mb-10">your ingredients.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Upload Image Card */}
+              <button
+                onClick={handleUploadClick}
+                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
+              >
+                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <Upload className="w-10 h-10 text-blue-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Upload image</h3>
+                <p className="text-gray-500 text-sm">Choose an Existing photo<br/>from your device</p>
+              </button>
+
+              {/* List Ingredients Card */}
+              <button
+                onClick={handleListIngredientsClick}
+                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
+              >
+                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-10 h-10 text-gray-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">List Ingredients</h3>
+                <p className="text-gray-500 text-sm">Type your ingredients<br/>manually</p>
+              </button>
+            </div>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {/* Results State */}
+        {!isLoading && showResults && (
+          <div>
+            {/* Header with Detect Button */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 
+                className="text-[24px] font-medium tracking-[0.03em] leading-[130%]"
+                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+              >
+                Detected Ingredients
+              </h2>
+              <button
+                onClick={handleNewDetection}
+                className="px-6 py-3 bg-[#1A76E3] text-white rounded-[15px] font-semibold hover:bg-blue-600 transition-colors"
+              >
+                Detect Ingredient
+              </button>
+            </div>
+
+            {/* Detected Ingredients Card - Figma style */}
+            {/* Width: 782px, Height: auto, Radius: 15px, Border: 1px #E7E7E7, Padding: 32px top/bottom, 24px left/right, Gap: 20px */}
+            <div 
+              className="bg-white rounded-[15px] border border-[#E7E7E7] mb-8 max-w-[782px]"
+              style={{ padding: '32px 24px' }}
+            >
+              {/* 2 columns layout with separator lines */}
+              <div className="flex flex-col gap-5">
+                {/* Group ingredients into rows of 2 */}
+                {Array.from({ length: Math.ceil(detectedIngredients.length / 2) }, (_, rowIndex) => {
+                  const startIdx = rowIndex * 2
+                  const rowIngredients = detectedIngredients.slice(startIdx, startIdx + 2)
+                  const isLastRow = rowIndex === Math.ceil(detectedIngredients.length / 2) - 1
+                  
+                  return (
+                    <div key={rowIndex}>
+                      {/* Row with 2 ingredients */}
+                      <div className="grid grid-cols-2 gap-5">
+                        {rowIngredients.map((ingredient, colIndex) => (
+                          <div key={colIndex} className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-blue-500">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-800 text-[15px]">{ingredient.name}</p>
+                              {/* Only show warning text for risky ingredients */}
+                              {ingredient.isWarning && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-sm">⚠️</span>
+                                  <p className="text-[13px] text-red-500">
+                                    {ingredient.healthInfo}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Separator line - Width: 735px, Border: 1px #E7E7E7 */}
+                      {!isLastRow && (
+                        <div className="border-b border-[#E7E7E7] mt-5" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Suggested Meals Section - Left aligned */}
+            <div>
+              <h3 
+                className="text-[20px] font-semibold mb-5 text-left"
+                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+              >
+                Suggested Meals ({healthMeals.length})
+              </h3>
+              
+              {/* Grid with same card size as Diet Planner */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {healthMeals.map((meal, index) => (
+                  <MealCard 
+                    key={index}
+                    meal={meal}
+                    onViewDetails={() => handleViewMealDetails(meal)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Meal Info Modal */}
-      {showMealModal && selectedMealForModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
-              <div className="flex justify-between items-center mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-2xl font-bold text-[#2D3436] pr-4">
-                  {selectedMealForModal.food_suggestions[0] || "Health Meal"}
-                </h3>
-                <button
-                  onClick={() => setShowMealModal(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl flex-shrink-0"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-4 sm:space-y-6">
-                <div>
-                  <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] mb-2 sm:mb-3">Health Benefit:</h4>
-                  <p className="text-xs sm:text-base text-gray-600 leading-relaxed">
-                    {selectedMealForModal.health_benefit}
-                  </p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] mb-2 sm:mb-3">Nutrition Information:</h4>
-                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                    <div className="bg-orange-50 rounded-lg p-2 sm:p-4">
-                      <span className="font-medium text-orange-700 text-xs sm:text-base">Calories:</span>
-                      <span className="ml-1 sm:ml-2 text-orange-600 font-bold text-sm sm:text-lg">{selectedMealForModal.calories}</span>
-                    </div>
-                    <div className="bg-blue-50 rounded-lg p-2 sm:p-4">
-                      <span className="font-medium text-blue-700 text-xs sm:text-base">Protein:</span>
-                      <span className="ml-1 sm:ml-2 text-blue-600 font-bold text-sm sm:text-lg">{selectedMealForModal.protein}g</span>
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-2 sm:p-4">
-                      <span className="font-medium text-green-700 text-xs sm:text-base">Carbs:</span>
-                      <span className="ml-1 sm:ml-2 text-green-600 font-bold text-sm sm:text-lg">{selectedMealForModal.carbs}g</span>
-                    </div>
-                    <div className="bg-purple-50 rounded-lg p-2 sm:p-4">
-                      <span className="font-medium text-purple-700 text-xs sm:text-base">Fat:</span>
-                      <span className="ml-1 sm:ml-2 text-purple-600 font-bold text-sm sm:text-lg">{selectedMealForModal.fat}g</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-sm sm:text-base text-[#2D3436] mb-2 sm:mb-3">Ingredients Used:</h4>
-                  <ul className="space-y-1 sm:space-y-2">
-                    {selectedMealForModal.ingredients_used.map((ingredient, idx) => (
-                      <li key={idx} className="flex items-center text-xs sm:text-base text-gray-600">
-                        <span className="w-2 h-2 bg-orange-400 rounded-full mr-2 sm:mr-3 flex-shrink-0"></span>
-                        {ingredient}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-3 sm:pt-4 border-t">
-                  <button
-                    onClick={() => {
-                      setShowMealModal(false);
-                      handleHealthMealInstructions(selectedMealForModal);
-                    }}
-                    className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white border-none rounded-lg sm:rounded-xl py-2.5 sm:py-3 px-4 text-sm sm:text-base font-semibold transition-all duration-300 hover:from-orange-600 hover:to-red-600 hover:translate-y-[-2px] hover:shadow-lg"
-                  >
-                    Get Cooking Instructions
-                  </button>
-                </div>
-              </div>
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">Upload Ingredient Image</h3>
+              <button 
+                onClick={() => setShowUploadModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
+
+            {/* Drop Zone */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-400 transition-colors mb-6"
+            >
+              {imagePreview ? (
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="max-h-[200px] mx-auto rounded-lg object-contain"
+                />
+              ) : (
+                <>
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium">Click to upload</p>
+                  <p className="text-gray-400 text-sm mt-1">PNG, JPG, JPEG up to 10MB</p>
+                </>
+              )}
+            </div>
+
+            {/* Detect Button */}
+            <button
+              onClick={() => handleDetect("image")}
+              disabled={!selectedImage}
+              className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Detect
+            </button>
           </div>
         </div>
       )}
 
-      <style>{`
-        @keyframes loading-slide {
-          0% {
-            left: -30%;
-          }
-          100% {
-            left: 100%;
-          }
-        }
-        
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-      `}</style>
+      {/* Ingredient List Modal */}
+      {showIngredientModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">List Your Ingredients</h3>
+              <button 
+                onClick={() => setShowIngredientModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Ingredient Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                What ingredients do you have?
+              </label>
+              <textarea
+                value={ingredientList}
+                onChange={(e) => setIngredientList(e.target.value)}
+                placeholder="e.g., chicken, tomatoes, basil, olive oil, garlic..."
+                className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-700"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                Separate ingredients with commas
+              </p>
+            </div>
+
+            {/* Detect Button */}
+            <button
+              onClick={() => handleDetect("ingredient_list")}
+              disabled={!ingredientList.trim()}
+              className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Detect
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cooking Tutorial Modal */}
+      <CookingTutorialModal
+        isOpen={showCookingModal}
+        onClose={() => setShowCookingModal(false)}
+        recipeName={selectedMealName}
+        ingredients={selectedMealIngredients}
+      />
     </div>
   )
 }

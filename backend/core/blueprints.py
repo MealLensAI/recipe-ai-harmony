@@ -20,8 +20,8 @@ def register_blueprints(app: Flask) -> None:
     from routes.user_settings_routes import user_settings_bp
     from routes.feedback_routes import feedback_bp
     from routes.meal_plan_routes import meal_plan_bp
-    from routes.food_detection_routes import food_detection_bp
     from routes.ai_session_routes import ai_session_bp
+    from routes.health_history_routes import health_history_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api')
     logger.info("Auth routes registered")
@@ -33,10 +33,10 @@ def register_blueprints(app: Flask) -> None:
     logger.info("Feedback routes registered")
     
     app.register_blueprint(meal_plan_bp, url_prefix='/api')
-    logger.info("Meal plan routes registered")
+    logger.info("Health meal plan routes registered")
     
-    app.register_blueprint(food_detection_bp, url_prefix='/api/food_detection')
-    logger.info("Food detection routes registered")
+    app.register_blueprint(health_history_bp, url_prefix='/api')
+    logger.info("Health history routes registered")
     
     app.register_blueprint(ai_session_bp, url_prefix='/api')
     logger.info("AI session routes registered")

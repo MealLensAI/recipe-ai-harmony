@@ -1,206 +1,338 @@
 import React, { useState, useEffect } from 'react';
-import TutorialHeader from './tutorial/TutorialHeader';
-import CookingInstructions from './tutorial/CookingInstructions';
-import VideoPlayer from './tutorial/VideoPlayer';
-import YouTubeResources from './tutorial/YouTubeResources';
-import WebResources from './tutorial/WebResources';
-import TutorialLoadingSpinner from './tutorial/LoadingSpinner';
+import { ArrowLeft, Play, Globe, ChevronDown } from 'lucide-react';
 import { useTutorialContent } from '../hooks/useTutorialContent';
+import { useAuth } from '@/lib/utils';
 
 interface CookingTutorialModalProps {
   isOpen: boolean;
   onClose: () => void;
   recipeName: string;
-  ingredients?: string[]; // New prop for ingredients
+  ingredients?: string[];
 }
 
 const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({ 
   isOpen, 
   onClose, 
   recipeName,
-  ingredients = [] // Default to empty array
+  ingredients = []
 }) => {
+  const [activeTab, setActiveTab] = useState<'recipe' | 'videos' | 'articles'>('recipe');
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  const [inlinePlayingIndex, setInlinePlayingIndex] = useState<number | null>(null);
   const { instructions, youtubeVideos, webResources, loading, loadingResources, generateContent } = useTutorialContent();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen && recipeName) {
-      console.log('[CookingTutorialModal] Generating content for:', { recipeName, ingredients });
+      console.log('[CookingTutorialModal] Opening modal and generating content for:', recipeName, ingredients);
       generateContent(recipeName, ingredients);
     }
   }, [isOpen, recipeName, ingredients]);
 
-  // Reset video states when modal is closed
   useEffect(() => {
     if (!isOpen) {
       setSelectedVideo(null);
-      setInlinePlayingIndex(null);
+      setActiveTab('recipe');
     }
   }, [isOpen]);
 
-  const handleShare = async () => {
-    const shareData = {
-      title: `${recipeName} Recipe`,
-      text: `Check out this amazing recipe for ${recipeName}!`,
-      url: window.location.href
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        alert('Recipe link copied to clipboard!');
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  };
-
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement;
-    const fallbackImages = [
-      `https://source.unsplash.com/400x250/?food,meal,cooking`,
-      `https://source.unsplash.com/400x250/?recipe,kitchen`,
-      `https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop`
-    ];
-    
-    const currentSrc = target.src;
-    const currentIndex = fallbackImages.findIndex(img => currentSrc.includes(img.split('?')[0]));
-    
-    if (currentIndex < fallbackImages.length - 1) {
-      target.src = fallbackImages[currentIndex + 1];
+    target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+  };
+
+  const extractDomain = (url: string) => {
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      return domain;
+    } catch {
+      return 'website';
     }
-  };
-
-  // When modal video opens, stop inline
-  const handleVideoSelect = (videoId: string | null) => {
-    setSelectedVideo(videoId);
-    if (videoId) setInlinePlayingIndex(null);
-  };
-
-  // When inline video plays, stop modal
-  const handleInlinePlay = (index: number | null) => {
-    setInlinePlayingIndex(index);
-    if (index !== null) setSelectedVideo(null);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[95vh] overflow-hidden shadow-2xl">
-        <TutorialHeader 
-          recipeName={recipeName}
-          onClose={onClose}
-          onShare={handleShare}
-        />
+    <>
+      {/* Content Panel - positioned to respect sidebar, no overlay on sidebar */}
+      <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 overflow-hidden flex flex-col">
+        
+        {/* Top Header - Diet Planner with Profile - aligned with sidebar logo height (105px) */}
+        <header 
+          className="px-8 h-[105px] flex items-center border-b"
+          style={{ 
+            backgroundColor: '#F9FBFE',
+            borderColor: '#F6FAFE',
+            boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+          }}
+        >
+          <div className="flex items-center justify-between w-full">
+            <h1 
+              className="text-[32px] font-medium tracking-[0.03em] leading-[130%]" 
+              style={{ fontFamily: "'Work Sans', sans-serif", color: '#2A2A2A' }}
+            >
+              Diet Planner
+            </h1>
+            
+            {/* Profile Button */}
+            <button className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors">
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+        </header>
 
-        <div className="overflow-y-auto max-h-[calc(95vh-120px)]">
+        {/* Main Content Area - no blue line */}
+        <div className="flex-1 overflow-y-auto bg-white px-8 py-6">
+          
+          {/* Back button and Recipe Name Row */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-4 py-2.5 text-gray-400 hover:bg-gray-50 rounded-full transition-colors border border-gray-200 bg-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-medium text-[14px]">Back</span>
+            </button>
+            <h2 
+              className="text-[22px] font-semibold" 
+              style={{ fontFamily: "'Work Sans', sans-serif", color: '#2A2A2A' }}
+            >
+              {recipeName}
+            </h2>
+          </div>
+
+          {/* Gray Divider */}
+          <div className="border-b border-gray-200 mb-6" />
+
+          {/* Section Title - Left aligned */}
+          <h3 
+            className="text-[20px] font-medium tracking-[0.03em] leading-[130%] mb-4 text-left" 
+            style={{ fontFamily: "'Work Sans', sans-serif", color: '#595959' }}
+          >
+            Cooking instructions
+          </h3>
+
+          {/* Tabs Container - Gray border around all tabs, left aligned */}
+          <div className="flex justify-start mb-8">
+            <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-[15px] p-1">
+            <button
+              onClick={() => setActiveTab('recipe')}
+              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+                activeTab === 'recipe'
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-400 hover:text-gray-600 border border-transparent'
+              }`}
+            >
+              Recipe
+            </button>
+            <button
+              onClick={() => setActiveTab('videos')}
+              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+                activeTab === 'videos'
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-400 hover:text-gray-600 border border-transparent'
+              }`}
+            >
+              Video Tutorials
+            </button>
+            <button
+              onClick={() => setActiveTab('articles')}
+              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+                activeTab === 'articles'
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-400 hover:text-gray-600 border border-transparent'
+              }`}
+            >
+              Recommended Articles
+            </button>
+            </div>
+          </div>
+
+          {/* Loading State */}
           {loading ? (
-            <TutorialLoadingSpinner />
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading content...</p>
+            </div>
           ) : (
-            <div className="p-8 space-y-10">
-              {/* Cooking Instructions - Always show when loaded */}
-              {instructions && (
-                <CookingInstructions instructions={instructions} />
-              )}
-
-              {/* Video Player Modal */}
-              {selectedVideo && (
-                <VideoPlayer 
-                  videoId={selectedVideo}
-                  onClose={() => setSelectedVideo(null)}
-                />
-              )}
-
-              {/* Resources Section - Show loading or content */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* YouTube Resources */}
-                <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-8 border border-red-100">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
-                      <span className="text-xl">📺</span>
-                    </div>
-                    <h3 className="text-2xl font-bold text-[#2D3436]">Video Tutorials</h3>
-                  </div>
-                  
-                  {loadingResources ? (
-                    <div className="space-y-4">
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-                        <div 
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-red-500 to-pink-500 rounded-full"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
+            <>
+              {/* Recipe Tab Content */}
+              {activeTab === 'recipe' && (
+                <div>
+                  {instructions ? (
+                    <>
+                      {/* Health Tip */}
+                      <div className="flex items-start gap-2 mb-5">
+                        <span className="text-base">💡</span>
+                        <p 
+                          className="text-[15px] leading-[140%]"
+                          style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
+                        >
+                          Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
+                        </p>
                       </div>
-                      <p className="text-gray-600 text-center">Loading video tutorials...</p>
+
+                      {/* Recipe Content - left aligned */}
+                      <div 
+                        className="text-left"
+                        style={{ 
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '15px',
+                          lineHeight: '170%',
+                          color: '#414141'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: instructions }}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-600">Loading instructions...</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Videos Tab Content */}
+              {activeTab === 'videos' && (
+                <div>
+                  {loadingResources ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-600">Loading video tutorials...</p>
                     </div>
                   ) : youtubeVideos.length > 0 ? (
-                    <YouTubeResources 
-                      videos={youtubeVideos}
-                      onVideoSelect={handleVideoSelect}
-                      inlinePlayingIndex={inlinePlayingIndex}
-                      onInlinePlay={handleInlinePlay}
-                      onImageError={handleImageError}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {youtubeVideos.map((video, index) => (
+                        <div 
+                          key={index} 
+                          className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
+                        >
+                          <div className="relative">
+                            <img 
+                              src={video.thumbnail}
+                              alt={video.title}
+                              className="w-full h-[160px] object-cover"
+                              onError={handleImageError}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div 
+                                className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
+                                onClick={() => video.videoId && setSelectedVideo(video.videoId)}
+                              >
+                                <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <h4 
+                              className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
+                              style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                            >
+                              {video.title}
+                            </h4>
+                            <button
+                              onClick={() => video.videoId && setSelectedVideo(video.videoId)}
+                              className="w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+                            >
+                              Watch Tutorial
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <p className="text-gray-600 text-center">No video tutorials available.</p>
+                    <div className="text-center py-20 text-gray-500">
+                      No video tutorials available for this recipe.
+                    </div>
                   )}
                 </div>
+              )}
 
-                {/* Google Resources */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                      <span className="text-xl">🌐</span>
-                    </div>
-                    <h3 className="text-2xl font-bold text-[#2D3436]">Recommended Articles</h3>
-                  </div>
-                  
+              {/* Articles Tab Content */}
+              {activeTab === 'articles' && (
+                <div>
                   {loadingResources ? (
-                    <div className="space-y-4">
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-                        <div 
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <p className="text-gray-600 text-center">Loading articles...</p>
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-600">Loading articles...</p>
                     </div>
                   ) : webResources.length > 0 ? (
-                    <WebResources 
-                      resources={webResources}
-                      onImageError={handleImageError}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {webResources.map((resource, index) => (
+                        <div 
+                          key={index} 
+                          className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
+                        >
+                          <div className="relative">
+                            <img 
+                              src={resource.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'}
+                              alt={resource.title}
+                              className="w-full h-[160px] object-cover"
+                              onError={handleImageError}
+                            />
+                            <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 text-[12px] text-gray-600">
+                              <Globe className="w-3 h-3" />
+                              <span>{extractDomain(resource.url)}</span>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <h4 
+                              className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
+                              style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                            >
+                              {resource.title}
+                            </h4>
+                            <a
+                              href={resource.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+                            >
+                              Read Article
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <p className="text-gray-600 text-center">No articles available.</p>
+                    <div className="text-center py-20 text-gray-500">
+                      No articles available for this recipe.
+                    </div>
                   )}
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Add CSS animation for loading bar */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes loading-slide {
-            0% {
-              transform: translateX(-100%);
-            }
-            100% {
-              transform: translateX(400%);
-            }
-          }
-        `
-      }} />
-    </div>
+      {/* Video Modal */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div 
+            className="w-full max-w-4xl aspect-video"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`}
+              title="Video"
+              className="w-full h-full rounded-xl"
+              allowFullScreen
+              allow="autoplay; encrypted-media"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

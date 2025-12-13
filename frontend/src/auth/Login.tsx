@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
 import { useAuth, safeSetItem, safeGetItem } from "@/lib/utils"
 import { api, APIError } from "@/lib/api"
+import { preloadHistory } from "@/lib/historyPreloader"
 import Logo from "@/components/Logo"
 
 const Login = () => {
@@ -84,6 +85,12 @@ const Login = () => {
 
         // Update auth context - skip verification since we just logged in
         await refreshAuth(true)
+
+        // Preload history data in background (don't wait for it)
+        preloadHistory().catch(err => {
+          console.error('[Login] Error preloading history:', err);
+          // Don't block login if preload fails
+        });
 
         // Wait for React to process state updates before proceeding
         // This ensures isAuthenticated is true when ProtectedRoute checks it

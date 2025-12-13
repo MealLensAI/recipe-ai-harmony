@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, ChevronDown, ChevronUp, History } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Clock, ChevronDown, ChevronUp, History, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from '@/lib/utils';
 import Swal from 'sweetalert2';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const {
     settings,
     loading,
@@ -26,6 +27,7 @@ const Settings = () => {
   } = useSicknessSettings();
 
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription } = useTrial();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   const [localLoading, setLocalLoading] = useState(false);
   const [isFormExpanded, setIsFormExpanded] = useState(true);
@@ -57,14 +59,6 @@ const Settings = () => {
 
   // Only disable button when an explicit save is in-flight
   const isActuallyLoading = localLoading;
-
-  const handleSicknessChange = (value: string) => {
-    const hasSickness = value === 'yes';
-    updateSettings({
-      hasSickness,
-      sicknessType: hasSickness ? settings.sicknessType : ''
-    });
-  };
 
   const handleSicknessTypeChange = (value: string) => {
     updateSettings({ sicknessType: value });
@@ -213,16 +207,62 @@ const Settings = () => {
   // ---------------------------------------------
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Health Information</h1>
-          <p className="text-muted-foreground mt-2">
+    <div className="min-h-screen bg-[#f8fafc]">
+      {/* Header - Matching other pages */}
+      <header 
+        className="px-8 h-[105px] flex items-center border-b"
+        style={{ 
+          backgroundColor: '#F9FBFE',
+          borderColor: '#F6FAFE',
+          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+        }}
+      >
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+            Health Information
+          </h1>
+          
+          {/* Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+            >
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showProfileDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowProfileDropdown(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
+                  <a href="/profile" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="px-8 py-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Subtitle */}
+          <p className="text-gray-600 text-[16px]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
             Manage your health information and preferences
           </p>
 
+          {/* Error Banner */}
           {error && (
-            <div className="mt-4 flex flex-col gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-red-700 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-red-700 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-medium">{error}</p>
               <Button
                 type="button"
@@ -236,9 +276,10 @@ const Settings = () => {
             </div>
           )}
 
+          {/* Trial Status Banner */}
           {!hasActiveSubscription && (
             <div
-              className={`mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${
                 isTrialExpired
                   ? 'bg-red-50 border-red-200 text-red-700'
                   : 'bg-orange-50 border-orange-200 text-orange-700'
@@ -248,45 +289,20 @@ const Settings = () => {
               {isTrialExpired ? 'Trial expired' : `Trial: ${formattedRemainingTime}`}
             </div>
           )}
-        </div>
 
-        <Card>
-            <CardHeader>
-              <CardTitle>Health Information</CardTitle>
-              <CardDescription>
+          {/* Info Text */}
+          <p className="text-gray-500 text-[14px]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+            This information helps us provide personalized medical meal recommendations
+          </p>
+
+          <Card className="bg-white border border-[#E7E7E7] rounded-[15px] shadow-sm">
+            <CardHeader className="pb-4">
+              <CardDescription className="text-gray-600" style={{ fontFamily: "'Work Sans', sans-serif" }}>
                 This information helps us provide personalized medical meal recommendations
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
-
-              {/* YES / NO QUESTION */}
-              <div className="space-y-4">
-                <Label className="text-base font-medium">
-                  Do you have any health conditions or sickness?
-                </Label>
-
-                {/* FIXED — removed global disabled */}
-                <RadioGroup
-                  value={settings.hasSickness ? 'yes' : 'no'}
-                  onValueChange={handleSicknessChange}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center space-x-2 cursor-pointer">
-                    <RadioGroupItem value="yes" id="sickness-yes" />
-                    <Label htmlFor="sickness-yes" className="cursor-pointer">
-                      Yes, I have a health condition
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2 cursor-pointer">
-                    <RadioGroupItem value="no" id="sickness-no" />
-                    <Label htmlFor="sickness-no" className="cursor-pointer">
-                      No, I don't have any health condition
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
               {/* SAVED DATA TABLE - Show when form is collapsed */}
               {settings.hasSickness && !isFormExpanded && showSavedData && (
@@ -404,7 +420,7 @@ const Settings = () => {
                       <Label>Gender *</Label>
                       <Select
                         value={settings.gender || ''}
-                        onValueChange={(value) => updateSettings({ gender: value })}
+                        onValueChange={(value) => updateSettings({ gender: value as 'male' | 'female' | 'other' })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select gender" />
@@ -459,7 +475,7 @@ const Settings = () => {
                     <Label>Activity Level *</Label>
                     <Select
                       value={settings.activityLevel || ''}
-                      onValueChange={(value) => updateSettings({ activityLevel: value })}
+                      onValueChange={(value) => updateSettings({ activityLevel: value as 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select activity level" />
@@ -488,7 +504,7 @@ const Settings = () => {
                     <Label>Health Goal *</Label>
                     <Select
                       value={settings.goal || ''}
-                      onValueChange={(value) => updateSettings({ goal: value })}
+                      onValueChange={(value) => updateSettings({ goal: value as 'heal' | 'maintain' | 'lose_weight' | 'gain_weight' | 'improve_fitness' })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select your goal" />
@@ -526,7 +542,7 @@ const Settings = () => {
               </div>
             </CardContent>
           </Card>
-
+        </div>
       </div>
     </div>
   );

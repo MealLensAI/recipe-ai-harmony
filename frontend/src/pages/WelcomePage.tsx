@@ -6,10 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-    Camera,
-    ChefHat,
     Search,
-    Sparkles,
     Shield,
     Star,
     ArrowRight,
@@ -21,7 +18,9 @@ import {
     Menu,
     X,
     Calendar,
-    Lightbulb
+    Activity,
+    TrendingUp,
+    Camera
 } from 'lucide-react';
 import { APP_CONFIG, getPlanPrice, getPlanDisplayName, getPlanDurationText, getPlanFeatures } from '../lib/config';
 
@@ -67,55 +66,55 @@ const WelcomePage: React.FC = () => {
         navigate('/login');
     };
 
-    // Features with actual data from config
+    // Features focused on health
     const features = [
         {
-            icon: <Sparkles className="h-8 w-8 text-white" />,
-            title: "⭐️ End cooking Burnout",
-            description: "Problem: You buy ingredients for the month, but end up cooking the same 1–2 meals with them again and again. Soon, the food feels boring, food gets exhausting, decision fatigue kicks in, and you feel like you have \"no food\" even when your kitchen is full.\n\nSolution: Snap a photo of those ingredients, and our AI will identify them, suggest 10 new dishes, and guide you step-by-step on how to cook them each.\n\nImpact: No more food burnout—save money, reduce waste, and enjoy exciting new meals from what you already have.",
-            gradient: "from-orange-500 to-orange-400"
-        },
-        {
             icon: <Heart className="h-8 w-8 text-white" />,
-            title: "⭐️ Health-First Food Planning for Chronic Conditions",
+            title: "⭐️ Health-First Meal Planning for Chronic Conditions",
             description: "The Problem: Managing chronic conditions like diabetes, hypertension, renal care, and PCOS through diet is complex and confusing, and you need to eat food that will not worsen your health.\n\nOur Solution: Practical, 7-day meal plan (breakfast, lunch, dinner, dessert) designed specifically for health conditions so you gradually heal or maintain the sickness without getting it worse with AI instructions on how to cook them each.\n\nImpact: We're making healthy eating accessible and sustainable.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
+            icon: <Activity className="h-8 w-8 text-white" />,
+            title: "⭐️ BMI & BMR Calculations",
+            description: "The Problem: Understanding your nutritional needs requires complex calculations based on your body metrics.\n\nOur Solution: AI automatically calculates your BMI and BMR based on your height, weight, gender, age, and activity level to determine your exact nutritional needs.\n\nImpact: Personalized nutrition recommendations tailored to your body.",
+            gradient: "from-orange-500 to-orange-400"
+        },
+        {
             icon: <Search className="h-8 w-8 text-white" />,
-            title: "⭐️ Budget & Location-Based Plans",
-            description: "The Problem: Meal planning doesn't account for your budget or local availability\n\nOur Solution: Tell our AI your location and price budget, and our AI will generate 7 7-day meal plan (breakfast, lunch, dinner, dessert), Affordable meal plans that match local options.\n\nImpact: We're making healthy eating affordable for everyone",
+            title: "⭐️ Restricted Ingredient Recipes",
+            description: "The Problem: When told you can only eat specific ingredients for your condition, it's hard to find creative recipes.\n\nOur Solution: If you're told you can only eat yam and beans, we'll generate 10+ creative recipes using just those ingredients, tailored to your condition.\n\nImpact: Never feel limited by dietary restrictions again.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
             icon: <Calendar className="h-8 w-8 text-white" />,
-            title: "⭐️ Automatic 7-Day Meal Plans",
-            description: "The Problem: Planning meals for a family is time-consuming and stressful\n\nOur Solution: Family-friendly plans for breakfast, lunch, dinner, and dessert that run on autopilot\n\nImpact: We're eliminating the \"what's for dinner?\" stress",
+            title: "⭐️ Automatic 7-Day Health Meal Plans",
+            description: "The Problem: Planning meals for your health condition is time-consuming and stressful.\n\nOur Solution: Health-focused plans for breakfast, lunch, dinner, and dessert that run on autopilot, designed for your specific condition.\n\nImpact: Eliminate meal planning stress while improving your health.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
-            icon: <Camera className="h-8 w-8 text-white" />,
-            title: "⭐️ Use-What-You-Have Cooking",
-            description: "The Problem: Food waste is expensive and environmentally damaging\n\nOur Solution: Turn what's in your kitchen into real dinners with smart suggestions\n\nImpact: We're reducing waste and saving money",
+            icon: <Shield className="h-8 w-8 text-white" />,
+            title: "⭐️ AI Nutritionist",
+            description: "The Problem: Getting professional nutrition guidance is expensive and not always accessible.\n\nOur Solution: Get professional nutrition guidance 24/7. Your AI nutritionist understands your condition and suggests safe, beneficial foods.\n\nImpact: Professional nutrition advice whenever you need it.",
             gradient: "from-orange-500 to-orange-400"
         },
         {
-            icon: <Lightbulb className="h-8 w-8 text-white" />,
-            title: "⭐️ Guided Recipes That Build Confidence",
-            description: "The Problem: Cooking can be intimidating and time-consuming\n\nOur Solution: Clear, step-by-step instructions plus curated video resources\n\nImpact: We're building cooking confidence and reducing kitchen stress",
+            icon: <TrendingUp className="h-8 w-8 text-white" />,
+            title: "⭐️ Track Progress Over Time",
+            description: "The Problem: It's hard to see if your dietary changes are actually improving your health.\n\nOur Solution: Monitor your health improvements with personalized tracking. See how food choices impact your well-being.\n\nImpact: Data-driven health improvements you can actually see.",
             gradient: "from-orange-500 to-orange-400"
         }
     ];
 
     const benefits = [
-        "End Cooking burnout with 10+ new dish suggestions from your ingredients",
         "Health-first meal plans for diabetes, hypertension, renal care, and PCOS",
-        "Automatic 7-day meal plans that run on autopilot",
-        "Budget & location-based plans with local ingredient availability",
-        "Use-what-you-have cooking to reduce food waste and save money",
-        "Step-by-step guided recipes with video resources for confidence",
-        "AI-powered ingredient detection and meal suggestions",
-        "Save money, reduce waste, and enjoy exciting new meals"
+        "Automatic 7-day meal plans tailored to your health condition",
+        "BMI & BMR calculations for personalized nutrition",
+        "Restricted ingredient recipes that work with your dietary needs",
+        "24/7 AI nutritionist guidance",
+        "Track your health progress over time",
+        "Personalized meal plans based on your body metrics",
+        "Improve your health through food, naturally"
     ];
 
     useEffect(() => {
@@ -233,20 +232,20 @@ const WelcomePage: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                         <div className="text-center lg:text-left">
                             <Badge className="mb-4 sm:mb-6 bg-orange-50 text-orange-500 border-orange-200">
-                                <Sparkles className="h-3 w-3 mr-2" />
-                                Food Burnout Relief • Health‑First Planning
+                                <Heart className="h-3 w-3 mr-2" />
+                                AI Health Nutrition • Personalized Meal Plans
                             </Badge>
 
                             <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
-                                End Cooking Burnout
+                                AI Health Nutrition
                                 <span className="block text-orange-500">Get Better Health From Your Food.</span>
                             </h1>
 
                             <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                                MealLensAI helps you end cooking burnout, improve your health by giving you food suggestions tailored to your health condition.
-                                Snap your ingredients to get 10+ recipe ideas
-                                with step-by-step instructions, or health-focused
-                                7-day meal plans for conditions like diabetes
+                                MealLensAI helps you improve your health by giving you personalized meal plans tailored to your health condition.
+                                Generate health-focused meals from ingredients or get
+                                comprehensive 7-day meal plans for conditions like diabetes,
+                                hypertension, PCOS, and more
                                 or hypertension. Generate budget-friendly,
                                 location-based meal plans, making dinner
                                 simple again, all powered by AI. </p>
@@ -257,7 +256,7 @@ const WelcomePage: React.FC = () => {
                                     size="lg"
                                     className="bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                                 >
-                                    Start Cooking Now
+                                    Get Started
                                     <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                                 </Button>
                                 <Button
@@ -292,13 +291,13 @@ const WelcomePage: React.FC = () => {
                                     <div className="relative bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 shadow-2xl">
                                         <div className="text-center">
                                             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E8E] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                                                <Camera className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
+                                                <Heart className="h-10 w-10 sm:h-12 sm:w-12 text-white" />
                                             </div>
-                                            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">Smart Food Detection</h3>
-                                            <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Point your camera at any food and get instant recognition</p>
+                                            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">Health-Focused Meal Plans</h3>
+                                            <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Personalized meal plans designed for your health condition</p>
                                             <div className="flex justify-center space-x-3 sm:space-x-4">
                                                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-orange-50 border border-orange-200 rounded-xl flex items-center justify-center">
-                                                    <ChefHat className="h-6 w-6 sm:h-8 sm:w-8 text-orange-500" />
+                                                    <Activity className="h-6 w-6 sm:h-8 sm:w-8 text-orange-500" />
                                                 </div>
                                                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-orange-50 border border-orange-200 rounded-xl flex items-center justify-center">
                                                     <Search className="h-6 w-6 sm:h-8 sm:w-8 text-orange-500" />
@@ -313,7 +312,7 @@ const WelcomePage: React.FC = () => {
 
                                 {/* Floating elements */}
                                 <div className="absolute -top-2 -right-2 sm:-top-4 sm:-right-4 w-12 h-12 sm:w-16 sm:h-16 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                                    <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                                    <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                                 </div>
                                 <div className="absolute -bottom-2 -left-2 sm:-bottom-4 sm:-left-4 w-10 h-10 sm:w-12 sm:h-12 bg-orange-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
                                     <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
@@ -335,15 +334,15 @@ const WelcomePage: React.FC = () => {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                     <div className="text-center mb-12 sm:mb-16">
                         <Badge className="mb-4 bg-orange-50 text-orange-500 border-orange-200 shadow-sm">
-                            <Sparkles className="h-3 w-3 mr-2" />
+                            <Heart className="h-3 w-3 mr-2" />
                             Powerful Features
                         </Badge>
                         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-6">
                             Everything You Need for
-                            <span className="text-orange-500 block">Smart Cooking</span>
+                            <span className="text-orange-500 block">Better Health</span>
                         </h2>
                         <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                            From ingredient detection to personalized meal planning, we've got you covered with AI-powered features that transform your culinary experience.
+                            From personalized meal planning to health condition management, we've got you covered with AI-powered features that transform your health through nutrition.
                         </p>
                     </div>
 
@@ -415,7 +414,7 @@ const WelcomePage: React.FC = () => {
                                 Why Choose MealLens AI?
                             </h2>
                             <p className="text-lg sm:text-xl text-gray-600">
-                                Join thousands of users who have transformed their cooking experience
+                                Join thousands of users who have improved their health through personalized nutrition
                             </p>
                         </div>
 
@@ -551,10 +550,10 @@ const WelcomePage: React.FC = () => {
             <section className="py-16 sm:py-20 bg-orange-500">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
                     <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6">
-                        Ready to Transform Your Cooking?
+                        Ready to Improve Your Health?
                     </h2>
                     <p className="text-lg sm:text-xl text-orange-100 mb-8 sm:mb-10 max-w-2xl mx-auto">
-                        Join thousands of users who are already cooking smarter with MealLens AI
+                        Join thousands of users who are already improving their health through personalized nutrition with MealLens AI
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Button
@@ -585,8 +584,8 @@ const WelcomePage: React.FC = () => {
                         <div className="col-span-2">
                             <Logo size="lg" />
                             <p className="mt-4 text-gray-400 max-w-md">
-                                Your AI-powered food detection and meal planning assistant.
-                                Making cooking smarter and easier for everyone.
+                                Your AI-powered health nutrition assistant.
+                                Making healthy eating accessible and personalized for everyone.
                             </p>
                         </div>
                         <div>

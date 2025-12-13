@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Navigate } from "react-router-dom"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/utils"
@@ -9,6 +10,24 @@ import Logo from "@/components/Logo"
 const RoleAwareRedirect = () => {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const { role, isLoading: roleLoading } = useEnterpriseRole()
+
+  // Add timeout to prevent infinite loading
+  const [hasTimedOut, setHasTimedOut] = useState(false)
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (authLoading || roleLoading || !isAuthenticated) {
+        setHasTimedOut(true)
+      }
+    }, 5000) // 5 second timeout
+    
+    return () => clearTimeout(timer)
+  }, [authLoading, roleLoading, isAuthenticated])
+
+  if (hasTimedOut) {
+    // If timed out, just redirect to planner
+    return <Navigate to="/planner" replace />
+  }
 
   if (authLoading || roleLoading || !isAuthenticated || role === null) {
     return (
@@ -27,7 +46,7 @@ const RoleAwareRedirect = () => {
     )
   }
 
-  const destination = role === "organization" ? "/enterprise" : "/ai-kitchen"
+  const destination = role === "organization" ? "/enterprise" : "/planner"
   return <Navigate to={destination} replace />
 }
 

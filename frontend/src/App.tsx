@@ -6,7 +6,6 @@ import {
 import { useEffect } from "react"
 import Login from "./auth/Login"
 import Signup from "./pages/Signup"
-import DetectFoodPage from "./pages/DetectFoodPage"
 import AIResponsePage from "./pages/AIResponsePage"
 import Index from "./pages/Index"
 import ProtectedRoute from "./components/ProtectedRoute"
@@ -71,24 +70,12 @@ const router = createBrowserRouter([
     element: <WelcomePage />
   },
   {
-    path: "/ai-kitchen",
+    path: "/health-meals",
     element: (
       <ProtectedRoute>
         <TrialBlocker>
           <MainLayout>
             <AIResponsePage />
-          </MainLayout>
-        </TrialBlocker>
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/detected",
-    element: (
-      <ProtectedRoute>
-        <TrialBlocker>
-          <MainLayout>
-            <DetectFoodPage />
           </MainLayout>
         </TrialBlocker>
       </ProtectedRoute>

@@ -26,12 +26,12 @@ except ImportError:
     print("Payment service not available - payment features will be disabled")
 
 # Import blueprints for routes
-from routes.food_detection_routes import food_detection_bp
 from routes.feedback_routes import feedback_bp
 from routes.meal_plan_routes import meal_plan_bp
 from routes.auth_routes import auth_bp
 from routes.ai_session_routes import ai_session_bp
 from routes.user_settings_routes import user_settings_bp
+from routes.health_history_routes import health_history_bp
 # Subscription routes import
 try:
     from routes.subscription_routes import subscription_bp
@@ -210,12 +210,12 @@ def create_app():
       app.auth_service = None
 
   # Register blueprints with API prefix
-  app.register_blueprint(food_detection_bp, url_prefix='/api/food_detection')
   app.register_blueprint(feedback_bp, url_prefix='/api')
   app.register_blueprint(meal_plan_bp, url_prefix='/api')
   app.register_blueprint(auth_bp, url_prefix='/api')
   app.register_blueprint(ai_session_bp, url_prefix='/api')
   app.register_blueprint(user_settings_bp, url_prefix='/api')
+  app.register_blueprint(health_history_bp, url_prefix='/api')
   
   # Register subscription routes
   if SUBSCRIPTION_ROUTES_ENABLED:

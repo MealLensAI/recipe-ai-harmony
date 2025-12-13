@@ -16,7 +16,7 @@ export interface SicknessSettings {
 }
 
 const DEFAULT_SETTINGS: SicknessSettings = {
-  hasSickness: false,
+  hasSickness: true,  // Default to yes, this is a health-focused app
   sicknessType: '',
   age: undefined,
   gender: undefined,
@@ -32,10 +32,15 @@ const createEmptySettings = (): SicknessSettings => ({
   ...DEFAULT_SETTINGS
 });
 
-const normalizeSettings = (incoming?: Partial<SicknessSettings> | null): SicknessSettings => ({
-  ...DEFAULT_SETTINGS,
-  ...(incoming || {})
-});
+const normalizeSettings = (incoming?: Partial<SicknessSettings> | null): SicknessSettings => {
+  const normalized = {
+    ...DEFAULT_SETTINGS,
+    ...(incoming || {})
+  };
+  // Always default to hasSickness: true for health-focused app
+  normalized.hasSickness = true;
+  return normalized;
+};
 
 const SETTINGS_CACHE_KEY = 'meallensai_health_settings_v1';
 const SETTINGS_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days

@@ -1,48 +1,37 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { ArrowLeft, Utensils, BookOpen } from "lucide-react"
+import { ArrowLeft, Play, Globe, ChevronDown } from "lucide-react"
 import { useAuth, safeGetItem } from "@/lib/utils"
 import { useAPI } from "@/lib/api"
-import Logo from "@/components/Logo"
 
 interface HistoryDetail {
   id: string
   recipe_type: "food_detection" | "ingredient_detection"
-  detected_foods?: string // JSON string of string[]
-  instructions?: string // HTML string
-  resources?: string // HTML string (legacy)
-  suggestion?: string // for ingredient detection
-  ingredients?: string // JSON string of string[]
+  detected_foods?: string
+  instructions?: string
+  resources?: string
+  suggestion?: string
+  ingredients?: string
   created_at: string
   youtube_link?: string
   google_link?: string
   resources_link?: string
-  // legacy field names from Supabase
   youtube?: string
   google?: string
 }
 
-// Helper to get cached history
 const getCachedHistory = (userId?: string): any[] | null => {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null;
-    
     const cacheKey = userId ? `meallensai_history_cache_${userId}` : 'meallensai_history_cache';
     const timestampKey = userId ? `meallensai_history_cache_timestamp_${userId}` : 'meallensai_history_cache_timestamp';
-    
     const cached = window.localStorage.getItem(cacheKey);
     const timestamp = window.localStorage.getItem(timestampKey);
-    
     if (!cached || !timestamp) return null;
-    
     const cacheAge = Date.now() - parseInt(timestamp, 10);
-    if (cacheAge > 5 * 60 * 1000) { // 5 minutes
-      return null;
-    }
-    
+    if (cacheAge > 5 * 60 * 1000) return null;
     return JSON.parse(cached);
   } catch (error) {
     return null;
@@ -52,99 +41,44 @@ const getCachedHistory = (userId?: string): any[] | null => {
 const HistoryDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  
-  // Get user ID for cache
   const userData = safeGetItem('user_data');
   const userId = userData ? JSON.parse(userData)?.uid : undefined;
-  
-  // Try to find item in cache immediately
   const cachedHistory = getCachedHistory(userId);
   const cachedItem = cachedHistory?.find((item: any) => item.id === id);
   
-  const [historyDetail, setHistoryDetail] = useState<HistoryDetail | null>(cachedItem ? (() => {
-    // Normalize cached item
-    return {
-      ...cachedItem,
-      youtube_link: cachedItem.youtube_link || cachedItem.youtube || undefined,
-      google_link: cachedItem.google_link || cachedItem.google || undefined,
-      resources_link: cachedItem.resources_link || cachedItem.resources || undefined
-    };
-  })() : null)
+  const [historyDetail, setHistoryDetail] = useState<HistoryDetail | null>(cachedItem ? {
+    ...cachedItem,
+    youtube_link: cachedItem.youtube_link || cachedItem.youtube || undefined,
+    google_link: cachedItem.google_link || cachedItem.google || undefined,
+    resources_link: cachedItem.resources_link || cachedItem.resources || undefined
+  } : null)
   const [resources, setResources] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(false) // Start as false - show cached data immediately
+  const [activeTab, setActiveTab] = useState<'recipe' | 'videos' | 'articles'>('recipe')
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, user } = useAuth()
   const { api } = useAPI()
-  
-  // Parse resources from cached item immediately
+
+  // Parse resources from cached item
   useEffect(() => {
     if (cachedItem && historyDetail) {
       try {
         let resourcesToParse = null;
-        
         if (historyDetail.resources_link && typeof historyDetail.resources_link === 'string' && historyDetail.resources_link.trim() !== '{}' && historyDetail.resources_link.trim() !== '') {
           resourcesToParse = historyDetail.resources_link;
         } else if (historyDetail.resources && typeof historyDetail.resources === 'string' && historyDetail.resources.trim() !== '{}' && historyDetail.resources.trim() !== '') {
           resourcesToParse = historyDetail.resources;
         }
-        
         if (resourcesToParse) {
           const parsed = JSON.parse(resourcesToParse);
-          console.log("[HistoryDetail] Parsed resources from cache:", {
-            hasYoutubeSearch: !!(parsed?.YoutubeSearch),
-            youtubeCount: parsed?.YoutubeSearch?.length || 0,
-            hasGoogleSearch: !!(parsed?.GoogleSearch),
-            googleCount: parsed?.GoogleSearch?.length || 0,
-            keys: Object.keys(parsed || {})
-          });
           setResources(parsed);
-        } else {
-          console.log("[HistoryDetail] No resources found in cache item:", {
-            hasResourcesLink: !!historyDetail.resources_link,
-            hasResources: !!historyDetail.resources,
-            youtubeLink: !!historyDetail.youtube_link,
-            googleLink: !!historyDetail.google_link
-          });
         }
       } catch (e) {
         console.error("[HistoryDetail] Error parsing resources from cache:", e);
       }
     }
   }, [cachedItem, historyDetail])
-
-  // Debug: Log resources state
-  useEffect(() => {
-    if (historyDetail) {
-      console.log("[HistoryDetail] Resources state:", {
-        recipeType: historyDetail.recipe_type,
-        hasResources: !!resources,
-        resourcesKeys: resources ? Object.keys(resources) : [],
-        hasYoutubeSearch: !!(resources?.YoutubeSearch),
-        youtubeCount: resources?.YoutubeSearch?.length || 0,
-        hasGoogleSearch: !!(resources?.GoogleSearch),
-        googleCount: resources?.GoogleSearch?.length || 0,
-        youtubeLink: !!historyDetail.youtube_link,
-        googleLink: !!historyDetail.google_link,
-        resourcesLinkField: historyDetail.resources_link?.substring(0, 100),
-        resourcesField: historyDetail.resources?.substring(0, 100)
-      });
-    }
-  }, [resources, historyDetail])
-
-  // Reuse the Detect Food page formatting for instructions
-  const formatInstructionsForDisplay = (raw: string) => {
-    if (!raw) return ''
-    let html = raw
-    // Bold sections wrapped in ** ** with line breaks around
-    html = html.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
-    // Bullet-like lines wrapped in * * into paragraph tags
-    html = html.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
-    // Ensure numbered steps start on new lines
-    html = html.replace(/(\d+\.)/g, '<br>$1')
-    // Newlines to <br>
-    html = html.replace(/\n/g, '<br>')
-    return html
-  }
 
   useEffect(() => {
     const fetchHistoryDetail = async () => {
@@ -153,18 +87,14 @@ const HistoryDetailPage = () => {
         return
       }
 
-      // If we have cached data, update in background
-      // If no cache, fetch immediately but don't block
       if (cachedItem) {
-        // Update in background
         fetchHistoryDetailBackground().catch(console.error);
         return;
       }
 
-      // No cache - fetch but don't block
+      setIsLoading(true)
       try {
         const result = await api.getDetectionHistory()
-
         if (result.status === 'success') {
           let historyData = []
           const resultAny = result as any
@@ -179,9 +109,7 @@ const HistoryDetailPage = () => {
           }
 
           const raw = historyData.find((item: any) => item.id === id)
-
           if (raw) {
-            // Normalize field names
             const detail: HistoryDetail = {
               ...raw,
               youtube_link: raw.youtube_link || raw.youtube || undefined,
@@ -190,42 +118,18 @@ const HistoryDetailPage = () => {
             }
             setHistoryDetail(detail)
             
-            // Parse resources
             try {
               let resourcesToParse = null;
-              
               if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
                 resourcesToParse = detail.resources_link;
               } else if (detail.resources && typeof detail.resources === 'string' && detail.resources.trim() !== '{}' && detail.resources.trim() !== '') {
                 resourcesToParse = detail.resources;
               }
-              
               if (resourcesToParse) {
-                const parsed = JSON.parse(resourcesToParse);
-                console.log("[HistoryDetail] Parsed resources from API:", {
-                  hasYoutubeSearch: !!(parsed?.YoutubeSearch),
-                  youtubeCount: parsed?.YoutubeSearch?.length || 0,
-                  hasGoogleSearch: !!(parsed?.GoogleSearch),
-                  googleCount: parsed?.GoogleSearch?.length || 0,
-                  keys: Object.keys(parsed || {})
-                });
-                setResources(parsed);
-              } else {
-                console.log("[HistoryDetail] No resources found in API response:", {
-                  hasResourcesLink: !!detail.resources_link,
-                  resourcesLinkValue: detail.resources_link?.substring(0, 100),
-                  hasResources: !!detail.resources,
-                  resourcesValue: detail.resources?.substring(0, 100),
-                  youtubeLink: !!detail.youtube_link,
-                  googleLink: !!detail.google_link,
-                  allKeys: Object.keys(detail || {})
-                });
+                setResources(JSON.parse(resourcesToParse));
               }
             } catch (e) {
-              console.error("[HistoryDetail] Error parsing resources from API:", e, {
-                resourcesLink: detail.resources_link?.substring(0, 100),
-                resources: detail.resources?.substring(0, 100)
-              });
+              console.error("[HistoryDetail] Error parsing resources:", e);
             }
           } else {
             setError("History entry not found")
@@ -233,15 +137,15 @@ const HistoryDetailPage = () => {
         }
       } catch (err) {
         console.error("Error fetching history detail:", err)
-        // Only show error if we don't have cached data
         if (!cachedItem) {
           setError("Failed to load history detail. Please try again later.")
         }
+      } finally {
+        setIsLoading(false)
       }
     }
 
     const fetchHistoryDetailBackground = async () => {
-      // Background update - silent refresh
       try {
         const result = await api.getDetectionHistory()
         if (result.status === 'success') {
@@ -267,7 +171,6 @@ const HistoryDetailPage = () => {
             }
             setHistoryDetail(detail)
             
-            // Parse resources
             try {
               if (detail.resources_link && typeof detail.resources_link === 'string' && detail.resources_link.trim() !== '{}' && detail.resources_link.trim() !== '') {
                 setResources(JSON.parse(detail.resources_link))
@@ -280,7 +183,6 @@ const HistoryDetailPage = () => {
           }
         }
       } catch (err) {
-        // Silent fail - we have cached data
         console.error("Background update failed:", err)
       }
     }
@@ -297,348 +199,431 @@ const HistoryDetailPage = () => {
     return (match && match[2] && match[2].length === 11) ? match[2] : null
   }
 
-  // Don't block rendering - show cached data immediately
-  // Only show error if we don't have cached data and there's an error
+  const formatInstructions = (raw: string) => {
+    if (!raw) return ''
+    let html = raw
+    html = html.replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
+    html = html.replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
+    html = html.replace(/(\d+\.)/g, '<br>$1')
+    html = html.replace(/\n/g, '<br>')
+    return html
+  }
+
+  const extractDomain = (url: string) => {
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      return domain;
+    } catch {
+      return 'website';
+    }
+  };
+
+  const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    if (target.src !== 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop') {
+      target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+    }
+  }, []);
 
   if (!isAuthenticated && !authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center mx-auto">
-            <Logo size="lg" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
-            <p className="text-gray-600">
-              Please log in to view your detection history.
-            </p>
-            <Button
-              onClick={() => navigate('/landing')}
-              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-            >
-              Go to Login
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Only show error if we're done loading and there's actually an error
-  if (!isLoading && (error || !historyDetail)) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-          <div className="flex items-center justify-center mx-auto">
-            <Logo size="lg" />
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-gray-800">History Entry Not Found</h2>
-            <p className="text-gray-600">
-              {error || "The requested history entry could not be found."}
-            </p>
-            <Button
-              onClick={() => navigate('/history')}
-              className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-            >
-              Back to History
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Don't render content if no data (even cached)
-  if (!historyDetail) {
-    if (error) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6">
-            <div className="flex items-center justify-center mx-auto">
-              <Logo size="lg" />
-            </div>
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-gray-800">History Entry Not Found</h2>
-              <p className="text-gray-600">{error}</p>
-              <Button
-                onClick={() => navigate('/history')}
-                className="w-full py-3 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300"
-              >
-                Back to History
-              </Button>
-            </div>
-          </div>
-        </div>
-      )
-    }
+    navigate('/login')
     return null
   }
 
-  return (
-    <div
-      className="min-h-screen p-8 text-[#2D3436] leading-[1.6]"
-      style={{
-        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-        background: "url('https://images.unsplash.com/photo-1495195134817-aeb325a55b65?auto=format&fit=crop&w=2000&q=80') center/cover no-repeat fixed",
-        padding: "2rem 1rem"
-      }}
-    >
-      <div className="max-w-[800px] mx-auto">
-        <div
-          className="bg-[rgba(255,255,255,0.95)] rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] overflow-hidden p-12 relative"
-        >
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <Button
-              onClick={() => navigate('/history')}
-              variant="ghost"
-              className="text-[#FF6B6B] hover:text-[#FF8E53] p-0"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to History
-            </Button>
-            <div className="flex items-center gap-2">
-              {historyDetail.recipe_type === "food_detection" ? (
-                <Utensils className="h-5 w-5 text-red-600" />
-              ) : (
-                <BookOpen className="h-5 w-5 text-orange-600" />
-              )}
-              <span className="text-sm text-gray-600">
-                {new Date(historyDetail.created_at).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-
-          {/* Title */}
-          <h1
-            className="text-[2.5rem] font-[800] text-center mb-8"
-            style={{
-              background: "linear-gradient(135deg, #FF6B6B, #FF8E53)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              color: "transparent",
-              letterSpacing: "-1px"
-            }}
-          >
-            {historyDetail.recipe_type === "food_detection" ? "Food Detection Result" : "Ingredient Detection Result"}
-          </h1>
-
-          {/* Side-by-side: Recipe Suggestion (left) and Ingredients (right) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Recipe Suggestion */}
-            {historyDetail.suggestion && (
-              <div className="p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-                <div className="p-4 mt-2.5">
-                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                    Recipe Suggestion
-                  </h5>
-                  <p className="text-lg font-medium text-red-600">{historyDetail.suggestion}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Right: Ingredients/Detected Foods */}
-            {historyDetail.detected_foods && (
-              <div className="p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-                <div className="p-4 mt-2.5">
-                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                    {historyDetail.recipe_type === "food_detection" ? "Detected Foods" : "Ingredients"}
-                  </h5>
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      try {
-                        const foods = JSON.parse(historyDetail.detected_foods)
-                        return foods.map((food: string, index: number) => (
-                          <span
-                            key={index}
-                            className="inline-block px-3 py-1 bg-gradient-to-r from-red-100 to-orange-100 text-red-700 border border-red-200 rounded-full text-sm font-medium"
-                          >
-                            {food}
-                          </span>
-                        ))
-                      } catch {
-                        return <span className="text-gray-600">No foods detected</span>
-                      }
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Instructions */}
-          {historyDetail.instructions && (
-            <div className="mb-6 p-4 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-              <div className="p-4 mt-2.5">
-                <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                  Cooking Instructions
-                </h5>
-                <div
-                  className="leading-[1.4] m-0 text-left"
-                  style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
-                  dangerouslySetInnerHTML={{ __html: formatInstructionsForDisplay(historyDetail.instructions) }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Resources from stored JSON (formatted like Detect Food page) */}
-          {/* Always show resources section for food_detection type */}
-          {(historyDetail.recipe_type === "food_detection" || resources || historyDetail.youtube_link || historyDetail.google_link) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-              {/* YouTube Resources */}
-              <div
-                className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-              >
-                <div className="p-4 mt-2.5">
-                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                    Youtube Resources
-                  </h5>
-                  <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                  {resources?.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
-                    <div className="space-y-6">
-                      {(resources.YoutubeSearch as any[]).flat().map((item: any, idx: number) => {
-                        if (!item || !item.link) return null
-                        const vid = getYouTubeVideoId(item.link)
-                        return vid ? (
-                          <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                            <div className="relative w-full aspect-video bg-black">
-                              <iframe
-                                src={`https://www.youtube.com/embed/${vid}`}
-                                title={item.title || 'YouTube Video'}
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                                className="w-full h-full rounded-t-2xl"
-                              />
-                            </div>
-                            <div className="p-6">
-                              <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title || 'Untitled Video'}</h4>
-                              <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                            <div className="p-6">
-                              <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title || 'Untitled Video'}</h4>
-                              <a
-                                href={item.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                              >
-                                Watch Tutorial
-                              </a>
-                            </div>
-                          </div>
-                        )
-                      }).filter(Boolean)}
-                    </div>
-                  ) : historyDetail.youtube_link ? (
-                    // Fallback: Show YouTube link if resources aren't available
-                    <div className="space-y-6">
-                      <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        {(() => {
-                          const vid = getYouTubeVideoId(historyDetail.youtube_link)
-                          return vid ? (
-                            <>
-                              <div className="relative w-full aspect-video bg-black">
-                                <iframe
-                                  src={`https://www.youtube.com/embed/${vid}`}
-                                  title="YouTube Video"
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                  className="w-full h-full rounded-t-2xl"
-                                />
-                              </div>
-                              <div className="p-6">
-                                <a
-                                  href={historyDetail.youtube_link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                                >
-                                  Watch on YouTube
-                                </a>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="p-6">
-                              <a
-                                href={historyDetail.youtube_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                              >
-                                🎥 Watch Tutorial on YouTube
-                              </a>
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-center text-gray-600">No video tutorials available.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Google Resources */}
-              <div
-                className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-              >
-                <div className="p-4 mt-2.5">
-                  <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                    Google Resources
-                  </h5>
-                  <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                  {resources?.GoogleSearch && resources.GoogleSearch.length > 0 ? (
-                    <div className="space-y-6">
-                      {(resources.GoogleSearch as any[]).flat().map((item: any, idx: number) => (
-                        <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                          <div className="p-6">
-                            <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                            <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
-                            <a
-                              href={item.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                            >
-                              Read More
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : historyDetail.google_link ? (
-                    // Fallback: Show Google link if resources aren't available
-                    <div className="space-y-6">
-                      <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                        <div className="p-6">
-                          <a
-                            href={historyDetail.google_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                          >
-                            🔍 View Google Search Results
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-center text-gray-600">No articles available.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
+  if (isLoading && !historyDetail) {
+    return (
+      <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-600">Loading content...</p>
         </div>
       </div>
-    </div>
+    )
+  }
+
+  if (error || !historyDetail) {
+    return (
+      <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">History Entry Not Found</h2>
+          <p className="text-gray-600 mb-6">{error || "The requested history entry could not be found."}</p>
+          <button
+            onClick={() => navigate('/history')}
+            className="px-6 py-3 bg-[#1A76E3] text-white rounded-[15px] font-semibold hover:bg-blue-600 transition-colors"
+          >
+            Back to History
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const mealName = useMemo(() => {
+    if (historyDetail.suggestion) return historyDetail.suggestion
+    try {
+      if (historyDetail.detected_foods) {
+        const foods = JSON.parse(historyDetail.detected_foods)
+        if (Array.isArray(foods) && foods.length > 0) {
+          return foods[0]
+        }
+      }
+    } catch {}
+    return "Health Meal"
+  }, [historyDetail.suggestion, historyDetail.detected_foods])
+
+  // Memoize YouTube videos to prevent re-renders and flickering
+  const youtubeVideos = useMemo(() => {
+    if (!resources?.YoutubeSearch) return []
+    
+    return (resources.YoutubeSearch as any[]).flat().map((item: any, idx: number) => {
+      const videoId = getYouTubeVideoId(item.link || item.url)
+      // Always use hqdefault for YouTube thumbnails - it's more reliable and prevents flickering
+      let thumbnail = ''
+      if (videoId) {
+        thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+      } else if (item.thumbnail) {
+        thumbnail = item.thumbnail
+      } else {
+        thumbnail = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'
+      }
+      return {
+        id: `video-${idx}-${videoId || item.link || idx}`,
+        title: item.title || 'Untitled Video',
+        thumbnail: thumbnail,
+        url: item.link || item.url || '',
+        videoId: videoId,
+        channel: item.channel || '',
+      }
+    })
+  }, [resources?.YoutubeSearch])
+
+  // Memoize web resources to prevent re-renders and flickering
+  const webResources = useMemo(() => {
+    if (!resources?.GoogleSearch) return []
+    
+    return (resources.GoogleSearch as any[]).flat().map((item: any, idx: number) => {
+      // Ensure we have a valid image URL
+      let imageUrl = item.image || item.thumbnail || ''
+      if (!imageUrl || imageUrl.trim() === '') {
+        imageUrl = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'
+      }
+      return {
+        id: `article-${idx}-${item.link || item.url || idx}`,
+        title: item.title || 'Untitled Article',
+        description: item.description || item.snippet || '',
+        url: item.link || item.url || '#',
+        image: imageUrl,
+      }
+    })
+  }, [resources?.GoogleSearch])
+
+  // Stable image error handler to prevent flickering
+  const handleVideoImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>, videoId: string | null) => {
+    const target = e.target as HTMLImageElement;
+    // Only try fallback once to prevent infinite loops
+    if (!target.dataset.fallbackAttempted) {
+      target.dataset.fallbackAttempted = 'true';
+      if (videoId) {
+        // Try mqdefault as fallback
+        target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+      } else {
+        // Use default fallback image
+        target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+      }
+    } else {
+      // Already tried fallback, use default image
+      target.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+    }
+  }, [])
+
+  // Stable image load handler
+  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    target.style.opacity = '1';
+  }, [])
+
+  return (
+    <>
+      {/* Content Panel - positioned to respect sidebar */}
+      <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 overflow-hidden flex flex-col">
+        
+        {/* Top Header */}
+        <header 
+          className="px-8 h-[105px] flex items-center border-b"
+          style={{ 
+            backgroundColor: '#F9FBFE',
+            borderColor: '#F6FAFE',
+            boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+          }}
+        >
+          <div className="flex items-center justify-between w-full">
+            <h1 
+              className="text-[32px] font-medium tracking-[0.03em] leading-[130%]" 
+              style={{ fontFamily: "'Work Sans', sans-serif", color: '#2A2A2A' }}
+            >
+              Diet Planner
+            </h1>
+            
+            {/* Profile Button */}
+            <button className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors">
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto bg-white px-8 py-6">
+          
+          {/* Back button and Recipe Name Row */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => navigate('/history')}
+              className="flex items-center gap-2 px-4 py-2.5 text-gray-400 hover:bg-gray-50 rounded-full transition-colors border border-gray-200 bg-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-medium text-[14px]">Back</span>
+            </button>
+            <h2 
+              className="text-[22px] font-semibold" 
+              style={{ fontFamily: "'Work Sans', sans-serif", color: '#2A2A2A' }}
+            >
+              {mealName}
+            </h2>
+          </div>
+
+          {/* Gray Divider */}
+          <div className="border-b border-gray-200 mb-6" />
+
+          {/* Section Title */}
+          <h3 
+            className="text-[20px] font-medium tracking-[0.03em] leading-[130%] mb-4 text-left" 
+            style={{ fontFamily: "'Work Sans', sans-serif", color: '#595959' }}
+          >
+            Cooking instructions
+          </h3>
+
+          {/* Tabs Container */}
+          <div className="flex justify-start mb-8">
+            <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-[15px] p-1">
+              <button
+                onClick={() => setActiveTab('recipe')}
+                className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+                  activeTab === 'recipe'
+                    ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                    : 'text-gray-400 hover:text-gray-600 border border-transparent'
+                }`}
+              >
+                Recipe
+              </button>
+              <button
+                onClick={() => setActiveTab('videos')}
+                className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+                  activeTab === 'videos'
+                    ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                    : 'text-gray-400 hover:text-gray-600 border border-transparent'
+                }`}
+              >
+                Video Tutorials
+              </button>
+              <button
+                onClick={() => setActiveTab('articles')}
+                className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+                  activeTab === 'articles'
+                    ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                    : 'text-gray-400 hover:text-gray-600 border border-transparent'
+                }`}
+              >
+                Recommended Articles
+              </button>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'recipe' && historyDetail.instructions && (
+            <div>
+              {/* Health Tip */}
+              <div className="flex items-start gap-2 mb-5">
+                <span className="text-base">💡</span>
+                <p 
+                  className="text-[15px] leading-[140%]"
+                  style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
+                >
+                  Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
+                </p>
+              </div>
+
+              {/* Recipe Content */}
+              <div 
+                className="text-left"
+                style={{ 
+                  fontFamily: "'Work Sans', sans-serif",
+                  fontSize: '15px',
+                  lineHeight: '170%',
+                  color: '#414141'
+                }}
+                dangerouslySetInnerHTML={{ __html: formatInstructions(historyDetail.instructions) }}
+              />
+            </div>
+          )}
+
+          {activeTab === 'videos' && (
+            <div>
+              {youtubeVideos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {youtubeVideos.map((video) => (
+                    <div 
+                      key={video.id} 
+                      className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
+                    >
+                      <div className="relative bg-gray-100">
+                        <img 
+                          src={video.thumbnail}
+                          alt={video.title}
+                          className="w-full h-[160px] object-cover"
+                          loading="lazy"
+                          key={`yt-${video.id}-${video.thumbnail}`}
+                          onError={(e) => handleVideoImageError(e, video.videoId)}
+                          onLoad={handleImageLoad}
+                          style={{ opacity: 1, transition: 'opacity 0.2s ease-in' }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div 
+                            className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
+                            onClick={() => video.videoId && setSelectedVideo(video.videoId)}
+                          >
+                            <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h4 
+                          className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
+                          style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                        >
+                          {video.title}
+                        </h4>
+                        <button
+                          onClick={() => video.videoId && setSelectedVideo(video.videoId)}
+                          className="w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+                        >
+                          Watch Tutorial
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : historyDetail.youtube_link ? (
+                <div className="text-center py-20">
+                  <a
+                    href={historyDetail.youtube_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[#1A76E3] font-medium hover:underline"
+                  >
+                    🎥 Watch Tutorial on YouTube
+                  </a>
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-500">
+                  No video tutorials available for this recipe.
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'articles' && (
+            <div>
+              {webResources.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {webResources.map((resource) => (
+                    <div 
+                      key={resource.id} 
+                      className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
+                    >
+                      <div className="relative bg-gray-100">
+                        <img 
+                          src={resource.image}
+                          alt={resource.title}
+                          className="w-full h-[160px] object-cover"
+                          loading="lazy"
+                          key={`article-${resource.id}-${resource.image}`}
+                          onError={handleImageError}
+                          onLoad={handleImageLoad}
+                          style={{ opacity: 1, transition: 'opacity 0.2s ease-in' }}
+                        />
+                        <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 text-[12px] text-gray-600">
+                          <Globe className="w-3 h-3" />
+                          <span>{extractDomain(resource.url)}</span>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h4 
+                          className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
+                          style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                        >
+                          {resource.title}
+                        </h4>
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+                        >
+                          Read Article
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : historyDetail.google_link ? (
+                <div className="text-center py-20">
+                  <a
+                    href={historyDetail.google_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[#1A76E3] font-medium hover:underline"
+                  >
+                    🔍 View Google Search Results
+                  </a>
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-500">
+                  No articles available for this recipe.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Video Modal */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60]"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div 
+            className="w-full max-w-4xl aspect-video"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`}
+              title="Video"
+              className="w-full h-full rounded-xl"
+              allowFullScreen
+              allow="autoplay; encrypted-media"
+            />
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
-export default HistoryDetailPage 
+export default HistoryDetailPage

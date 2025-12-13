@@ -1,54 +1,22 @@
 "use client"
 
-import { useNavigate, useLocation } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { LogOut, Home, Camera, History, CalendarDays, User } from "lucide-react"
 import { useAuth } from "@/lib/utils"
-import Navbar from "./Navbar"
+import Sidebar from "./Sidebar"
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { toast } = useToast()
-  const { user, signOut, isAuthenticated } = useAuth()
-
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-      toast({
-        title: "Signed out successfully",
-        description: "You have been logged out of your account.",
-      })
-      navigate("/login")
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const isActive = (path: string) => location.pathname === path
-
-  const navItems = [
-    { icon: CalendarDays, label: "Meal Planner", path: "/" },
-    { icon: Home, label: "AI Kitchen", path: "/ai-kitchen" },
-    { icon: Camera, label: "Detect Food", path: "/detected" },
-    { icon: History, label: "History", path: "/history" },
-  ]
+  const { isAuthenticated } = useAuth()
 
   if (!isAuthenticated) {
     return null // Don't render layout if not authenticated
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Use the proper Navbar component with avatar dropdown */}
-      <Navbar />
+    <div className="min-h-screen flex bg-gray-50">
+      {/* Sidebar Navigation */}
+      <Sidebar />
 
-      <main className="flex-1">
+      {/* Main Content Area */}
+      <main className="flex-1 md:ml-[250px] min-h-screen">
         {children}
       </main>
     </div>
