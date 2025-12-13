@@ -98,7 +98,7 @@ export function HistoryPage() {
   
   const [history, setHistory] = useState<SharedRecipe[]>(cachedHistory || [])
   const [error, setError] = useState<string | null>(null)
-  const [activeFilter, setActiveFilter] = useState<string>("all")
+  const [activeFilter, setActiveFilter] = useState<string>("ingredient_detection")
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
@@ -155,10 +155,8 @@ export function HistoryPage() {
 
   // Filter history based on active filter
   const filteredHistory = history.filter(item => {
-    if (activeFilter === "all") return true
-    if (activeFilter === "meal_plans") return item.recipe_type === "meal_plan"
     if (activeFilter === "ingredient_detection") return item.recipe_type === "ingredient_detection"
-    if (activeFilter === "food_detection") return item.recipe_type === "food_detection"
+    if (activeFilter === "health_history") return item.recipe_type === "health_meal" || item.recipe_type === "meal_plan"
     return true
   })
 
@@ -224,48 +222,30 @@ export function HistoryPage() {
 
       {/* Main Content */}
       <div className="px-8 py-8">
-        {/* Filter Tabs */}
+        {/* Filter Tabs - Only Ingredient Detections and Health History */}
         <div className="flex justify-start mb-8">
-          <div className="inline-flex items-center bg-white border border-[#E7E7E7] rounded-[15px] p-1">
-            <button
-              onClick={() => setActiveFilter("all")}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
-                activeFilter === "all"
-                  ? 'bg-[#1A76E3] text-white'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setActiveFilter("meal_plans")}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
-                activeFilter === "meal_plans"
-                  ? 'bg-[#1A76E3] text-white'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Meal Plans
-            </button>
+          <div className="inline-flex items-center bg-white border border-[#E7E7E7] rounded-[15px] p-1 gap-[10px]">
             <button
               onClick={() => setActiveFilter("ingredient_detection")}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
+              className={`px-[10px] py-[10px] rounded-[10px] text-[14px] font-medium transition-all duration-200 border-2 ${
                 activeFilter === "ingredient_detection"
-                  ? 'bg-[#1A76E3] text-white'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-[#1A76E3]'
+                  : 'text-gray-500 hover:text-gray-700 border-transparent'
               }`}
+              style={{ fontFamily: "'Work Sans', sans-serif" }}
             >
-              Ingredient Detection
+              Ingredient Detections
             </button>
             <button
-              onClick={() => setActiveFilter("food_detection")}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
-                activeFilter === "food_detection"
-                  ? 'bg-[#1A76E3] text-white'
-                  : 'text-gray-500 hover:text-gray-700'
+              onClick={() => setActiveFilter("health_history")}
+              className={`px-[10px] py-[10px] rounded-[10px] text-[14px] font-medium transition-all duration-200 border-2 ${
+                activeFilter === "health_history"
+                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-[#1A76E3]'
+                  : 'text-gray-500 hover:text-gray-700 border-transparent'
               }`}
+              style={{ fontFamily: "'Work Sans', sans-serif" }}
             >
-              Food Detection
+              Health History
             </button>
           </div>
         </div>
@@ -290,11 +270,63 @@ export function HistoryPage() {
           <div className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b border-[#E7E7E7]">
-                  <th className="text-left px-6 py-4 text-[14px] font-semibold text-gray-600">Name</th>
-                  <th className="text-left px-6 py-4 text-[14px] font-semibold text-gray-600">Source</th>
-                  <th className="text-left px-6 py-4 text-[14px] font-semibold text-gray-600">Date</th>
-                  <th className="text-left px-6 py-4 text-[14px] font-semibold text-gray-600">Action</th>
+                <tr className="bg-[#F7F7F7] border-b border-[#E7E7E7]">
+                  <th 
+                    className="text-center"
+                    style={{ 
+                      padding: '10px 12px',
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 400,
+                      lineHeight: '130%',
+                      letterSpacing: '3%',
+                      color: '#414141'
+                    }}
+                  >
+                    Name
+                  </th>
+                  <th 
+                    className="text-center"
+                    style={{ 
+                      padding: '10px 12px',
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 400,
+                      lineHeight: '130%',
+                      letterSpacing: '3%',
+                      color: '#414141'
+                    }}
+                  >
+                    Source
+                  </th>
+                  <th 
+                    className="text-center"
+                    style={{ 
+                      padding: '10px 12px',
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 400,
+                      lineHeight: '130%',
+                      letterSpacing: '3%',
+                      color: '#414141'
+                    }}
+                  >
+                    Date
+                  </th>
+                  <th 
+                    className="text-center"
+                    style={{ 
+                      padding: '10px 12px',
+                      fontFamily: "'Work Sans', sans-serif",
+                      fontSize: '16px',
+                      fontWeight: 400,
+                      lineHeight: '130%',
+                      letterSpacing: '3%',
+                      color: '#414141'
+                    }}
+                  >
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -303,25 +335,60 @@ export function HistoryPage() {
                     key={item.id || index} 
                     className="border-b border-[#E7E7E7] last:border-b-0 hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-6 py-4">
-                      <span className="text-[15px] text-gray-800 font-medium">
+                    <td style={{ padding: '10px 12px' }}>
+                      <span 
+                        className="text-gray-800"
+                        style={{ 
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
                         {getItemName(item)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[14px] text-gray-600">
+                    <td style={{ padding: '10px 12px' }}>
+                      <span 
+                        className="text-gray-600"
+                        style={{ 
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%'
+                        }}
+                      >
                         {getSourceText(item.recipe_type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[14px] text-gray-600">
+                    <td style={{ padding: '10px 12px' }}>
+                      <span 
+                        className="text-gray-600"
+                        style={{ 
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%'
+                        }}
+                      >
                         {formatDate(item.created_at)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td style={{ padding: '10px 12px' }}>
                       <button
                         onClick={() => navigate(`/history/${item.id}`)}
-                        className="flex items-center gap-2 text-[#1A76E3] font-medium text-[14px] hover:underline"
+                        className="flex items-center gap-2 text-[#1A76E3] font-medium hover:underline"
+                        style={{ 
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%'
+                        }}
                       >
                         View Details
                         <ArrowRight className="w-4 h-4" />
