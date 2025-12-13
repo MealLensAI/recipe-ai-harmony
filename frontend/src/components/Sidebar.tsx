@@ -60,10 +60,12 @@ const Sidebar = () => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="px-6 h-[76px] flex items-center border-b border-gray-100">
+      {/* Logo - with full width border */}
+      <div className="h-[76px] flex items-center px-6">
         <Logo size="md" />
       </div>
+      {/* Full width border line - Width: 250px, Border: 1px #E7E7E7 */}
+      <div className="w-full border-b border-[#E7E7E7]" />
 
       {/* Navigation Items */}
       <nav className="flex-1 px-4 py-8 space-y-2">
@@ -77,10 +79,10 @@ const Sidebar = () => {
                 setIsMobileOpen(false)
               }}
               className={`
-                w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all duration-200
+                w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all duration-200 border
                 ${item.active 
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200' 
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-transparent'
                 }
               `}
             >
@@ -122,20 +124,17 @@ const Sidebar = () => {
         />
       )}
 
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-white flex-col z-40">
-        {/* Gradient left border effect */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500 rounded-r-full" />
+      {/* Sidebar - Desktop - Width: 250px, Border: 1px #E7E7E7 on right */}
+      <aside className="hidden md:flex fixed left-0 top-0 h-full w-[250px] bg-white flex-col z-40 border-r border-[#E7E7E7]">
         <SidebarContent />
       </aside>
 
       {/* Sidebar - Mobile */}
       <aside className={`
-        md:hidden fixed left-0 top-0 h-full w-72 bg-white flex flex-col z-50 shadow-xl
+        md:hidden fixed left-0 top-0 h-full w-[250px] bg-white flex flex-col z-50 shadow-xl border-r border-[#E7E7E7]
         transform transition-transform duration-300 ease-in-out
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-500 via-purple-500 to-pink-500 rounded-r-full" />
         <SidebarContent />
       </aside>
     </>
