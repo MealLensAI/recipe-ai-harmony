@@ -349,10 +349,39 @@ const AIResponsePage: FC = () => {
     return foodImages[index % foodImages.length]
   }
 
-  const handleViewMealDetails = (meal: HealthMeal) => {
-    setSelectedMealName(meal.food_suggestions?.[0] || "Health Meal")
+  const handleViewMealDetails = async (meal: HealthMeal) => {
+    const mealName = meal.food_suggestions?.[0] || "Health Meal"
+    setSelectedMealName(mealName)
     setSelectedMealIngredients(meal.ingredients_used || [])
     setShowCookingModal(true)
+    
+    // Save to history
+    try {
+      const analysisId = `ingredient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const historyData = {
+        recipe_type: "ingredient_detection",
+        suggestion: mealName,
+        instructions: "",
+        ingredients: JSON.stringify(meal.ingredients_used || []),
+        detected_foods: JSON.stringify(detectedIngredients.map(i => i.name)),
+        analysis_id: analysisId,
+        youtube_link: "",
+        google_link: "",
+        resources_link: "{}"
+      }
+      
+      console.log("[AIResponse] Saving ingredient detection to history:", historyData)
+      const saveResult = await api.saveDetectionHistory(historyData)
+      
+      if (saveResult.status === 'success') {
+        console.log("[AIResponse] ✅ Ingredient detection saved to history successfully")
+      } else {
+        console.warn("[AIResponse] ⚠️ Failed to save to history:", saveResult.message)
+      }
+    } catch (historyError) {
+      console.error("[AIResponse] Error saving to history:", historyError)
+      // Don't show error to user, history saving is non-critical
+    }
   }
 
   const handleNewDetection = () => {
