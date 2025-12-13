@@ -956,7 +956,7 @@ const Index = () => {
 
           <button
             onClick={handleNewPlan}
-            className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200"
+            className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg py-2 text-[15px] font-semibold transition-all duration-200"
           >
             Create New Plan
             <Plus className="w-4 h-4" />
@@ -990,22 +990,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Health Badge */}
-        {currentPlan && (
-          <div className="mb-6">
-            {currentPlan?.healthAssessment ? (
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border border-green-200 rounded-full text-sm font-semibold">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                🏥 Medical-Grade Plan
-              </div>
-            ) : getSicknessInfo() && (
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-800 border border-orange-200 rounded-full text-sm font-medium">
-                <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                Health-aware meal plan
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Health Assessment Card */}
         {currentPlan?.healthAssessment && (
