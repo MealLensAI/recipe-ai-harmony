@@ -39,6 +39,7 @@ const AIResponsePage: FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [ingredientList, setIngredientList] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [detectedIngredients, setDetectedIngredients] = useState<DetectedIngredient[]>([])
   const [healthMeals, setHealthMeals] = useState<HealthMeal[]>([])
@@ -97,12 +98,22 @@ const AIResponsePage: FC = () => {
     event.preventDefault()
   }
 
-  const handleDetect = async () => {
-    if (!selectedImage) {
+  const handleDetect = async (useImage: boolean = true) => {
+    if (useImage && !selectedImage) {
       Swal.fire({
         icon: 'warning',
         title: 'No Image Selected',
         text: 'Please upload or capture an image first.',
+        confirmButtonColor: '#1A76E3'
+      })
+      return
+    }
+
+    if (!useImage && !ingredientList.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Ingredients',
+        text: 'Please type your ingredients first.',
         confirmButtonColor: '#1A76E3'
       })
       return
@@ -131,8 +142,14 @@ const AIResponsePage: FC = () => {
     formData.append("activity_level", sicknessSettings.activityLevel || "")
     formData.append("condition", sicknessSettings.sicknessType || "")
     formData.append("goal", sicknessSettings.goal === "heal" ? "heal" : "manage")
-    formData.append("image_or_ingredient_list", "image")
-    formData.append("image", selectedImage)
+
+    if (useImage && selectedImage) {
+      formData.append("image_or_ingredient_list", "image")
+      formData.append("image", selectedImage)
+    } else {
+      formData.append("image_or_ingredient_list", "ingredient_list")
+      formData.append("ingredient_list", ingredientList)
+    }
 
     try {
       const response = await fetch(`${APP_CONFIG.api.ai_api_url}/generate_meals_from_ingredients`, {
@@ -239,6 +256,7 @@ const AIResponsePage: FC = () => {
     setShowResults(false)
     setSelectedImage(null)
     setImagePreview(null)
+    setIngredientList("")
     setDetectedIngredients([])
     setHealthMeals([])
   }
@@ -302,36 +320,89 @@ const AIResponsePage: FC = () => {
 
         {/* Initial State - Choose Detection Method */}
         {!isLoading && !showResults && (
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <h2 className="text-2xl font-semibold text-center text-gray-800 mb-2">
               Choose how you want to detect
             </h2>
             <p className="text-center text-gray-500 mb-10">your ingredients.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Upload Image Card */}
-              <button
-                onClick={handleUploadClick}
-                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
-              >
-                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Upload className="w-10 h-10 text-blue-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">Upload image</h3>
-                <p className="text-gray-500 text-sm">Choose an Existing photo<br/>from your device</p>
-              </button>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Side - Image Upload/Snap */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-6 text-center">Upload or Snap Image</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {/* Upload Image Card */}
+                  <button
+                    onClick={handleUploadClick}
+                    className="bg-gray-50 rounded-xl border border-gray-200 p-6 hover:border-blue-300 hover:bg-blue-50 transition-all duration-300 text-center group"
+                  >
+                    <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-blue-500 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <h4 className="text-base font-semibold text-gray-800 mb-1">Upload image</h4>
+                    <p className="text-gray-500 text-xs">Choose from device</p>
+                  </button>
 
-              {/* Snap Ingredient Card */}
-              <button
-                onClick={handleSnapClick}
-                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
-              >
-                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Camera className="w-10 h-10 text-gray-600 group-hover:scale-110 transition-transform" />
+                  {/* Snap Ingredient Card */}
+                  <button
+                    onClick={handleSnapClick}
+                    className="bg-gray-50 rounded-xl border border-gray-200 p-6 hover:border-blue-300 hover:bg-blue-50 transition-all duration-300 text-center group"
+                  >
+                    <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                      <Camera className="w-8 h-8 text-gray-600 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <h4 className="text-base font-semibold text-gray-800 mb-1">Snap photo</h4>
+                    <p className="text-gray-500 text-xs">Use your camera</p>
+                  </button>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">Snap Ingredient</h3>
-                <p className="text-gray-500 text-sm">Choose an Existing photo<br/>from your device</p>
-              </button>
+
+                {/* Image Preview */}
+                {imagePreview && (
+                  <div className="mb-4">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-full h-[150px] object-cover rounded-xl border border-gray-200"
+                    />
+                  </div>
+                )}
+
+                {/* Detect Button for Image */}
+                <button
+                  onClick={() => handleDetect(true)}
+                  disabled={!selectedImage}
+                  className="w-full py-3 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Detect from Image
+                </button>
+              </div>
+
+              {/* Right Side - Type Ingredients */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-6 text-center">Type Your Ingredients</h3>
+                
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    List your ingredients (comma separated)
+                  </label>
+                  <textarea
+                    value={ingredientList}
+                    onChange={(e) => setIngredientList(e.target.value)}
+                    placeholder="e.g., tomatoes, bell peppers, carrots, garlic, onions..."
+                    className="w-full h-[180px] bg-gray-50 border border-gray-200 rounded-xl p-4 text-base resize-none focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
+                </div>
+
+                {/* Detect Button for Text */}
+                <button
+                  onClick={() => handleDetect(false)}
+                  disabled={!ingredientList.trim()}
+                  className="w-full py-3 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Detect from List
+                </button>
+              </div>
             </div>
 
             {/* Hidden file inputs */}
@@ -339,7 +410,9 @@ const AIResponsePage: FC = () => {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              onChange={handleFileSelect}
+              onChange={(e) => {
+                handleFileSelect(e)
+              }}
               className="hidden"
             />
             <input
@@ -349,9 +422,6 @@ const AIResponsePage: FC = () => {
               capture="environment"
               onChange={(e) => {
                 handleFileSelect(e)
-                if (e.target.files?.[0]) {
-                  setShowUploadModal(true)
-                }
               }}
               className="hidden"
             />
@@ -509,7 +579,7 @@ const AIResponsePage: FC = () => {
 
             {/* Detect Button */}
             <button
-              onClick={handleDetect}
+              onClick={() => handleDetect(true)}
               disabled={!selectedImage}
               className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
