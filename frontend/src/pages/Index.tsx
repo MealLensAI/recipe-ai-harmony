@@ -899,7 +899,7 @@ const Index = () => {
           <div className="relative">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-3 px-5 py-2 rounded-[28px] border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 px-4 py-2 rounded-[15px] border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
             >
               <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
@@ -917,16 +917,9 @@ const Index = () => {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowProfileDropdown(false)}
                 />
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                  <a href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Settings</a>
-                  <a href="/history" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">History</a>
-                  <hr className="my-2 border-gray-100" />
-                  <button 
-                    onClick={() => window.location.href = '/login'}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    Log Out
-                  </button>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
+                  <a href="/settings" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
+                  <a href="/history" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">History</a>
                 </div>
               </>
             )}
@@ -979,12 +972,12 @@ const Index = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex items-center bg-[#f8f9fa] border border-gray-200 rounded-[10px] p-1">
+            <div className="inline-flex items-center bg-[#f8f9fa] border border-gray-200 rounded-[15px] p-1">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`px-5 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`px-5 py-2.5 rounded-[12px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
                     selectedDay === day
                       ? 'bg-white text-gray-800 border border-gray-200'
                       : 'text-gray-400 hover:text-gray-500'
