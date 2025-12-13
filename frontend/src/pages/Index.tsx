@@ -886,6 +886,8 @@ const Index = () => {
     return weekDates.name;
   };
 
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
@@ -893,16 +895,41 @@ const Index = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">Diet Planner</h1>
           
-          <div className="flex items-center">
-            <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm border border-gray-200">
+          {/* Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+            >
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm border-2 border-blue-200">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
               <span className="text-[15px] font-medium text-gray-700 hidden sm:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
-              <ChevronDown className="h-4 w-4 text-gray-400" />
-            </div>
+              <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showProfileDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowProfileDropdown(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                  <a href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Settings</a>
+                  <a href="/history" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">History</a>
+                  <hr className="my-2 border-gray-100" />
+                  <button 
+                    onClick={() => window.location.href = '/login'}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -910,7 +937,7 @@ const Index = () => {
       {/* Main Content Area */}
       <div className="px-8 py-6">
         {/* Top Bar: Tabs and Create Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-gray-200">
           <div className="flex gap-2">
             <button
               onClick={() => setShowPlanManager(false)}
@@ -944,7 +971,7 @@ const Index = () => {
         </div>
 
         {/* Date Range and Day Tabs */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-6 mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6 py-6">
           <div className="flex items-center">
             <span className="text-[17px] font-bold text-gray-900">
               {formatDateRange()}
@@ -952,15 +979,15 @@ const Index = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex bg-gray-100 rounded-full p-1.5 gap-1">
+            <div className="inline-flex bg-white border border-gray-200 rounded-full p-1 shadow-sm">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
                   className={`px-5 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
                     selectedDay === day
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-gray-100 text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {day}
