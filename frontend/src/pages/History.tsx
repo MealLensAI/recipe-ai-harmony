@@ -97,6 +97,7 @@ export function HistoryPage() {
   const cachedHistory = getCachedHistory(userId);
   
   const [history, setHistory] = useState<SharedRecipe[]>(cachedHistory || [])
+  const [settingsHistory, setSettingsHistory] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<string>("ingredient_detection")
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
@@ -148,6 +149,28 @@ export function HistoryPage() {
     fetchHistory().catch(console.error)
   }, [isAuthenticated, authLoading, api, userId, cachedHistory])
 
+  // Fetch settings history when health_history tab is active
+  useEffect(() => {
+    const fetchSettingsHistory = async () => {
+      if (activeFilter !== "health_history" || !isAuthenticated || authLoading) {
+        return
+      }
+
+      try {
+        const result = await api.getUserSettingsHistory('health_profile', 50)
+        if ((result as any).status === 'success') {
+          const historyData = (result as any).history || []
+          setSettingsHistory(historyData)
+          console.log('✅ Settings history loaded:', historyData.length, 'records')
+        }
+      } catch (err) {
+        console.error("Error fetching settings history:", err)
+      }
+    }
+
+    fetchSettingsHistory().catch(console.error)
+  }, [activeFilter, isAuthenticated, authLoading, api])
+
   if (!isAuthenticated && !authLoading) {
     navigate('/login')
     return null
@@ -156,8 +179,7 @@ export function HistoryPage() {
   // Filter history based on active filter
   const filteredHistory = history.filter(item => {
     if (activeFilter === "ingredient_detection") return item.recipe_type === "ingredient_detection"
-    if (activeFilter === "health_history") return item.recipe_type === "health_meal" || item.recipe_type === "meal_plan"
-    return true
+    return false // health_history shows settings history, not detection history
   })
 
   const getItemName = (item: SharedRecipe) => {
@@ -258,21 +280,25 @@ export function HistoryPage() {
         )}
 
         {/* Empty State */}
-        {!error && filteredHistory.length === 0 && (
+        {!error && ((activeFilter === "ingredient_detection" && filteredHistory.length === 0) || (activeFilter === "health_history" && settingsHistory.length === 0)) && (
           <div className="text-center py-20">
             <p className="text-gray-500 text-lg">No history found</p>
-            <p className="text-gray-400 mt-2">Start detecting ingredients to see your history here</p>
+            <p className="text-gray-400 mt-2">
+              {activeFilter === "ingredient_detection" 
+                ? "Start detecting ingredients to see your history here"
+                : "Update your health information to see history here"}
+            </p>
           </div>
         )}
 
         {/* History Table */}
-        {!error && filteredHistory.length > 0 && (
-          <div className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden">
+        {!error && ((activeFilter === "ingredient_detection" && filteredHistory.length > 0) || (activeFilter === "health_history" && settingsHistory.length > 0)) && (
+          <div className="bg-white border border-[#E7E7E7] overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="bg-[#F7F7F7] border-b border-[#E7E7E7]">
                   <th 
-                    className="text-center"
+                    className="text-left"
                     style={{ 
                       padding: '10px 12px',
                       fontFamily: "'Work Sans', sans-serif",
@@ -286,7 +312,7 @@ export function HistoryPage() {
                     Name
                   </th>
                   <th 
-                    className="text-center"
+                    className="text-left"
                     style={{ 
                       padding: '10px 12px',
                       fontFamily: "'Work Sans', sans-serif",
@@ -300,7 +326,7 @@ export function HistoryPage() {
                     Source
                   </th>
                   <th 
-                    className="text-center"
+                    className="text-left"
                     style={{ 
                       padding: '10px 12px',
                       fontFamily: "'Work Sans', sans-serif",
@@ -314,7 +340,7 @@ export function HistoryPage() {
                     Date
                   </th>
                   <th 
-                    className="text-center"
+                    className="text-left"
                     style={{ 
                       padding: '10px 12px',
                       fontFamily: "'Work Sans', sans-serif",
@@ -330,7 +356,7 @@ export function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.map((item, index) => (
+                {activeFilter === "ingredient_detection" && filteredHistory.map((item, index) => (
                   <tr 
                     key={item.id || index} 
                     className="border-b border-[#E7E7E7] last:border-b-0 hover:bg-gray-50 transition-colors"
@@ -396,6 +422,103 @@ export function HistoryPage() {
                     </td>
                   </tr>
                 ))}
+                {activeFilter === "health_history" && settingsHistory.map((record, index) => {
+                  const formatFieldName = (fieldName: string): string => {
+                    const fieldMap: Record<string, string> = {
+                      'hasSickness': 'Health Condition',
+                      'sicknessType': 'Condition Type',
+                      'age': 'Age',
+                      'gender': 'Gender',
+                      'height': 'Height',
+                      'weight': 'Weight',
+                      'waist': 'Waist Circumference',
+                      'activityLevel': 'Activity Level',
+                      'goal': 'Health Goal'
+                    };
+                    const cleanField = fieldName.replace(' (removed)', '');
+                    return fieldMap[cleanField] || cleanField.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+                  };
+
+                  const meaningfulFields = record.changed_fields 
+                    ? record.changed_fields.filter((field: any) => {
+                        const fieldStr = String(field);
+                        const isNumericIndex = /^\d+$/.test(fieldStr);
+                        const isNumberedRemoved = /^\d+\s*\(removed\)$/.test(fieldStr);
+                        return !isNumericIndex && !isNumberedRemoved && typeof field === 'string';
+                      })
+                    : [];
+
+                  const fieldsText = meaningfulFields.length > 0 
+                    ? meaningfulFields.map((f: string) => formatFieldName(f)).join(', ')
+                    : 'Settings updated';
+
+                  return (
+                    <tr 
+                      key={record.id || index} 
+                      className="border-b border-[#E7E7E7] last:border-b-0 hover:bg-gray-50 transition-colors"
+                    >
+                      <td style={{ padding: '10px 12px' }}>
+                        <span 
+                          className="text-gray-800"
+                          style={{ 
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: 400,
+                            lineHeight: '130%',
+                            letterSpacing: '3%',
+                            color: '#414141'
+                          }}
+                        >
+                          {fieldsText}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <span 
+                          className="text-gray-600"
+                          style={{ 
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: 400,
+                            lineHeight: '130%',
+                            letterSpacing: '3%'
+                          }}
+                        >
+                          Health Information
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <span 
+                          className="text-gray-600"
+                          style={{ 
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: 400,
+                            lineHeight: '130%',
+                            letterSpacing: '3%'
+                          }}
+                        >
+                          {formatDate(record.created_at)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <button
+                          onClick={() => navigate('/settings')}
+                          className="flex items-center gap-2 text-[#1A76E3] font-medium hover:underline"
+                          style={{ 
+                            fontFamily: "'Work Sans', sans-serif",
+                            fontSize: '16px',
+                            fontWeight: 400,
+                            lineHeight: '130%',
+                            letterSpacing: '3%'
+                          }}
+                        >
+                          View Details
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

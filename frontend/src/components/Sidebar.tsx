@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { LogOut, CalendarDays, History, Scan, Menu, X } from "lucide-react"
+import { LogOut, CalendarDays, History, Scan, Menu, X, User } from "lucide-react"
 import Logo from "@/components/Logo"
 import { useAuth } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -49,6 +49,12 @@ const Sidebar = () => {
       label: "Ingredients Detector", 
       path: "/health-meals",
       active: isActive("/health-meals")
+    },
+    { 
+      icon: User, 
+      label: "Health Information", 
+      path: "/settings",
+      active: isActive("/settings")
     },
     { 
       icon: History, 
