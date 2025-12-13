@@ -274,15 +274,19 @@ const AIResponsePage: FC = () => {
       }
 
       // Parse detected ingredients with health info
+      // Handle both ", " and "," separators, and also split by newlines
       const mainIngredients = data.main_ingredients || ""
-      const ingredientsList = mainIngredients.split(', ').filter(Boolean)
+      const ingredientsList = mainIngredients
+        .split(/[,\n]+/)  // Split by comma or newline
+        .map((s: string) => s.trim())  // Trim whitespace
+        .filter((s: string) => s.length > 0)  // Remove empty strings
       
       // Create ingredient objects with mock health info based on sickness type
       const parsedIngredients: DetectedIngredient[] = ingredientsList.map((name: string) => {
         // Simple health assessment based on ingredient and condition
         const isHighRisk = checkIngredientRisk(name, sicknessSettings.sicknessType || "")
         return {
-          name,
+          name: name.charAt(0).toUpperCase() + name.slice(1),  // Capitalize first letter
           healthInfo: isHighRisk 
             ? `May affect ${sicknessSettings.sicknessType}` 
             : `Good for ${sicknessSettings.sicknessType} management`,
