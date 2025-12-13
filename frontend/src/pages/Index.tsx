@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, List, Upload, Utensils, ChefHat, Plus, Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import WeeklyPlanner from '../components/WeeklyPlanner';
 import RecipeCard from '../components/RecipeCard';
 import EnhancedRecipeCard from '../components/EnhancedRecipeCard';
@@ -12,6 +12,7 @@ import MealPlanSkeleton from '../components/MealPlanSkeleton';
 import { useMealPlans, SavedMealPlan, MealPlan } from '../hooks/useMealPlans';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
+import { useAuth } from '@/lib/utils';
 import { APP_CONFIG } from '@/lib/config';
 import Swal from 'sweetalert2';
 
@@ -58,6 +59,7 @@ const Index = () => {
   const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(false);
 
   const { toast } = useToast();
+  const { user } = useAuth();
   const {
     getSicknessInfo,
     getHealthProfilePayload,
@@ -863,165 +865,150 @@ const Index = () => {
     setSelectedDay(getDayName(date));
   };
 
+
+  // Format date range for display
+  const formatDateRange = () => {
+    if (currentPlan) {
+      const start = new Date(currentPlan.startDate);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      
+      const formatDate = (d: Date) => {
+        const day = d.getDate();
+        const suffix = day === 1 || day === 21 || day === 31 ? 'st' : 
+                      day === 2 || day === 22 ? 'nd' : 
+                      day === 3 || day === 23 ? 'rd' : 'th';
+        return d.toLocaleDateString('en-US', { month: 'short' }) + ' ' + day + suffix;
+      };
+      
+      return formatDate(start) + ' - ' + formatDate(end);
+    }
+    return weekDates.name;
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
-      <header className="bg-white border-b border-[#e2e8f0] px-4 sm:px-6 py-3 sm:py-4">
-        <div className="w-full flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">🍓</div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#2D3436]">MealLensAI Meal Planner</h1>
-              <p className="text-xs sm:text-sm text-[#1e293b] flex items-center gap-1">
-                <span>🥑</span>
-                a healthy outside starts from the inside
-              </p>
+      <header className="bg-white border-b border-gray-200 px-8 py-5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">Diet Planner</h1>
+          
+          <div className="flex items-center">
+            <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-semibold text-sm border border-gray-200">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[15px] font-medium text-gray-700 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDown className="h-4 w-4 text-gray-400" />
             </div>
           </div>
-          {/* Desktop actions */}
-          <div className="hidden md:flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => setShowPlanManager(!showPlanManager)}
-              className="flex items-center justify-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors w-full sm:w-auto"
-            >
-              <Calendar className="w-4 h-4" />
-              Manage Plans
-            </button>
-            <button
-              onClick={handleNewPlan}
-              className="flex items-center justify-center gap-2 bg-[#FF6B6B] text-white px-4 py-2 rounded-lg hover:bg-[#FF8E53] transition-colors w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4" />
-              New Plan
-            </button>
-          </div>
-        </div>
-        {/* Mobile actions stacked under title */}
-        <div className="mt-2 md:hidden space-y-2">
-          <button
-            onClick={() => setShowPlanManager(!showPlanManager)}
-            className="w-full flex items-center justify-center gap-2 bg-gray-100 text-[#2D3436] px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <Calendar className="w-4 h-4" />
-            Manage Plans
-          </button>
-          <button
-            onClick={handleNewPlan}
-            className="w-full flex items-center justify-center gap-2 bg-[#FF6B6B] text-white px-4 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Plan
-          </button>
         </div>
       </header>
 
-      <div className="w-full flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 sm:p-6">
-        {/* Mobile top day-chip selector */}
-        <div className="md:hidden">
-          <div className="bg-white rounded-xl p-3 shadow-sm border border-[#e2e8f0]">
-            <div className="overflow-x-auto pb-1">
-              <div className="flex gap-2 whitespace-nowrap">
-                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-                  <button
-                    key={day}
-                    onClick={() => setSelectedDay(day)}
-                    className={`px-3 py-1.5 rounded-full border transition-colors text-sm ${selectedDay === day ? 'bg-[#FF6B6B] text-white border-[#FF6B6B]' : 'bg-gray-100 text-[#2D3436] border-gray-200'}`}
-                  >
-                    {day.slice(0, 3)}
-                  </button>
-                ))}
-              </div>
+      {/* Main Content Area */}
+      <div className="px-8 py-6">
+        {/* Top Bar: Tabs and Create Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowPlanManager(false)}
+              className={`px-6 py-3 rounded-xl text-[15px] font-semibold transition-all duration-200 border-2 ${
+                !showPlanManager
+                  ? 'border-blue-500 text-blue-600 bg-white'
+                  : 'border-gray-200 text-gray-500 bg-white hover:border-gray-300'
+              }`}
+            >
+              Active Plan
+            </button>
+            <button
+              onClick={() => setShowPlanManager(true)}
+              className={`px-6 py-3 rounded-xl text-[15px] font-semibold transition-all duration-200 border-2 ${
+                showPlanManager
+                  ? 'border-blue-500 text-blue-600 bg-white'
+                  : 'border-gray-200 text-gray-500 bg-white hover:border-gray-300'
+              }`}
+            >
+              Saved Plans
+            </button>
+          </div>
+
+          <button
+            onClick={handleNewPlan}
+            className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl text-[15px] font-semibold transition-all duration-200 shadow-sm"
+          >
+            Create New Plan
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Date Range and Day Tabs */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6 mb-8">
+          <div className="flex items-center">
+            <span className="text-[17px] font-bold text-gray-900">
+              {formatDateRange()}
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-x-auto">
+            <div className="inline-flex bg-gray-100 rounded-full p-1.5 gap-1">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`px-5 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                    selectedDay === day
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
             </div>
           </div>
         </div>
-        {/* Sidebar: visible only on desktop (lg+) */}
-        <div className="hidden lg:block lg:w-64 space-y-4 order-1 lg:order-none">
-          {/* Weekly Planner */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-[#e2e8f0]">
-            <WeeklyPlanner
-              selectedDay={selectedDay}
-              onDaySelect={setSelectedDay}
-              mealPlan={currentPlan?.mealPlan || []}
-              startDay={currentPlan ? getDayName(new Date(currentPlan.startDate)) : undefined}
+
+        {/* Health Badge */}
+        {currentPlan && (
+          <div className="mb-6">
+            {currentPlan?.healthAssessment ? (
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border border-green-200 rounded-full text-sm font-semibold">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                🏥 Medical-Grade Plan
+              </div>
+            ) : getSicknessInfo() && (
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-800 border border-orange-200 rounded-full text-sm font-medium">
+                <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                Health-aware meal plan
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Health Assessment Card */}
+        {currentPlan?.healthAssessment && (
+          <div className="mb-6">
+            <HealthAssessmentCard
+              healthAssessment={currentPlan.healthAssessment}
+              userInfo={currentPlan.userInfo}
             />
           </div>
-        </div>
+        )}
 
         {/* Main Content */}
-        <div className="flex-1 order-0 lg:order-none">
-          {/* Show loading skeleton while fetching data (only if not initialized and loading) */}
+        <div className="flex-1">
           {!mealPlansInitialized && mealPlansLoading && !currentPlan ? (
             <MealPlanSkeleton />
           ) : currentPlan ? (
             <React.Fragment>
-              <div className="mb-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl sm:text-2xl font-bold text-[#2D3436]">Recipes for {savedWeeks[currentWeekIndex]?.name || weekDates.name}</h2>
-                    {currentPlan?.healthAssessment ? (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-blue-100 to-green-100 text-green-900 border-2 border-green-300 rounded-full text-xs sm:text-sm font-bold">
-                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        🏥 Medical-Grade Plan
-                      </div>
-                    ) : getSicknessInfo() && (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs sm:text-sm font-medium">
-                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                        Health-aware meal plan
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-base sm:text-lg font-semibold text-[#2D3436]">
-                    <button
-                      onClick={handlePrevWeek}
-                      disabled={currentWeekIndex <= 0}
-                      className={`p-1 rounded hover:bg-gray-100 transition-colors ${currentWeekIndex <= 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      title="Previous Saved Week"
-                    >
-                      <ChevronLeft className="w-5 h-5 text-[#2D3436]" />
-                    </button>
-                    <span className="flex items-center gap-1 text-[#2D3436]">
-                      <Calendar className="w-5 h-5 text-[#2D3436]" />
-                      {savedWeeks[currentWeekIndex]?.name || weekDates.name}
-                    </span>
-                    <button
-                      onClick={handleNextWeek}
-                      disabled={currentWeekIndex === -1 || currentWeekIndex >= savedWeeks.length - 1}
-                      className={`p-1 rounded hover:bg-gray-100 transition-colors ${currentWeekIndex === -1 || currentWeekIndex >= savedWeeks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
-                      title="Next Saved Week"
-                    >
-                      <ChevronRight className="w-5 h-5 text-[#2D3436]" />
-                    </button>
-                  </div>
-                </div>
-                <MealTypeFilter
-                  selectedType={selectedMealType}
-                  onTypeSelect={setSelectedMealType}
-                />
-              </div>
-
-              {/* Health Assessment Card - Show if available */}
-              {currentPlan?.healthAssessment && (
-                <div className="mb-6">
-                  <HealthAssessmentCard
-                    healthAssessment={currentPlan.healthAssessment}
-                    userInfo={currentPlan.userInfo}
-                  />
-                </div>
-              )}
-
               {isLoading ? (
                 <LoadingSpinner />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {getRecipesForSelectedDay().map((recipe, index) => {
-                    // Use EnhancedRecipeCard if current health settings indicate sickness, otherwise use basic RecipeCard
                     const shouldShowEnhancedUI = sicknessSettings.hasSickness;
-
-                    console.log('[DEBUG] Index page - Health settings:', {
-                      hasSickness: sicknessSettings.hasSickness,
-                      shouldShowEnhancedUI,
-                      recipeTitle: recipe.title
-                    });
 
                     if (shouldShowEnhancedUI) {
                       return (
@@ -1056,29 +1043,29 @@ const Index = () => {
               )}
             </React.Fragment>
           ) : (
-            // Only show empty state if we've finished loading and there's no plan
             mealPlansInitialized && !mealPlansLoading ? (
-              <div className="bg-white rounded-xl p-8 sm:p-12 text-center shadow-sm border border-[#e2e8f0]">
-                <ChefHat className="w-16 h-16 text-[#e2e8f0] mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-[#2D3436] mb-2">No Meal Plan Selected</h3>
-                <p className="text-[#1e293b] mb-6">Create a new meal plan or select an existing one to get started!</p>
-                <div className="flex gap-3 justify-center">
+              <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
+                <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <ChefHat className="w-10 h-10 text-orange-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">No Meal Plan Selected</h3>
+                <p className="text-gray-500 mb-8 max-w-md mx-auto">Create a new meal plan or select an existing one to get started with your health journey!</p>
+                <div className="flex gap-4 justify-center">
                   <button
                     onClick={handleNewPlan}
-                    className="bg-[#FF6B6B] text-white px-6 py-3 rounded-lg hover:bg-[#FF8E53] transition-colors w-full max-w-xs sm:w-auto"
+                    className="bg-blue-500 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 shadow-sm hover:shadow-md"
                   >
                     Create New Plan
                   </button>
                   <button
                     onClick={() => setShowPlanManager(true)}
-                    className="bg-gray-100 text-[#2D3436] px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors w-full max-w-xs sm:w-auto"
+                    className="bg-gray-100 text-gray-700 px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-all duration-200"
                   >
                     View Saved Plans
                   </button>
                 </div>
               </div>
             ) : (
-              // Still loading - show skeleton
               <MealPlanSkeleton />
             )
           )}
@@ -1135,13 +1122,9 @@ const Index = () => {
                 </div>
                 <button
                   onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-[#FF6B6B]' : 'bg-gray-300'
-                    }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-[#FF6B6B]' : 'bg-gray-300'}`}
                 >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                  />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
             </div>
@@ -1182,22 +1165,21 @@ const Index = () => {
                       Your meal plan will be customized for: <strong>{getSicknessInfo()?.sicknessType}</strong>
                     </p>
                     <p className="text-xs text-orange-600">
-                      💡 <strong>Tip:</strong> Complete your full health profile in Settings to unlock medical-grade AI nutrition plans with detailed nutritional data!
+                      💡 <strong>Tip:</strong> Complete your full health profile in Settings to unlock medical-grade AI nutrition plans!
                     </p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Toggle Buttons - Only show when auto-generate is OFF */}
+            {/* Toggle Buttons */}
             {!isAutoGenerateEnabled && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <button
                   onClick={() => setInputType('ingredient_list')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
                     ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                    }`}
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'}`}
                 >
                   <div className="flex items-center justify-center">
                     <List className="w-6 h-6 mr-4" />
@@ -1212,8 +1194,7 @@ const Index = () => {
                   onClick={() => setInputType('image')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'image'
                     ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'
-                    }`}
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'}`}
                 >
                   <div className="flex items-center justify-center">
                     <Camera className="w-6 h-6 mr-4" />
@@ -1224,7 +1205,6 @@ const Index = () => {
                   </div>
                 </button>
 
-                {/* Medical AI Auto-Generate Button */}
                 {getSicknessInfo() && (
                   <button
                     onClick={() => setInputType('auto_medical')}
@@ -1232,8 +1212,7 @@ const Index = () => {
                       ? 'border-green-500 bg-green-500 text-white'
                       : isHealthProfileComplete()
                         ? 'border-green-200 bg-gradient-to-br from-green-50 to-blue-50 text-green-800 hover:border-green-400'
-                        : 'border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50 text-orange-800 hover:border-orange-400'
-                      }`}
+                        : 'border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50 text-orange-800 hover:border-orange-400'}`}
                   >
                     <div className="flex items-center justify-center">
                       <span className="text-2xl mr-3">🏥</span>
@@ -1251,37 +1230,28 @@ const Index = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {isAutoGenerateEnabled ? (
-                // Auto-generate form
                 <div className="space-y-6">
-                  <div className={`p-4 border rounded-xl ${getSicknessInfo()
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-blue-50 border-blue-200'
-                    }`}>
+                  <div className={`p-4 border rounded-xl ${getSicknessInfo() ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
                     <div className="flex items-center gap-2 mb-3">
                       {getSicknessInfo() ? (
                         <Utensils className="w-5 h-5 text-green-600" />
                       ) : (
                         <ChefHat className="w-5 h-5 text-blue-600" />
                       )}
-                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-blue-800'
-                        }`}>
+                      <h3 className={`text-lg font-semibold ${getSicknessInfo() ? 'text-green-800' : 'text-blue-800'}`}>
                         Auto Generate with Budget & Location
                       </h3>
                     </div>
-                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-blue-700'
-                      }`}>
+                    <p className={`text-sm ${getSicknessInfo() ? 'text-green-700' : 'text-blue-700'}`}>
                       {getSicknessInfo()
                         ? `We'll create a personalized meal plan based on your health condition: ${getSicknessInfo()?.sicknessType}`
-                        : 'We\'ll create a personalized meal plan based on your location and budget preferences.'
-                      }
+                        : "We'll create a personalized meal plan based on your location and budget preferences."}
                     </p>
                   </div>
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Your Location
-                      </label>
+                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">Your Location</label>
                       <select
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
@@ -1293,15 +1263,11 @@ const Index = () => {
                           <option key={country} value={country}>{country}</option>
                         ))}
                       </select>
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        This helps us suggest locally available ingredients
-                      </p>
+                      <p className="text-sm text-[#1e293b] mt-1">This helps us suggest locally available ingredients</p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">
-                        Weekly Budget
-                      </label>
+                      <label className="block text-sm font-semibold text-[#2D3436] mb-2">Weekly Budget</label>
                       <input
                         type="number"
                         value={budget}
@@ -1310,14 +1276,11 @@ const Index = () => {
                         className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
                         disabled={isLoading}
                       />
-                      <p className="text-sm text-[#1e293b] mt-1">
-                        Your budget for the entire week
-                      </p>
+                      <p className="text-sm text-[#1e293b] mt-1">Your budget for the entire week</p>
                     </div>
                   </div>
                 </div>
               ) : inputType === 'auto_medical' ? (
-                // Medical AI Auto-Generate form
                 <div className="space-y-6">
                   {isHealthProfileComplete() ? (
                     <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-xl">
@@ -1328,63 +1291,17 @@ const Index = () => {
                           <p className="text-sm text-green-700">Doctor-approved meal plans with detailed nutrition</p>
                         </div>
                       </div>
-
-                      <div className="space-y-4">
-                        <div className="p-4 bg-white border border-green-200 rounded-lg">
-                          <h4 className="font-semibold text-gray-900 mb-2">Your Health Profile</h4>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <span className="text-gray-600">Age:</span>
-                              <span className="ml-2 font-medium">{getSicknessInfo()?.age} years</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Gender:</span>
-                              <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.gender}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Height:</span>
-                              <span className="ml-2 font-medium">{getSicknessInfo()?.height} cm</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Weight:</span>
-                              <span className="ml-2 font-medium">{getSicknessInfo()?.weight} kg</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Waist:</span>
-                              <span className="ml-2 font-medium">{getSicknessInfo()?.waist} cm</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Activity:</span>
-                              <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.activityLevel?.replace('_', ' ')}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Goal:</span>
-                              <span className="ml-2 font-medium capitalize">{getSicknessInfo()?.goal?.replace('_', ' ')}</span>
-                            </div>
-                          </div>
+                      <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-blue-600">✨</span>
+                          <span className="font-semibold text-blue-900">What You'll Get</span>
                         </div>
-
-                        <div className="p-4 bg-green-100 border border-green-300 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-green-600">🎯</span>
-                            <span className="font-semibold text-green-900">Health Condition</span>
-                          </div>
-                          <p className="text-green-800 font-medium">{getSicknessInfo()?.sicknessType}</p>
-                        </div>
-
-                        <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-blue-600">✨</span>
-                            <span className="font-semibold text-blue-900">What You'll Get</span>
-                          </div>
-                          <ul className="text-sm text-blue-800 space-y-1">
-                            <li>• Complete 7-day meal plan with exact portions</li>
-                            <li>• Detailed nutritional breakdown (calories, protein, carbs, fats)</li>
-                            <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
-                            <li>• Condition-specific health benefits for each meal</li>
-                            <li>• Doctor-approved recipes for your health condition</li>
-                          </ul>
-                        </div>
+                        <ul className="text-sm text-blue-800 space-y-1">
+                          <li>• Complete 7-day meal plan with exact portions</li>
+                          <li>• Detailed nutritional breakdown</li>
+                          <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
+                          <li>• Condition-specific health benefits</li>
+                        </ul>
                       </div>
                     </div>
                   ) : (
@@ -1393,45 +1310,7 @@ const Index = () => {
                         <span className="text-3xl">🏥</span>
                         <div>
                           <h3 className="text-xl font-bold text-orange-900">Complete Your Health Profile</h3>
-                          <p className="text-sm text-orange-700">Unlock medical-grade AI nutrition planning</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="p-4 bg-white border border-orange-200 rounded-lg">
-                          <h4 className="font-semibold text-gray-900 mb-2">Current Health Information</h4>
-                          <div className="text-sm text-gray-600 mb-3">
-                            <span className="font-medium">Health Condition:</span> {getSicknessInfo()?.sicknessType}
-                          </div>
-                          <div className="text-sm text-orange-700">
-                            <strong>Missing information:</strong> Age, Gender, Height, Weight, Activity Level, Health Goal
-                          </div>
-                        </div>
-
-                        <div className="p-4 bg-orange-100 border border-orange-300 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-orange-600">💡</span>
-                            <span className="font-semibold text-orange-900">Next Steps</span>
-                          </div>
-                          <ol className="text-sm text-orange-800 space-y-1">
-                            <li>1. Go to Settings page</li>
-                            <li>2. Complete your health profile</li>
-                            <li>3. Return here to generate medical-grade meal plans</li>
-                          </ol>
-                        </div>
-
-                        <div className="p-4 bg-blue-100 border border-blue-300 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-blue-600">✨</span>
-                            <span className="font-semibold text-blue-900">What You'll Unlock</span>
-                          </div>
-                          <ul className="text-sm text-blue-800 space-y-1">
-                            <li>• Complete 7-day meal plan with exact portions</li>
-                            <li>• Detailed nutritional breakdown (calories, protein, carbs, fats)</li>
-                            <li>• Health assessment (WHtR, BMR, daily calorie needs)</li>
-                            <li>• Condition-specific health benefits for each meal</li>
-                            <li>• Doctor-approved recipes for your health condition</li>
-                          </ul>
+                          <p className="text-sm text-orange-700">Go to Settings to complete your profile</p>
                         </div>
                       </div>
                     </div>
@@ -1439,9 +1318,7 @@ const Index = () => {
                 </div>
               ) : inputType === 'ingredient_list' ? (
                 <div>
-                  <label className="block text-lg font-semibold text-[#2D3436] mb-3">
-                    List your ingredients
-                  </label>
+                  <label className="block text-lg font-semibold text-[#2D3436] mb-3">List your ingredients</label>
                   <textarea
                     value={ingredientList}
                     onChange={(e) => setIngredientList(e.target.value)}
@@ -1452,23 +1329,14 @@ const Index = () => {
                 </div>
               ) : inputType === 'image' ? (
                 <div>
-                  <label className="block text-lg font-semibold text-[#2D3436] mb-3">
-                    Upload an image of your ingredients
-                  </label>
+                  <label className="block text-lg font-semibold text-[#2D3436] mb-3">Upload an image of your ingredients</label>
                   <div className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center hover:border-[#FF6B6B] transition-colors">
                     {imagePreview ? (
                       <div className="space-y-4">
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="max-w-full h-48 object-cover mx-auto rounded-lg"
-                        />
+                        <img src={imagePreview} alt="Preview" className="max-w-full h-48 object-cover mx-auto rounded-lg" />
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedImage(null);
-                            setImagePreview(null);
-                          }}
+                          onClick={() => { setSelectedImage(null); setImagePreview(null); }}
                           className="text-[#FF6B6B] hover:text-[#FF8E53]"
                         >
                           Choose different image

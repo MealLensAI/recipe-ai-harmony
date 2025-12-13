@@ -1,6 +1,6 @@
-# MealLens AI
+# MealLens AI - Health Nutrition Platform
 
-AI-powered kitchen assistant for food detection, recipe suggestions, and personalized meal planning.
+AI-powered health nutrition assistant for personalized meal planning and health condition management.
 
 ## 📁 Project Structure
 
@@ -88,11 +88,11 @@ Open your browser and navigate to: **http://localhost:5173**
 ## 🎯 Features
 
 ### Core Features
--  **Food Detection**: AI-powered food identification from images
--  **Recipe Suggestions**: Get cooking instructions and recipes
--  **Meal Planning**: Personalized meal plans based on health goals
--  **Health Profiles**: Manage dietary restrictions and health conditions
--  **History Tracking**: View past detections and meal plans
+-  **Health Meal Planning**: Personalized 7-day meal plans for chronic conditions (diabetes, hypertension, PCOS, renal care, etc.)
+-  **Health Meal Generation**: Generate health-focused meals from ingredients tailored to your condition
+-  **BMI & BMR Calculations**: Automatic calculations based on your body metrics
+-  **Health Profiles**: Manage your health conditions, dietary restrictions, and nutritional needs
+-  **Nutrition Tracking**: Track your health progress over time
 -  **Subscription Management**: Flexible payment plans
 
 ### Enterprise Features

@@ -14,11 +14,11 @@ import Logo from "@/components/Logo"
 
 interface SharedRecipe {
   id: string
-  recipe_type: "food_detection" | "ingredient_detection"
+  recipe_type: "food_detection" | "ingredient_detection" | "health_meal"
   detected_foods?: string // JSON string of string[]
   instructions?: string // HTML string
   resources?: string // HTML string
-  suggestion?: string // for ingredient detection
+  suggestion?: string // for ingredient detection and health meals (meal name)
   ingredients?: string // JSON string of string[]
   created_at: string
   youtube_link?: string
@@ -33,6 +33,8 @@ const getStatusColor = (recipeType: string) => {
       return "bg-green-100 text-green-700 border-green-200"
     case "ingredient_detection":
       return "bg-blue-100 text-blue-700 border-blue-200"
+    case "health_meal":
+      return "bg-orange-100 text-orange-700 border-orange-200"
     default:
       return "bg-gray-100 text-gray-700 border-gray-200"
   }
@@ -44,6 +46,8 @@ const getStatusText = (recipeType: string) => {
       return "Food Detection"
     case "ingredient_detection":
       return "Ingredient Detection"
+    case "health_meal":
+      return "Health Meal"
     default:
       return "Detection"
   }
@@ -642,8 +646,8 @@ function HistoryCard({ item }: HistoryCardProps) {
 
   const detectedFoods = getDetectedFoods()
   const mainFood = detectedFoods[0] || "Unknown"
-  // Prefer suggested food name for ingredient detections
-  const title = (item.recipe_type === "ingredient_detection" && item.suggestion)
+  // Prefer suggested food name for ingredient detections and health meals
+  const title = ((item.recipe_type === "ingredient_detection" || item.recipe_type === "health_meal") && item.suggestion)
     ? item.suggestion
     : mainFood
   const additionalCount = detectedFoods.length > 1 ? detectedFoods.length - 1 : 0

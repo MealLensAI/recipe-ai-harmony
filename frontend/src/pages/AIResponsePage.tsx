@@ -11,6 +11,7 @@ import LoadingSpinner from "@/components/LoadingSpinner"
 import Logo from "@/components/Logo"
 import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 import Swal from 'sweetalert2'
+import { api } from "@/lib/api"
 
 
 interface HealthMeal {
@@ -32,29 +33,16 @@ const AIResponsePage: FC = () => {
   const [ingredientList, setIngredientList] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [detectedIngredients, setDetectedIngredients] = useState<string>("")
-  const [detectedIngredientsArray, setDetectedIngredientsArray] = useState<string[]>([]) // Store original array for updates
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [detectedIngredientsArray, setDetectedIngredientsArray] = useState<string[]>([])
   const [instructions, setInstructions] = useState<string>("")
   const [resources, setResources] = useState<any>(null)
-  const [analysisId, setAnalysisId] = useState<string>("")
   const [loadingResources, setLoadingResources] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const { token, isAuthenticated, loading } = useAuth()
-
-  // Health-focused meal generation state
-  const [isHealthMode, setIsHealthMode] = useState(false)
   const [healthMeals, setHealthMeals] = useState<HealthMeal[]>([])
   const [showHealthResults, setShowHealthResults] = useState(false)
   const [showMealModal, setShowMealModal] = useState(false)
   const [selectedMealForModal, setSelectedMealForModal] = useState<HealthMeal | null>(null)
+  const { token, isAuthenticated, loading } = useAuth()
   const { settings: sicknessSettings, isHealthProfileComplete } = useSicknessSettings()
-
-  // Set health mode to true by default if user has health conditions
-  React.useEffect(() => {
-    if (sicknessSettings.hasSickness && isHealthProfileComplete()) {
-      setIsHealthMode(true)
-    }
-  }, [sicknessSettings.hasSickness, isHealthProfileComplete])
 
   if (loading) {
     return <LoadingSpinner />
@@ -69,7 +57,7 @@ const AIResponsePage: FC = () => {
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-800">Authentication Required</h2>
             <p className="text-gray-600">
-              Please log in to use the AI Kitchen feature and save your recipe discoveries to history.
+              Please log in to use the Health Meal Generation feature.
             </p>
             <Button
               onClick={() => navigate('/landing')}
@@ -83,172 +71,8 @@ const AIResponsePage: FC = () => {
     )
   }
 
-
-  const handleDiscoverRecipes = async () => {
-    if (sicknessSettings.hasSickness && isHealthMode) {
-      await handleHealthMealGeneration()
-      return
-    }
-
-    setIsLoading(true)
-    setDetectedIngredients("")
-    setDetectedIngredientsArray([])
-    setSuggestions([])
-    setInstructions("")
-    setResources(null)
-    setShowResults(false)
-    setHealthMeals([])
-    setShowHealthResults(false)
-
-    const formData = new FormData()
-    if (inputType === "image" && selectedImage) {
-      formData.append("image_or_ingredient_list", "image")
-      formData.append("image", selectedImage)
-    } else if (inputType === "ingredient_list" && ingredientList.trim()) {
-      formData.append("image_or_ingredient_list", "ingredient_list")
-      formData.append("ingredient_list", ingredientList)
-    } else {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Missing Input',
-        text: 'Please provide an image or ingredient list',
-        confirmButtonColor: '#f97316'
-      })
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      console.log('[AIResponsePage] Starting ingredient detection with API:', `${APP_CONFIG.api.ai_api_url}/process`)
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-      const response = await fetch(`${APP_CONFIG.api.ai_api_url}/process`, {
-        method: "POST",
-        body: formData,
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      console.log('[AIResponsePage] API response status:', response.status, response.statusText)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('[AIResponsePage] API error response:', errorText)
-        throw new Error(`Failed to process ingredients: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log("Process response:", data)
-
-      if (data.error) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: data.error,
-          confirmButtonColor: '#f97316'
-        })
-        return
-      }
-
-      setAnalysisId(data.analysis_id)
-      const ingredientsArray = data.response || []
-      setDetectedIngredientsArray(ingredientsArray)
-      setDetectedIngredients(ingredientsArray.join(', '))
-      setSuggestions(data.food_suggestions || [])
-      setShowResults(true)
-
-      // Save initial detection to Supabase (ingredients + suggestions)
-      if (token && ingredientsArray && ingredientsArray.length > 0 && data.analysis_id) {
-        const payload = {
-          recipe_type: "ingredient_detection",
-          suggestion: "", // No suggestion selected yet, just initial detection
-          instructions: "", // Instructions will be added when user clicks a suggestion
-          ingredients: JSON.stringify(data.response || []),
-          detected_foods: JSON.stringify(data.response || []),
-          analysis_id: data.analysis_id || ""
-          // YouTube, Google, and resources will be added later when suggestion is clicked
-        };
-
-        try {
-          console.log("[AIResponse] Saving initial detection to history:", {
-            analysis_id: data.analysis_id,
-            ingredients_count: data.response?.length || 0,
-            suggestions_count: data.food_suggestions?.length || 0,
-            payload: payload
-          });
-
-          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const responseData = await historyResponse.json();
-
-          if (historyResponse.ok) {
-            console.log("[AIResponse] ✅ Successfully saved initial detection to history:", responseData);
-          } else {
-            console.error("[AIResponse] ❌ Failed to save initial detection to history:", responseData);
-            Swal.fire({
-              icon: 'warning',
-              title: 'History Save Warning',
-              text: `Failed to save to history: ${responseData.message || 'Unknown error'}`,
-              confirmButtonColor: '#f97316'
-            });
-          }
-        } catch (historyError) {
-          console.error("[AIResponse] ❌ Error saving initial detection to history:", historyError);
-          Swal.fire({
-            icon: 'error',
-            title: 'History Save Error',
-            text: 'Failed to save detection to history. Please try again.',
-            confirmButtonColor: '#f97316'
-          });
-        }
-      } else {
-        console.warn("[AIResponse] ⚠️ Cannot save initial detection - missing data:", {
-          hasToken: !!token,
-          hasResponse: !!(data.response && data.response.length > 0),
-          hasAnalysisId: !!data.analysis_id
-        });
-      }
-    } catch (error) {
-      console.error("Error processing ingredients:", error)
-      
-      if (error.name === 'AbortError') {
-        Swal.fire({
-          icon: 'error',
-          title: 'Connection Timeout',
-          text: 'The AI server is taking too long to respond. The external AI service may be temporarily unavailable. Please try again later or contact support if the issue persists.',
-          confirmButtonColor: '#f97316'
-        })
-      } else if (error.message.includes('Failed to fetch')) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Connection Failed',
-          text: 'Unable to connect to the AI server. The external AI service may be offline. Please try again later or contact support.',
-          confirmButtonColor: '#f97316'
-        })
-      } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Processing Failed',
-          text: 'Failed to process ingredients. Please try again.',
-          confirmButtonColor: '#f97316'
-        })
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleHealthMealGeneration = async () => {
-    if (!isHealthProfileComplete) {
+    if (!isHealthProfileComplete()) {
       Swal.fire({
         icon: 'info',
         title: 'Health Profile Required',
@@ -262,10 +86,8 @@ const AIResponsePage: FC = () => {
     setHealthMeals([])
     setShowHealthResults(false)
     setDetectedIngredients("")
-    setSuggestions([])
     setInstructions("")
     setResources(null)
-    setShowResults(false)
 
     const formData = new FormData()
 
@@ -337,188 +159,13 @@ const AIResponsePage: FC = () => {
     }
   }
 
-  const handleSuggestionClick = async (suggestion: string) => {
-    setIsLoading(true)
-    setInstructions("")
-    setResources(null)
-
-    console.log('Starting to fetch instructions for:', suggestion)
-
-    try {
-      // 1. Get cooking instructions first
-      const formData = new FormData()
-      formData.append("food_analysis_id", analysisId)
-      formData.append("food_choice_index", suggestion)
-
-      console.log('Fetching instructions with analysisId:', analysisId)
-
-      const instrRes = await fetch(`${APP_CONFIG.api.ai_api_url}/instructions`, {
-        method: "POST",
-        body: formData,
-      })
-      const instrData = await instrRes.json()
-
-      console.log('Instructions API response:', instrData)
-
-      // Convert markdown to HTML (same as tutorial page)
-      let htmlInstructions = instrData.instructions || '';
-      htmlInstructions = htmlInstructions
-        .replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
-        .replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
-        .replace(/(\d+\.)/g, '<br>$1');
-
-      console.log('Converted HTML instructions:', htmlInstructions)
-      setInstructions(htmlInstructions);
-
-      // Instructions are loaded, now start loading resources
-      setIsLoading(false);
-      setLoadingResources(true);
-
-      // 2. Get resources (YouTube and Google)
-      const resForm = new FormData()
-      resForm.append("food_choice_index", suggestion)
-      const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
-        method: "POST",
-        body: resForm,
-      })
-      const resData = await resRes.json()
-      setResources(resData)
-
-      // Update existing detection history record with suggestion details
-      if (token && analysisId && instrData.instructions) {
-        // Use raw instructions (before HTML formatting) for storage
-        const rawInstructions = instrData.instructions || "";
-        const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
-        const googleLink = resData?.GoogleSearch?.[0]?.link || "";
-        const resourcesJson = JSON.stringify(resData || {});
-        
-        // Prepare ingredients array
-        const ingredientsArray = detectedIngredientsArray.length > 0 
-          ? detectedIngredientsArray 
-          : (detectedIngredients ? detectedIngredients.split(', ').filter(Boolean) : []);
-        
-        const payload = {
-          analysis_id: analysisId,
-          suggestion: suggestion || "",
-          instructions: rawInstructions, // Store raw instructions, not HTML formatted
-          ingredients: JSON.stringify(ingredientsArray),
-          detected_foods: JSON.stringify(ingredientsArray),
-          youtube_link: youtubeLink, // Use correct field name
-          google_link: googleLink, // Use correct field name
-          resources_link: resourcesJson // Use correct field name
-        };
-
-        try {
-          console.log("[AIResponse] Updating detection history with suggestion:", {
-            analysis_id: analysisId,
-            suggestion: suggestion,
-            hasInstructions: !!rawInstructions,
-            instructionsLength: rawInstructions.length,
-            hasYoutube: !!youtubeLink,
-            youtubeLink: youtubeLink ? youtubeLink.substring(0, 50) + "..." : "none",
-            hasGoogle: !!googleLink,
-            googleLink: googleLink ? googleLink.substring(0, 50) + "..." : "none",
-            resourcesLength: resourcesJson.length,
-            payload: payload
-          });
-
-          // Wait a bit to ensure the initial history save completed
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          const updateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const updateResult = await updateResponse.json();
-
-          if (updateResponse.ok && (updateResult.status === 'success' || updateResponse.status === 200)) {
-            console.log("[AIResponse] ✅ Successfully updated detection history with suggestion:", updateResult);
-            
-            // Also update resources separately using the same endpoint as DetectFoodPage (as a backup)
-            if (youtubeLink || googleLink || (resourcesJson && resourcesJson !== "{}")) {
-              try {
-                const resourcesUpdatePayload = {
-                  food_analysis_id: analysisId,
-                  youtube_link: youtubeLink,
-                  google_link: googleLink,
-                  resources_link: resourcesJson
-                };
-                
-                const resourcesUpdateResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/food_detect_resources`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(resourcesUpdatePayload)
-                });
-                
-                const resourcesUpdateResult = await resourcesUpdateResponse.json();
-                if (resourcesUpdateResponse.ok && resourcesUpdateResult.status === 'success') {
-                  console.log("[AIResponse] ✅ Successfully updated resources separately:", resourcesUpdateResult);
-                } else {
-                  console.warn("[AIResponse] ⚠️ Resources update via separate endpoint failed (non-critical):", resourcesUpdateResult);
-                }
-              } catch (resourcesError) {
-                console.warn("[AIResponse] ⚠️ Error updating resources separately (non-critical):", resourcesError);
-              }
-            }
-          } else {
-            console.error("[AIResponse] ❌ Failed to update detection history:", updateResult);
-            // If update fails, try to create a new record instead
-            console.log("[AIResponse] Attempting to create new record instead of update...");
-            const createPayload = {
-              recipe_type: "ingredient_detection",
-              ...payload
-            };
-            const createResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(createPayload)
-            });
-            const createResult = await createResponse.json();
-            if (createResponse.ok) {
-              console.log("[AIResponse] ✅ Created new detection history record:", createResult);
-            } else {
-              console.error("[AIResponse] ❌ Failed to create new record:", createResult);
-            }
-          }
-        } catch (updateError) {
-          console.error("[AIResponse] ❌ Error updating detection history:", updateError);
-        }
-      } else {
-        console.warn("[AIResponse] ⚠️ Cannot update detection history - missing data:", {
-          hasToken: !!token,
-          hasDetectedIngredients: detectedIngredients.length > 0,
-          hasInstructions: !!instrData.instructions,
-          hasResources: !!resData,
-          hasAnalysisId: !!analysisId
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching content:', error);
-      setInstructions('Failed to load instructions. Please try again.');
-    } finally {
-      setIsLoading(false);
-      setLoadingResources(false);
-    }
-  }
-
   const handleHealthMealInstructions = async (meal: HealthMeal) => {
     setIsLoading(true)
     setInstructions("")
     setResources(null)
 
     // Generate analysis ID for this health meal
-    const analysisId = `health-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const analysisId = `health-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
     try {
       const response = await fetch(`${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions`, {
@@ -550,85 +197,118 @@ const AIResponsePage: FC = () => {
         return
       }
 
-      // Convert markdown to HTML (same as regular instructions)
-      let htmlInstructions = data.instructions || '';
+      // Convert markdown to HTML
+      let htmlInstructions = data.instructions || ''
       htmlInstructions = htmlInstructions
         .replace(/\*\*(.*?)\*\*/g, '<br><strong>$1</strong><br>')
         .replace(/\*\s*(.*?)\s*\*/g, '<p>$1</p>')
-        .replace(/(\d+\.)/g, '<br>$1');
+        .replace(/(\d+\.)/g, '<br>$1')
 
       setInstructions(htmlInstructions)
 
       // Instructions are loaded, now start loading resources
-      setIsLoading(false);
-      setLoadingResources(true);
+      setIsLoading(false)
+      setLoadingResources(true)
 
-      // 2. Get resources (YouTube and Google) for the health meal
-      const resForm = new FormData()
-      resForm.append("food_choice_index", meal.food_suggestions[0] || "Health Meal")
-      const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
-        method: "POST",
-        body: resForm,
-      })
-      const resData = await resRes.json()
-      setResources(resData)
-
-      // 3. Save to detection history with resources (IMPORTANT FIX!)
-      if (token && meal.ingredients_used.length && data.instructions && resData) {
-        // Use raw instructions (before HTML formatting) for storage
-        const rawInstructions = data.instructions || "";
-        const youtubeLink = resData?.YoutubeSearch?.[0]?.link || "";
-        const googleLink = resData?.GoogleSearch?.[0]?.link || "";
-        const resourcesJson = JSON.stringify(resData || {});
+      // Get resources (YouTube and Google) for the health meal
+      try {
+        const resForm = new FormData()
+        const mealName = meal.food_suggestions?.[0] || meal.name || meal.title || "Health Meal"
+        resForm.append("food_choice_index", mealName)
+        console.log("[AIResponse] Fetching resources for:", mealName)
         
-        console.log("[AIResponse] Saving health meal to history with resources:", {
-          analysis_id: analysisId,
-          suggestion: meal.food_suggestions[0],
-          hasInstructions: !!rawInstructions,
-          hasYoutube: !!youtubeLink,
-          hasGoogle: !!googleLink,
-          resourcesLength: resourcesJson.length
-        });
+        const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
+          method: "POST",
+          body: resForm,
+        })
         
-        const payload = {
-          recipe_type: "ingredient_detection",
-          suggestion: meal.food_suggestions[0] || "Health Meal",
-          instructions: rawInstructions, // Store raw instructions, not HTML formatted
-          ingredients: JSON.stringify(meal.ingredients_used || []),
-          detected_foods: JSON.stringify(meal.ingredients_used || []),
-          analysis_id: analysisId,
-          youtube_link: youtubeLink, // Use correct field name
-          google_link: googleLink, // Use correct field name
-          resources_link: resourcesJson // Use correct field name
-        };
-
-        try {
-          const historyResponse = await fetch(`${APP_CONFIG.api.base_url}/api/food_detection/detection_history`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(payload)
-          });
-
-          if (historyResponse.ok) {
-            console.log("[AIResponse] ✅ Successfully saved health meal to history");
-          } else {
-            console.error("[AIResponse] ❌ Failed to save health meal to history:", await historyResponse.text());
-          }
-        } catch (historyError) {
-          console.error("[AIResponse] ❌ Error saving health meal to history:", historyError);
+        if (!resRes.ok) {
+          throw new Error(`Resources API returned ${resRes.status}`)
         }
-      } else {
-        console.warn("[AIResponse] ⚠️ Cannot save to history - missing data:", {
-          hasToken: !!token,
-          hasIngredients: meal.ingredients_used.length > 0,
-          hasInstructions: !!data.instructions,
-          hasResources: !!resData
-        });
+        
+        const resData = await resRes.json()
+        console.log("[AIResponse] Resources response:", resData)
+        
+        // Ensure resources object has the expected structure
+        const formattedResources = {
+          YoutubeSearch: resData.YoutubeSearch || resData.youtube || resData.YouTube || [],
+          GoogleSearch: resData.GoogleSearch || resData.google || resData.Google || []
+        }
+        
+        setResources(formattedResources)
+        setLoadingResources(false)
+        
+        console.log("[AIResponse] Formatted resources:", formattedResources)
+        
+        // Save to history after resources are loaded
+        if (token && meal.ingredients_used.length && data.instructions) {
+          try {
+            const mealName = meal.food_suggestions?.[0] || meal.name || meal.title || "Health Meal"
+            
+            // Format resources as JSON string for storage
+            const resourcesJson = JSON.stringify(formattedResources)
+            
+            // Get YouTube and Google links (first result from each)
+            const youtubeLink = formattedResources.YoutubeSearch?.[0]?.link || 
+                              (Array.isArray(formattedResources.YoutubeSearch) && formattedResources.YoutubeSearch.length > 0 && formattedResources.YoutubeSearch[0]?.[0]?.link) || 
+                              ""
+            const googleLink = formattedResources.GoogleSearch?.[0]?.link || 
+                             (Array.isArray(formattedResources.GoogleSearch) && formattedResources.GoogleSearch.length > 0 && formattedResources.GoogleSearch[0]?.[0]?.link) || 
+                             ""
+            
+            const historyData = {
+              recipe_type: "health_meal",
+              suggestion: mealName,
+              instructions: htmlInstructions,
+              ingredients: JSON.stringify(meal.ingredients_used),
+              detected_foods: JSON.stringify(meal.ingredients_used),
+              analysis_id: analysisId,
+              youtube_link: youtubeLink,
+              google_link: googleLink,
+              resources_link: resourcesJson
+            }
+            
+            console.log("[AIResponse] Saving health meal to history:", historyData)
+            const saveResult = await api.saveDetectionHistory(historyData)
+            
+            if (saveResult.status === 'success') {
+              console.log("[AIResponse] ✅ Health meal saved to history successfully")
+            } else {
+              console.warn("[AIResponse] ⚠️ Failed to save health meal to history:", saveResult.message)
+            }
+          } catch (historyError) {
+            console.error("[AIResponse] Error saving health meal to history:", historyError)
+            // Don't show error to user, history saving is non-critical
+          }
+        }
+      } catch (resourceError) {
+        console.error("[AIResponse] Error fetching resources:", resourceError)
+        // Set empty resources on error, so UI doesn't show loading forever
+        setResources({ YoutubeSearch: [], GoogleSearch: [] })
+        setLoadingResources(false)
+        
+        // Still try to save history even if resources failed
+        if (token && meal.ingredients_used.length && data.instructions) {
+          try {
+            const mealName = meal.food_suggestions?.[0] || meal.name || meal.title || "Health Meal"
+            const historyData = {
+              recipe_type: "health_meal",
+              suggestion: mealName,
+              instructions: htmlInstructions,
+              ingredients: JSON.stringify(meal.ingredients_used),
+              detected_foods: JSON.stringify(meal.ingredients_used),
+              analysis_id: analysisId,
+              youtube_link: "",
+              google_link: "",
+              resources_link: "{}"
+            }
+            await api.saveDetectionHistory(historyData)
+            console.log("[AIResponse] ✅ Health meal saved to history (without resources)")
+          } catch (historyError) {
+            console.error("[AIResponse] Error saving health meal to history:", historyError)
+          }
+        }
       }
-
     } catch (error) {
       console.error("Error fetching health meal instructions:", error)
       Swal.fire({
@@ -638,33 +318,33 @@ const AIResponsePage: FC = () => {
         confirmButtonColor: '#f97316'
       })
     } finally {
-      setIsLoading(false);
-      setLoadingResources(false);
+      setIsLoading(false)
+      setLoadingResources(false)
     }
   }
 
   const handleViewMealInfo = (meal: HealthMeal, event: React.MouseEvent) => {
-    event.stopPropagation() // Prevent the button click from triggering
+    event.stopPropagation()
     setSelectedMealForModal(meal)
     setShowMealModal(true)
   }
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const file = event.target.files?.[0]
     if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
+      setSelectedImage(file)
+      const reader = new FileReader()
       reader.onload = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
   const getYouTubeVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+    const match = url.match(regExp)
+    return (match && match[2].length === 11) ? match[2] : null
   }
 
   return (
@@ -686,7 +366,7 @@ const AIResponsePage: FC = () => {
           <h1
             className="text-2xl sm:text-3xl lg:text-[2.5rem] font-extrabold text-center mb-4 sm:mb-8 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] bg-clip-text text-transparent tracking-[-1px]"
           >
-            Ingredient Detection
+            Health Meal Generator
           </h1>
 
           {/* Health-aware detection badge */}
@@ -694,8 +374,8 @@ const AIResponsePage: FC = () => {
             <div className="absolute top-2 right-2 sm:top-4 sm:right-4">
               <div className="inline-flex items-center bg-orange-100 text-orange-800 rounded-full px-2 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium">
                 <div className="w-2 h-2 bg-orange-500 rounded-full mr-1 sm:mr-2"></div>
-                <span className="hidden sm:inline">Health-aware detection</span>
-                <span className="sm:hidden">Health-aware</span>
+                <span className="hidden sm:inline">Tailored for {sicknessSettings.sicknessType}</span>
+                <span className="sm:hidden">{sicknessSettings.sicknessType}</span>
               </div>
             </div>
           )}
@@ -703,7 +383,7 @@ const AIResponsePage: FC = () => {
           {/* Input Form */}
           <div className="mb-4">
             <label className="block font-semibold text-lg text-[#2D3436] mb-3">
-              How would you like to start?
+              How would you like to provide your ingredients?
             </label>
             <select
               className="w-full bg-white border-2 border-[rgba(0,0,0,0.1)] rounded-2xl p-4 text-lg transition-all duration-300 shadow-[0_4px_6px_rgba(0,0,0,0.05)] focus:border-[#FF6B6B] focus:shadow-[0_0_0_4px_rgba(255,107,107,0.2)]"
@@ -714,7 +394,6 @@ const AIResponsePage: FC = () => {
               <option value="ingredient_list">List Your Ingredients</option>
             </select>
           </div>
-
 
           {/* Image Input */}
           {inputType === "image" && (
@@ -756,13 +435,13 @@ const AIResponsePage: FC = () => {
             </div>
           )}
 
-          {/* Discover Button */}
+          {/* Generate Button */}
           <button
-            onClick={handleDiscoverRecipes}
-            disabled={isLoading || (sicknessSettings.hasSickness && isHealthMode && !isHealthProfileComplete)}
+            onClick={handleHealthMealGeneration}
+            disabled={isLoading || !isHealthProfileComplete()}
             className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white border-none rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-8 text-base sm:text-xl font-semibold transition-all duration-300 uppercase tracking-wider shadow-[0_4px_15px_rgba(255,107,107,0.3)] hover:translate-y-[-2px] hover:shadow-[0_6px_20px_rgba(255,107,107,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {(sicknessSettings.hasSickness && isHealthMode) ? "Generate Health Meals" : "Discover Recipes"}
+            Generate Health Meals
           </button>
 
           {/* Loading Spinner */}
@@ -786,11 +465,11 @@ const AIResponsePage: FC = () => {
 
               {/* Side by side layout */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* AI Detected Ingredients for Health Mode */}
+                {/* AI Detected Ingredients */}
                 <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]">
                   <div className="p-4 mt-2.5">
                     <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Detected Ingredient
+                      Detected Ingredients
                     </h5>
                     <div className="text-left">
                       <p className="text-lg text-gray-700">{detectedIngredients}</p>
@@ -798,11 +477,11 @@ const AIResponsePage: FC = () => {
                   </div>
                 </div>
 
-                {/* AI Recipe Suggestions */}
+                {/* Health Meal Suggestions */}
                 <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]">
                   <div className="p-4 mt-2.5">
                     <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Recipe Suggestions
+                      Health Meal Options
                     </h5>
                     <div className="flex flex-wrap gap-2">
                       {healthMeals.map((meal, i) => (
@@ -815,231 +494,14 @@ const AIResponsePage: FC = () => {
                             {meal.food_suggestions[0] || "Health Meal"}
                           </button>
 
-                          {/* Small MORE INFO button inside bottom right corner */}
                           <button
                             onClick={(e) => handleViewMealInfo(meal, e)}
                             className="absolute bottom-1 right-1 bg-orange-500 text-white rounded text-xs font-bold px-1 py-0 shadow-sm hover:bg-red-600 transition-colors"
                             title="View meal details"
                           >
-                            MORE INFO
+                            INFO
                           </button>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Instructions Section for Health Mode */}
-              {instructions && (
-                <div
-                  className="mt-8 bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      Cooking Instructions
-                    </h5>
-                    <div
-                      className="leading-[1.4] m-0 text-left"
-                      style={{ lineHeight: '1.4', margin: 0, textAlign: 'left' }}
-                      dangerouslySetInnerHTML={{ __html: instructions }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Resources Section for Health Mode */}
-              {loadingResources && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-center">Loading video tutorials...</div>
-                    </div>
-                  </div>
-
-                  {/* Google Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
-                      </div>
-                      <div className="text-center">Loading articles...</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Resources Content for Health Mode */}
-              {resources && !loadingResources && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
-                        <div className="space-y-6">
-                          {resources.YoutubeSearch.map((item: any, idx: number) => {
-                            const videoId = getYouTubeVideoId(item.link);
-                            return videoId ? (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="relative w-full aspect-video bg-black">
-                                  <iframe
-                                    src={`https://www.youtube.com/embed/${videoId}`}
-                                    title={item.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    className="w-full h-full rounded-t-2xl"
-                                  />
-                                </div>
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
-                                </div>
-                              </div>
-                            ) : (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                                  >
-                                    Watch Tutorial
-                                  </a>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No video tutorials available.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Google Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
-                        <div className="space-y-6">
-                          {resources.GoogleSearch
-                            .filter((item: any) =>
-                              !item.title.toLowerCase().includes('gnu make') &&
-                              !item.description.toLowerCase().includes('gnu make')
-                            )
-                            .map((item: any, idx: number) => (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow hover:from-blue-400 hover:to-blue-500 transition-colors"
-                                  >
-                                    Read More
-                                  </a>
-                                </div>
-                              </div>
-                            ))}
-                          {resources.GoogleSearch.filter((item: any) =>
-                            item.title.toLowerCase().includes('gnu make') ||
-                            item.description.toLowerCase().includes('gnu make')
-                          ).length > 0 && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-yellow-800 text-sm">
-                                  ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
-                                </p>
-                              </div>
-                            )}
-                        </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No articles available.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-
-          {/* Results */}
-          {showResults && (
-            <div className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* AI Detected Ingredients */}
-                <div
-                  className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Detected Ingredient
-                    </h5>
-                    <div className="text-left">
-                      <p className="text-lg text-gray-700">{detectedIngredients}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Recipe Suggestions */}
-                <div
-                  className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)] hover:translate-y-[-5px] hover:shadow-[0_15px_35px_rgba(0,0,0,0.15)]"
-                >
-                  <div className="p-4 mt-2.5">
-                    <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                      AI Recipe Suggestions
-                    </h5>
-                    <div className="flex flex-wrap gap-2">
-                      {suggestions.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleSuggestionClick(suggestion)}
-                          disabled={isLoading}
-                          className="bg-white text-[#FF6B6B] border-2 border-[#FF6B6B] rounded-2xl px-3 py-3 m-2 transition-all duration-300 font-semibold text-base hover:bg-gradient-to-r hover:from-[#FF6B6B] hover:to-[#FF8E53] hover:text-white hover:border-transparent hover:translate-y-[-2px] hover:shadow-[0_4px_12px_rgba(255,107,107,0.2)]"
-                        >
-                          {suggestion}
-                        </button>
                       ))}
                     </div>
                   </div>
@@ -1064,48 +526,48 @@ const AIResponsePage: FC = () => {
                 </div>
               )}
 
-              {/* Resources Section */}
+              {/* Resources Section - Loading State */}
               {loadingResources && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                  {/* YouTube Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  {/* Youtube Resources Loading */}
+                  <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
                     <div className="p-4 mt-2.5">
                       <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
                         Youtube Resources
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
+                      <div className="space-y-4">
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
+                          <div 
+                            className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-orange-500 to-red-500 rounded-full"
+                            style={{
+                              animation: 'loading-slide 1.5s ease-in-out infinite'
+                            }}
+                          ></div>
+                        </div>
+                        <p className="text-gray-600 text-center">Loading video tutorials...</p>
                       </div>
-                      <div className="text-center">Loading video tutorials...</div>
                     </div>
                   </div>
 
                   {/* Google Resources Loading */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
+                  <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
                     <div className="p-4 mt-2.5">
                       <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
                         Google Resources
                       </h5>
                       <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      <div className="w-full h-1 bg-[#f0f0f0] rounded-sm my-4 overflow-hidden relative">
-                        <div
-                          className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] rounded-sm"
-                          style={{
-                            animation: 'loading-slide 1.5s ease-in-out infinite'
-                          }}
-                        ></div>
+                      <div className="space-y-4">
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
+                          <div 
+                            className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-orange-500 to-red-500 rounded-full"
+                            style={{
+                              animation: 'loading-slide 1.5s ease-in-out infinite'
+                            }}
+                          ></div>
+                        </div>
+                        <p className="text-gray-600 text-center">Loading articles...</p>
                       </div>
-                      <div className="text-center">Loading articles...</div>
                     </div>
                   </div>
                 </div>
@@ -1113,22 +575,19 @@ const AIResponsePage: FC = () => {
 
               {/* Resources Content */}
               {resources && !loadingResources && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                   {/* YouTube Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Youtube Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Video Tutorials</h6>
-                      {resources.YoutubeSearch && resources.YoutubeSearch.length > 0 ? (
+                  {resources.YoutubeSearch && Array.isArray(resources.YoutubeSearch) && resources.YoutubeSearch.length > 0 && (
+                    <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+                      <div className="p-4 mt-2.5">
+                        <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                          Video Tutorials
+                        </h5>
                         <div className="space-y-6">
-                          {resources.YoutubeSearch.map((item: any, idx: number) => {
-                            const videoId = getYouTubeVideoId(item.link);
+                          {resources.YoutubeSearch.flat().slice(0, 3).map((item: any, idx: number) => {
+                            const videoId = getYouTubeVideoId(item.link)
                             return videoId ? (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
                                 <div className="relative w-full aspect-video bg-black">
                                   <iframe
                                     src={`https://www.youtube.com/embed/${videoId}`}
@@ -1140,50 +599,32 @@ const AIResponsePage: FC = () => {
                                 </div>
                                 <div className="p-6">
                                   <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <p className="text-xs text-gray-500 mb-4 text-left">{item.channel || ''}</p>
                                 </div>
                               </div>
-                            ) : (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <div className="p-6">
-                                  <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
-                                  <a
-                                    href={item.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-red-500 text-base font-semibold hover:underline"
-                                  >
-                                    Watch Tutorial
-                                  </a>
-                                </div>
-                              </div>
-                            )
+                            ) : null
                           })}
                         </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No video tutorials available.</p>
-                      )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Google Resources */}
-                  <div
-                    className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]"
-                  >
-                    <div className="p-4 mt-2.5">
-                      <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
-                        Google Resources
-                      </h5>
-                      <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
-                      {resources.GoogleSearch && resources.GoogleSearch.length > 0 ? (
+                  {resources.GoogleSearch && Array.isArray(resources.GoogleSearch) && resources.GoogleSearch.length > 0 && (
+                    <div className="bg-gradient-to-br from-[rgba(255,255,255,0.95)] to-[rgba(255,255,255,0.8)] rounded-[1.5rem] border-none overflow-hidden transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+                      <div className="p-4 mt-2.5">
+                        <h5 className="text-[#2D3436] font-bold text-xl mb-6 border-b-2 border-[rgba(255,107,107,0.2)] pb-3 text-left">
+                          Google Resources
+                        </h5>
+                        <h6 className="font-bold mb-3 text-left">Recommended Articles</h6>
                         <div className="space-y-6">
-                          {resources.GoogleSearch
+                          {resources.GoogleSearch.flat()
                             .filter((item: any) =>
                               !item.title.toLowerCase().includes('gnu make') &&
                               !item.description.toLowerCase().includes('gnu make')
                             )
+                            .slice(0, 3)
                             .map((item: any, idx: number) => (
-                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                              <div key={idx} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
                                 <div className="p-6">
                                   <h4 className="font-bold text-[#2D3436] text-base mb-1 line-clamp-2 leading-tight text-left">{item.title}</h4>
                                   <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed text-left">{item.description}</p>
@@ -1198,22 +639,18 @@ const AIResponsePage: FC = () => {
                                 </div>
                               </div>
                             ))}
-                          {resources.GoogleSearch.filter((item: any) =>
-                            item.title.toLowerCase().includes('gnu make') ||
-                            item.description.toLowerCase().includes('gnu make')
-                          ).length > 0 && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-yellow-800 text-sm">
-                                  ⚠️ Some search results were filtered out due to incorrect content. The search API needs to be fixed.
-                                </p>
-                              </div>
-                            )}
                         </div>
-                      ) : (
-                        <p className="text-center text-gray-600">No articles available.</p>
-                      )}
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  
+                  {/* Show message if no resources available */}
+                  {(!resources.YoutubeSearch || !Array.isArray(resources.YoutubeSearch) || resources.YoutubeSearch.length === 0) &&
+                   (!resources.GoogleSearch || !Array.isArray(resources.GoogleSearch) || resources.GoogleSearch.length === 0) && (
+                    <div className="col-span-full bg-gradient-to-br from-gray-50 to-gray-100 rounded-[1.5rem] border border-gray-200 p-8 text-center">
+                      <p className="text-gray-600">No video tutorials or articles available for this meal.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1283,8 +720,8 @@ const AIResponsePage: FC = () => {
                 <div className="pt-3 sm:pt-4 border-t">
                   <button
                     onClick={() => {
-                      setShowMealModal(false);
-                      handleHealthMealInstructions(selectedMealForModal);
+                      setShowMealModal(false)
+                      handleHealthMealInstructions(selectedMealForModal)
                     }}
                     className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white border-none rounded-lg sm:rounded-xl py-2.5 sm:py-3 px-4 text-sm sm:text-base font-semibold transition-all duration-300 hover:from-orange-600 hover:to-red-600 hover:translate-y-[-2px] hover:shadow-lg"
                   >
@@ -1296,32 +733,6 @@ const AIResponsePage: FC = () => {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes loading-slide {
-          0% {
-            left: -30%;
-          }
-          100% {
-            left: 100%;
-          }
-        }
-        
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-      `}</style>
     </div>
   )
 }

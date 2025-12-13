@@ -198,15 +198,25 @@ class APIService {
               requestAnimationFrame(() => { overlay.style.opacity = '1' })
             }
           } catch { }
-          // Clear invalid token and all session data
-          safeRemoveItem('access_token')
-          safeRemoveItem('user_data')
-          safeRemoveItem('supabase_refresh_token')
-          safeRemoveItem('supabase_session_id')
-          safeRemoveItem('supabase_user_id')
-          // Redirect to landing page
-          setTimeout(() => window.location.replace('/landing'), 200)
-          throw new APIError('Authentication required. Please log in again.', 401)
+          // Use the already-read data variable - don't try to read response body again
+          // Only logout if the error explicitly says token expired/invalid
+          const errorMessage = typeof data === 'string' ? data : (data?.message || '')
+          const errorMessageLower = errorMessage.toLowerCase()
+          
+          // Only logout on explicit auth failures, not on temporary network issues
+          if (errorMessageLower.includes('expired') || 
+              errorMessageLower.includes('invalid token') ||
+              errorMessageLower.includes('authentication failed')) {
+            // Real auth failure - clear session
+            safeRemoveItem('access_token')
+            safeRemoveItem('user_data')
+            safeRemoveItem('supabase_refresh_token')
+            safeRemoveItem('supabase_session_id')
+            safeRemoveItem('supabase_user_id')
+            setTimeout(() => window.location.replace('/landing'), 200)
+          }
+          // Throw error but don't logout for other 401s (might be temporary)
+          throw new APIError(errorMessage || 'Authentication required. Please try again.', 401, data)
         }
 
         // Handle 403 Forbidden
@@ -349,17 +359,19 @@ class APIService {
     return this.delete('/meal_plans/clear')
   }
 
-  // Detection history methods
+  // Health history methods (for health meals and meal plans)
   async getDetectionHistory(): Promise<APIResponse> {
-    return this.get('/food_detection/detection_history', { timeout: 30000 })
+    return this.get('/health_history', { timeout: 30000 })
   }
 
   async saveDetectionHistory(detectionData: any): Promise<APIResponse> {
-    return this.post('/food_detection/detection_history', detectionData)
+    // For health meals, we can still save to the same endpoint via meal plan routes if needed
+    // This is kept for backward compatibility with health meal generation
+    return this.post('/health_history', detectionData)
   }
 
   async deleteDetectionHistory(id: string): Promise<APIResponse> {
-    return this.delete(`/food_detection/detection_history/${id}`)
+    return this.delete(`/health_history/${id}`)
   }
 
   // Feedback methods

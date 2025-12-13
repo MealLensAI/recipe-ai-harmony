@@ -31,18 +31,16 @@ export const APP_CONFIG = {
             price_monthly: 0,
             currency: 'USD',
             features: [
-                'Smart Ingredient Recognition',
-                'Recipe Suggestions & Cooking Instructions',
-                'Smart Food Detection',
-                'AI Meal Planning',
-                'AI Meal Plan for Chronic Sickness',
-                'Budget & Location Based Meal Plans',
+                'Health-Focused Meal Plans',
+                'Personalized Meal Plans for Chronic Conditions',
+                'BMI & BMR Calculations',
+                'Health Condition Management',
+                'Nutritional Tracking',
                 'Full History Access'
             ],
             limits: {
-                detections_per_day: 5,
-                meal_plans_per_month: 3,
-                ai_kitchen_requests: 5
+                health_meal_plans_per_month: 3,
+                health_meal_generations: 5
             },
             is_active: true,
             duration_days: 2,
@@ -66,9 +64,8 @@ export const APP_CONFIG = {
                 'Full History Access'
             ],
             limits: {
-                detections_per_day: -1,
-                meal_plans_per_month: -1,
-                ai_kitchen_requests: -1
+                health_meal_plans_per_month: -1,
+                health_meal_generations: -1
             },
             is_active: true,
             duration_days: 7,
@@ -92,9 +89,8 @@ export const APP_CONFIG = {
                 'Full History Access'
             ],
             limits: {
-                detections_per_day: -1,
-                meal_plans_per_month: -1,
-                ai_kitchen_requests: -1
+                health_meal_plans_per_month: -1,
+                health_meal_generations: -1
             },
             is_active: true,
             duration_days: 14,
@@ -116,12 +112,12 @@ export const APP_CONFIG = {
                 'AI Meal Plan for Chronic Sickness',
                 'Budget & Location Based Meal Plans',
                 'Full History Access',
-                'Priority Support'
+                'Priority Support',
+                'Advanced Health Tracking'
             ],
             limits: {
-                detections_per_day: -1,
-                meal_plans_per_month: -1,
-                ai_kitchen_requests: -1
+                health_meal_plans_per_month: -1,
+                health_meal_generations: -1
             },
             is_active: true,
             duration_days: 30,
@@ -144,12 +140,12 @@ export const APP_CONFIG = {
                 'AI Meal Plan for Chronic Sickness',
                 'Budget & Location Based Meal Plans',
                 'Full History Access',
-                'Priority Support'
+                'Priority Support',
+                'Advanced Health Tracking'
             ],
             limits: {
-                detections_per_day: -1,
-                meal_plans_per_month: -1,
-                ai_kitchen_requests: -1
+                health_meal_plans_per_month: -1,
+                health_meal_generations: -1
             },
             is_active: true,
             duration_days: 366,
@@ -160,16 +156,16 @@ export const APP_CONFIG = {
 
     // Features
     features: {
-        food_detection: {
-            name: 'Food Detection',
-            description: 'Identify food items from photos instantly',
-            icon: 'Camera',
-            trial_limit: 5
+        health_meal_planning: {
+            name: 'Health Meal Planning',
+            description: 'Personalized meal plans for your health condition',
+            icon: 'Heart',
+            trial_limit: 3
         },
-        ingredient_detection: {
-            name: 'AI Kitchen Assistant',
-            description: 'Get recipe suggestions and cooking instructions',
-            icon: 'ChefHat',
+        health_meal_generation: {
+            name: 'Health Meal Generator',
+            description: 'Generate health-focused meals from ingredients',
+            icon: 'Stethoscope',
             trial_limit: 5
         },
         meal_planning: {

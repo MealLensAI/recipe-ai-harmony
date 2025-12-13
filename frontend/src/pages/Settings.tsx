@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useSicknessSettings } from '@/hooks/useSicknessSettings';
@@ -57,14 +56,6 @@ const Settings = () => {
 
   // Only disable button when an explicit save is in-flight
   const isActuallyLoading = localLoading;
-
-  const handleSicknessChange = (value: string) => {
-    const hasSickness = value === 'yes';
-    updateSettings({
-      hasSickness,
-      sicknessType: hasSickness ? settings.sicknessType : ''
-    });
-  };
 
   const handleSicknessTypeChange = (value: string) => {
     updateSettings({ sicknessType: value });
@@ -252,41 +243,13 @@ const Settings = () => {
 
         <Card>
             <CardHeader>
-              <CardTitle>Health Information</CardTitle>
+          
               <CardDescription>
                 This information helps us provide personalized medical meal recommendations
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-6">
-
-              {/* YES / NO QUESTION */}
-              <div className="space-y-4">
-                <Label className="text-base font-medium">
-                  Do you have any health conditions or sickness?
-                </Label>
-
-                {/* FIXED — removed global disabled */}
-                <RadioGroup
-                  value={settings.hasSickness ? 'yes' : 'no'}
-                  onValueChange={handleSicknessChange}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center space-x-2 cursor-pointer">
-                    <RadioGroupItem value="yes" id="sickness-yes" />
-                    <Label htmlFor="sickness-yes" className="cursor-pointer">
-                      Yes, I have a health condition
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2 cursor-pointer">
-                    <RadioGroupItem value="no" id="sickness-no" />
-                    <Label htmlFor="sickness-no" className="cursor-pointer">
-                      No, I don't have any health condition
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
               {/* SAVED DATA TABLE - Show when form is collapsed */}
               {settings.hasSickness && !isFormExpanded && showSavedData && (
