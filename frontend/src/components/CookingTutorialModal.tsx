@@ -51,14 +51,8 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
-      {/* Dark overlay for background */}
-      <div 
-        className="fixed inset-0 bg-black/40 z-40"
-        onClick={onClose}
-      />
-      
-      {/* Content Panel - positioned to respect sidebar */}
+    <>
+      {/* Content Panel - positioned to respect sidebar, no overlay on sidebar */}
       <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 overflow-hidden flex flex-col">
         
         {/* Top Header - Diet Planner with Profile - aligned with sidebar logo height (105px) */}
@@ -328,7 +322,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
