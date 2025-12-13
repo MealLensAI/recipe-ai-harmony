@@ -117,10 +117,10 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
           {/* Tabs Container - Gray border around all tabs, left aligned */}
           <div className="flex justify-start mb-8">
-            <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-full p-1">
+            <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-[15px] p-1">
             <button
               onClick={() => setActiveTab('recipe')}
-              className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
+              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
                 activeTab === 'recipe'
                   ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
                   : 'text-gray-400 hover:text-gray-600 border border-transparent'
@@ -130,7 +130,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('videos')}
-              className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
+              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
                 activeTab === 'videos'
                   ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
                   : 'text-gray-400 hover:text-gray-600 border border-transparent'
@@ -140,7 +140,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('articles')}
-              className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
+              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
                 activeTab === 'articles'
                   ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
                   : 'text-gray-400 hover:text-gray-600 border border-transparent'
