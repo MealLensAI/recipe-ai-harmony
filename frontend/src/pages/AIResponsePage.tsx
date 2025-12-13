@@ -3,7 +3,7 @@
 import type { FC } from "react"
 import React, { useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Upload, Camera, X, Check, AlertTriangle, ChevronDown } from "lucide-react"
+import { Upload, X, Check, AlertTriangle, ChevronDown } from "lucide-react"
 import "@/styles/ai-response.css"
 import { useAuth } from "@/lib/utils"
 import { APP_CONFIG } from "@/lib/config"
@@ -34,9 +34,9 @@ interface DetectedIngredient {
 const AIResponsePage: FC = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
   
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showIngredientModal, setShowIngredientModal] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [ingredientList, setIngredientList] = useState("")
@@ -65,8 +65,8 @@ const AIResponsePage: FC = () => {
     setShowUploadModal(true)
   }
 
-  const handleSnapClick = () => {
-    cameraInputRef.current?.click()
+  const handleListIngredientsClick = () => {
+    setShowIngredientModal(true)
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,8 +98,8 @@ const AIResponsePage: FC = () => {
     event.preventDefault()
   }
 
-  const handleDetect = async (useImage: boolean = true) => {
-    if (useImage && !selectedImage) {
+  const handleDetect = async (inputType: "image" | "ingredient_list" = "image") => {
+    if (inputType === "image" && !selectedImage) {
       Swal.fire({
         icon: 'warning',
         title: 'No Image Selected',
@@ -109,11 +109,11 @@ const AIResponsePage: FC = () => {
       return
     }
 
-    if (!useImage && !ingredientList.trim()) {
+    if (inputType === "ingredient_list" && !ingredientList.trim()) {
       Swal.fire({
         icon: 'warning',
         title: 'No Ingredients',
-        text: 'Please type your ingredients first.',
+        text: 'Please enter your ingredients.',
         confirmButtonColor: '#1A76E3'
       })
       return
@@ -130,6 +130,7 @@ const AIResponsePage: FC = () => {
     }
 
     setShowUploadModal(false)
+    setShowIngredientModal(false)
     setIsLoading(true)
     setShowResults(false)
 
@@ -142,8 +143,8 @@ const AIResponsePage: FC = () => {
     formData.append("activity_level", sicknessSettings.activityLevel || "")
     formData.append("condition", sicknessSettings.sicknessType || "")
     formData.append("goal", sicknessSettings.goal === "heal" ? "heal" : "manage")
-
-    if (useImage && selectedImage) {
+    
+    if (inputType === "image" && selectedImage) {
       formData.append("image_or_ingredient_list", "image")
       formData.append("image", selectedImage)
     } else {
@@ -320,109 +321,46 @@ const AIResponsePage: FC = () => {
 
         {/* Initial State - Choose Detection Method */}
         {!isLoading && !showResults && (
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-3xl mx-auto">
             <h2 className="text-2xl font-semibold text-center text-gray-800 mb-2">
               Choose how you want to detect
             </h2>
             <p className="text-center text-gray-500 mb-10">your ingredients.</p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Side - Image Upload/Snap */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                <h3 className="text-lg font-semibold text-gray-800 mb-6 text-center">Upload or Snap Image</h3>
-                
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  {/* Upload Image Card */}
-                  <button
-                    onClick={handleUploadClick}
-                    className="bg-gray-50 rounded-xl border border-gray-200 p-6 hover:border-blue-300 hover:bg-blue-50 transition-all duration-300 text-center group"
-                  >
-                    <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-                      <Upload className="w-8 h-8 text-blue-500 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <h4 className="text-base font-semibold text-gray-800 mb-1">Upload image</h4>
-                    <p className="text-gray-500 text-xs">Choose from device</p>
-                  </button>
-
-                  {/* Snap Ingredient Card */}
-                  <button
-                    onClick={handleSnapClick}
-                    className="bg-gray-50 rounded-xl border border-gray-200 p-6 hover:border-blue-300 hover:bg-blue-50 transition-all duration-300 text-center group"
-                  >
-                    <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-                      <Camera className="w-8 h-8 text-gray-600 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <h4 className="text-base font-semibold text-gray-800 mb-1">Snap photo</h4>
-                    <p className="text-gray-500 text-xs">Use your camera</p>
-                  </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Upload Image Card */}
+              <button
+                onClick={handleUploadClick}
+                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
+              >
+                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <Upload className="w-10 h-10 text-blue-500 group-hover:scale-110 transition-transform" />
                 </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">Upload image</h3>
+                <p className="text-gray-500 text-sm">Choose an Existing photo<br/>from your device</p>
+              </button>
 
-                {/* Image Preview */}
-                {imagePreview && (
-                  <div className="mb-4">
-                    <img 
-                      src={imagePreview} 
-                      alt="Preview" 
-                      className="w-full h-[150px] object-cover rounded-xl border border-gray-200"
-                    />
-                  </div>
-                )}
-
-                {/* Detect Button for Image */}
-                <button
-                  onClick={() => handleDetect(true)}
-                  disabled={!selectedImage}
-                  className="w-full py-3 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Detect from Image
-                </button>
-              </div>
-
-              {/* Right Side - Type Ingredients */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                <h3 className="text-lg font-semibold text-gray-800 mb-6 text-center">Type Your Ingredients</h3>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    List your ingredients (comma separated)
-                  </label>
-                  <textarea
-                    value={ingredientList}
-                    onChange={(e) => setIngredientList(e.target.value)}
-                    placeholder="e.g., tomatoes, bell peppers, carrots, garlic, onions..."
-                    className="w-full h-[180px] bg-gray-50 border border-gray-200 rounded-xl p-4 text-base resize-none focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
+              {/* List Ingredients Card */}
+              <button
+                onClick={handleListIngredientsClick}
+                className="bg-white rounded-2xl border border-gray-200 p-10 hover:border-blue-300 hover:shadow-lg transition-all duration-300 text-center group"
+              >
+                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-10 h-10 text-gray-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                 </div>
-
-                {/* Detect Button for Text */}
-                <button
-                  onClick={() => handleDetect(false)}
-                  disabled={!ingredientList.trim()}
-                  className="w-full py-3 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Detect from List
-                </button>
-              </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">List Ingredients</h3>
+                <p className="text-gray-500 text-sm">Type your ingredients<br/>manually</p>
+              </button>
             </div>
 
-            {/* Hidden file inputs */}
+            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              onChange={(e) => {
-                handleFileSelect(e)
-              }}
-              className="hidden"
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => {
-                handleFileSelect(e)
-              }}
+              onChange={handleFileSelect}
               className="hidden"
             />
           </div>
@@ -579,8 +517,50 @@ const AIResponsePage: FC = () => {
 
             {/* Detect Button */}
             <button
-              onClick={() => handleDetect(true)}
+              onClick={() => handleDetect("image")}
               disabled={!selectedImage}
+              className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Detect
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Ingredient List Modal */}
+      {showIngredientModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-800">List Your Ingredients</h3>
+              <button 
+                onClick={() => setShowIngredientModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Ingredient Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                What ingredients do you have?
+              </label>
+              <textarea
+                value={ingredientList}
+                onChange={(e) => setIngredientList(e.target.value)}
+                placeholder="e.g., chicken, tomatoes, basil, olive oil, garlic..."
+                className="w-full h-32 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-700"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                Separate ingredients with commas
+              </p>
+            </div>
+
+            {/* Detect Button */}
+            <button
+              onClick={() => handleDetect("ingredient_list")}
+              disabled={!ingredientList.trim()}
               className="w-full py-4 bg-[#1A76E3] text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Detect
