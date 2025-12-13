@@ -377,6 +377,10 @@ class APIService {
     return this.get('/health_history', { timeout: 30000 })
   }
 
+  async getDetectionHistoryById(id: string): Promise<APIResponse> {
+    return this.get(`/health_history/${id}`, { timeout: 30000 })
+  }
+
   async saveDetectionHistory(detectionData: any): Promise<APIResponse> {
     // For health meals, we can still save to the same endpoint via meal plan routes if needed
     // This is kept for backward compatibility with health meal generation
