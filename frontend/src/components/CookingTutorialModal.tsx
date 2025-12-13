@@ -9,7 +9,7 @@ interface CookingTutorialModalProps {
   recipeName: string;
   ingredients?: string[];
   preloadedInstructions?: string;
-  preloadedResources?: string; // JSON string from history
+  preloadedResources?: string;
 }
 
 const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({ 
@@ -22,57 +22,46 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'recipe' | 'videos' | 'articles'>('recipe');
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  const { instructions: fetchedInstructions, youtubeVideos: fetchedYoutubeVideos, webResources: fetchedWebResources, loading, loadingResources, generateContent } = useTutorialContent();
+  const { instructions, youtubeVideos, webResources, loading, loadingResources, generateContent } = useTutorialContent();
   const { user } = useAuth();
-
-  // Helper to extract YouTube video ID from URL
-  const getYouTubeVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
-
-  // Use preloaded data if available, otherwise use fetched data
-  const instructions = preloadedInstructions || fetchedInstructions;
-  const youtubeVideos = preloadedResources ? (() => {
-    try {
-      const resources = JSON.parse(preloadedResources);
-      const videos = resources.YoutubeSearch || resources.youtube || resources.YouTube || [];
-      // Flatten nested arrays if needed and normalize structure
-      const flatVideos = Array.isArray(videos) ? videos.flat() : [];
-      return flatVideos.map((video: any) => {
-        // Normalize video structure - handle both formats
-        if (video.link) {
-          const videoId = getYouTubeVideoId(video.link);
-          return {
-            title: video.title || video.name || 'Video',
-            link: video.link,
-            thumbnail: video.thumbnail || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ''),
-            videoId: videoId || video.videoId
-          };
-        }
-        return video; // Already in correct format
-      });
-    } catch {
-      return fetchedYoutubeVideos;
-    }
-  })() : fetchedYoutubeVideos;
   
-  const webResources = preloadedResources ? (() => {
-    try {
-      const resources = JSON.parse(preloadedResources);
-      const articles = resources.GoogleSearch || resources.google || resources.Google || [];
-      // Flatten nested arrays if needed
-      return Array.isArray(articles) ? articles.flat() : [];
-    } catch {
-      return fetchedWebResources;
-    }
-  })() : fetchedWebResources;
+  // Parse preloaded resources if available
+  const [parsedResources, setParsedResources] = useState<{ YoutubeSearch?: any[], GoogleSearch?: any[] } | null>(null);
 
   useEffect(() => {
-    // Only fetch if we don't have preloaded data
-    if (isOpen && recipeName && !preloadedInstructions && !preloadedResources) {
+    if (preloadedResources) {
+      try {
+        let parsed = typeof preloadedResources === 'string' 
+          ? JSON.parse(preloadedResources) 
+          : preloadedResources;
+        
+        // Handle different resource structures
+        // Sometimes it's stored as { YoutubeSearch: [...], GoogleSearch: [...] }
+        // Sometimes as { youtube: [...], google: [...] }
+        if (parsed && typeof parsed === 'object') {
+          const formatted = {
+            YoutubeSearch: parsed.YoutubeSearch || parsed.youtube || parsed.YouTube || [],
+            GoogleSearch: parsed.GoogleSearch || parsed.google || parsed.Google || []
+          };
+          setParsedResources(formatted);
+        } else {
+          setParsedResources(null);
+        }
+      } catch (error) {
+        console.error('Error parsing preloaded resources:', error);
+        setParsedResources(null);
+      }
+    } else {
+      setParsedResources(null);
+    }
+  }, [preloadedResources]);
+
+  useEffect(() => {
+    if (isOpen && recipeName) {
+      // Only generate content if we don't have preloaded data
+      if (!preloadedInstructions && !preloadedResources) {
       generateContent(recipeName, ingredients);
+      }
     }
   }, [isOpen, recipeName, ingredients, preloadedInstructions, preloadedResources]);
 
@@ -201,8 +190,8 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             </div>
           </div>
 
-          {/* Loading State - only show if no preloaded data */}
-          {loading && !preloadedInstructions && !preloadedResources ? (
+          {/* Loading State */}
+          {(loading && !preloadedInstructions) ? (
             <div className="flex flex-col items-center justify-center py-20">
               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Loading content...</p>
@@ -210,7 +199,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           ) : (
             <>
               {/* Recipe Tab Content */}
-              {activeTab === 'recipe' && instructions && (
+              {activeTab === 'recipe' && (preloadedInstructions || instructions) && (
                 <div>
                   {/* Health Tip */}
                   <div className="flex items-start gap-2 mb-5">
@@ -232,7 +221,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                       lineHeight: '170%',
                       color: '#414141'
                     }}
-                    dangerouslySetInnerHTML={{ __html: instructions }}
+                    dangerouslySetInnerHTML={{ __html: preloadedInstructions || instructions }}
                   />
                 </div>
               )}
@@ -240,64 +229,60 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Videos Tab Content */}
               {activeTab === 'videos' && (
                 <div>
-                  {loadingResources && !preloadedResources ? (
+                  {(loadingResources && !parsedResources) ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading video tutorials...</p>
                     </div>
-                  ) : (Array.isArray(youtubeVideos) && youtubeVideos.length > 0) ? (
+                  ) : (parsedResources?.YoutubeSearch && parsedResources.YoutubeSearch.length > 0) || youtubeVideos.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {youtubeVideos.map((video, index) => (
-                        <div 
-                          key={index} 
-                          className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
-                        >
-                          <div className="relative">
-                            <img 
-                              src={video.thumbnail}
-                              alt={video.title}
-                              className="w-full h-[160px] object-cover"
-                              onError={handleImageError}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div 
-                                className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
-                                onClick={() => {
-                                  if (video.videoId) {
-                                    setSelectedVideo(video.videoId);
-                                  } else if (video.link) {
-                                    const videoId = getYouTubeVideoId(video.link);
-                                    if (videoId) setSelectedVideo(videoId);
-                                  }
-                                }}
-                              >
-                                <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+                      {(parsedResources?.YoutubeSearch ? parsedResources.YoutubeSearch.flat() : youtubeVideos).map((video: any, index: number) => {
+                        // Handle different data structures
+                        const videoData = Array.isArray(video) ? video[0] : video;
+                        const videoId = videoData?.videoId || videoData?.id || (videoData?.link ? videoData.link.split('v=')[1]?.split('&')[0] : null);
+                        const thumbnail = videoData?.thumbnail || videoData?.thumbnails?.default?.url || (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop');
+                        const title = videoData?.title || videoData?.snippet?.title || 'Video Tutorial';
+                        
+                        if (!videoId) return null;
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
+                          >
+                            <div className="relative">
+                              <img 
+                                src={thumbnail}
+                                alt={title}
+                                className="w-full h-[160px] object-cover"
+                                onError={handleImageError}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div 
+                                  className="w-11 h-11 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
+                                  onClick={() => videoId && setSelectedVideo(videoId)}
+                                >
+                                  <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="p-4">
-                            <h4 
-                              className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
-                              style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
-                            >
-                              {video.title}
-                            </h4>
-                            <button
-                              onClick={() => {
-                                if (video.videoId) {
-                                  setSelectedVideo(video.videoId);
-                                } else if (video.link) {
-                                  const videoId = getYouTubeVideoId(video.link);
-                                  if (videoId) setSelectedVideo(videoId);
-                                }
-                              }}
-                              className="w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
-                            >
-                              Watch Tutorial
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                            <div className="p-4">
+                              <h4 
+                                className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
+                                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                              >
+                                {title}
+                              </h4>
+                              <button
+                                onClick={() => videoId && setSelectedVideo(videoId)}
+                                className="w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+                              >
+                                Watch Tutorial
+                              </button>
+                            </div>
+                      </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-20 text-gray-500">
@@ -310,48 +295,58 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Articles Tab Content */}
               {activeTab === 'articles' && (
                 <div>
-                  {loadingResources && !preloadedResources ? (
+                  {(loadingResources && !parsedResources) ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading articles...</p>
                     </div>
-                  ) : (Array.isArray(webResources) && webResources.length > 0) ? (
+                  ) : (parsedResources?.GoogleSearch && parsedResources.GoogleSearch.length > 0) || webResources.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {webResources.map((resource, index) => (
-                        <div 
-                          key={index} 
-                          className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
-                        >
-                          <div className="relative">
-                            <img 
-                              src={resource.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'}
-                              alt={resource.title}
-                              className="w-full h-[160px] object-cover"
-                              onError={handleImageError}
-                            />
-                            <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 text-[12px] text-gray-600">
-                              <Globe className="w-3 h-3" />
-                              <span>{extractDomain(resource.url)}</span>
+                      {(parsedResources?.GoogleSearch ? parsedResources.GoogleSearch.flat() : webResources).map((resource: any, index: number) => {
+                        // Handle different data structures
+                        const resourceData = Array.isArray(resource) ? resource[0] : resource;
+                        const title = resourceData?.title || resourceData?.snippet?.title || 'Article';
+                        const url = resourceData?.link || resourceData?.url || '#';
+                        const image = resourceData?.image || resourceData?.thumbnails?.default?.url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop';
+                        
+                        if (!url || url === '#') return null;
+                        
+                        return (
+                          <div 
+                            key={index} 
+                            className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
+                          >
+                            <div className="relative">
+                              <img 
+                                src={image}
+                                alt={title}
+                                className="w-full h-[160px] object-cover"
+                                onError={handleImageError}
+                              />
+                              <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 text-[12px] text-gray-600">
+                                <Globe className="w-3 h-3" />
+                                <span>{extractDomain(url)}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="p-4">
-                            <h4 
-                              className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
-                              style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
-                            >
-                              {resource.title}
-                            </h4>
-                            <a
-                              href={resource.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
-                            >
-                              Read Article
-                            </a>
-                          </div>
-                        </div>
-                      ))}
+                            <div className="p-4">
+                              <h4 
+                                className="font-medium text-[14px] mb-3 line-clamp-2 leading-snug"
+                                style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                              >
+                                {title}
+                              </h4>
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center w-full h-[44px] rounded-[12px] text-[14px] font-medium bg-white text-[#1A76E3] border border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
+                              >
+                                Read Article
+                              </a>
+                            </div>
+                      </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-20 text-gray-500">
@@ -383,7 +378,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               allow="autoplay; encrypted-media"
             />
           </div>
-        </div>
+    </div>
       )}
     </>
   );
