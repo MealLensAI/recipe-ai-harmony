@@ -2,20 +2,16 @@
 
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { LogOut, CalendarDays, History, Scan, UtensilsCrossed, Menu, X } from "lucide-react"
+import { LogOut, CalendarDays, History, Scan, Menu, X } from "lucide-react"
 import Logo from "@/components/Logo"
 import { useAuth } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { useSicknessSettings } from "@/hooks/useSicknessSettings"
 
 const Sidebar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
   const { signOut, isAuthenticated } = useAuth()
-  const { settings: sicknessSettings } = useSicknessSettings()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const isActive = (path: string) => location.pathname === path
@@ -55,13 +51,6 @@ const Sidebar = () => {
       active: isActive("/health-meals")
     },
     { 
-      icon: UtensilsCrossed, 
-      label: "Detect Food", 
-      path: "/detect-food",
-      active: false,
-      disabled: true
-    },
-    { 
       icon: History, 
       label: "History", 
       path: "/history",
@@ -80,23 +69,17 @@ const Sidebar = () => {
       <nav className="flex-1 px-4 py-8 space-y-2">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isDisabled = 'disabled' in item && item.disabled
           return (
             <button
               key={item.path}
               onClick={() => {
-                if (!isDisabled) {
-                  navigate(item.path)
-                  setIsMobileOpen(false)
-                }
+                navigate(item.path)
+                setIsMobileOpen(false)
               }}
-              disabled={isDisabled}
               className={`
                 w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all duration-200
                 ${item.active 
                   ? 'bg-blue-50 text-blue-600 border border-blue-200' 
-                  : isDisabled
-                  ? 'text-gray-400 cursor-not-allowed'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }
               `}
@@ -107,21 +90,6 @@ const Sidebar = () => {
           )
         })}
       </nav>
-
-      {/* Health-aware Toggle */}
-      <div className="mx-4 mb-6 px-4 py-4 bg-white rounded-xl border border-green-200">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="health-aware" className="text-[15px] font-medium text-gray-700">
-            Health-aware
-          </Label>
-          <Switch
-            id="health-aware"
-            checked={sicknessSettings.hasSickness}
-            onCheckedChange={() => {}}
-            className="data-[state=checked]:bg-green-500"
-          />
-        </div>
-      </div>
 
       {/* Log Out */}
       <div className="px-4 py-6 border-t border-gray-100 mt-auto">
