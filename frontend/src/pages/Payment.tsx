@@ -3,10 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useTrial } from '@/hooks/useTrial';
-import { Clock, Camera, Utensils, Heart, Calendar } from 'lucide-react';
+import { Clock, Camera, Utensils, Heart, Calendar, ChevronDown } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 // import { TrialService } from '@/lib/trialService'; // No longer needed
-import { safeGetItem } from '@/lib/utils';
+import { safeGetItem, useAuth } from '@/lib/utils';
 
 // Helper to resolve profile (email and name) from backend using cookie auth
 async function resolveProfileFromBackend(): Promise<{ email: string | null; name: string | null }> {
@@ -100,11 +100,13 @@ const YEARLY_PLAN = {
 
 const Payment: React.FC = () => {
   const { formattedRemainingTime, isTrialExpired, hasActiveSubscription, isSubscriptionExpired, hasEverHadSubscription, subscriptionInfo, updateTrialInfo, isLoading } = useTrial();
+  const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Auto-populate email from logged-in user
   React.useEffect(() => {
@@ -524,7 +526,7 @@ const Payment: React.FC = () => {
                   }
                 } catch (e) {
                   console.error('Error extracting user ID from JWT:', e);
-                  console.error('Error details:', e.message);
+                  console.error('Error details:', e instanceof Error ? e.message : String(e));
                 }
               }
 
@@ -659,7 +661,7 @@ const Payment: React.FC = () => {
             } catch (error) {
               console.error('❌ Error activating subscription:', error);
               console.error('❌ Error details:', error);
-              console.error('❌ Error stack:', error.stack);
+              console.error('❌ Error stack:', error instanceof Error ? error.stack : String(error));
               alert('Payment successful but activating your subscription failed. Please contact support.');
             }
           })();
@@ -703,8 +705,56 @@ const Payment: React.FC = () => {
   };
 
   return (
-    <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-20">
-      <div className="max-w-2xl mx-auto text-center mb-8">
+    <div className="min-h-screen bg-[#f8fafc]">
+      {/* Header - Matching other pages */}
+      <header 
+        className="px-8 h-[105px] flex items-center border-b"
+        style={{ 
+          backgroundColor: '#F9FBFE',
+          borderColor: '#F6FAFE',
+          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+        }}
+      >
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+            Payment
+          </h1>
+          
+          {/* Profile Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+            >
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showProfileDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowProfileDropdown(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
+                  <a href="/planner" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Diet Planner</a>
+                  <a href="/settings" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Health Information</a>
+                  <a href="/history" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">History</a>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <section className="w-full min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#f5f5f5] to-[#e8e8e8] py-20">
+        <div className="max-w-2xl mx-auto text-center mb-8">
         {/* Status Banner */}
         {hasActiveSubscription ? (
           <div className={`mb-6 p-4 rounded-lg border text-sm font-medium inline-flex items-center gap-2 ${isSubscriptionExpired ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
@@ -892,7 +942,8 @@ const Payment: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+      </section>
+    </div>
   );
 };
 

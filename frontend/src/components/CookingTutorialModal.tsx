@@ -23,6 +23,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
   useEffect(() => {
     if (isOpen && recipeName) {
+      console.log('[CookingTutorialModal] Opening modal and generating content for:', recipeName, ingredients);
       generateContent(recipeName, ingredients);
     }
   }, [isOpen, recipeName, ingredients]);
@@ -161,30 +162,39 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           ) : (
             <>
               {/* Recipe Tab Content */}
-              {activeTab === 'recipe' && instructions && (
+              {activeTab === 'recipe' && (
                 <div>
-                  {/* Health Tip */}
-                  <div className="flex items-start gap-2 mb-5">
-                    <span className="text-base">💡</span>
-                    <p 
-                      className="text-[15px] leading-[140%]"
-                      style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
-                    >
-                      Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
-                    </p>
-                  </div>
+                  {instructions ? (
+                    <>
+                      {/* Health Tip */}
+                      <div className="flex items-start gap-2 mb-5">
+                        <span className="text-base">💡</span>
+                        <p 
+                          className="text-[15px] leading-[140%]"
+                          style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
+                        >
+                          Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
+                        </p>
+                      </div>
 
-                  {/* Recipe Content - left aligned */}
-                  <div 
-                    className="text-left"
-                    style={{ 
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '15px',
-                      lineHeight: '170%',
-                      color: '#414141'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: instructions }}
-                  />
+                      {/* Recipe Content - left aligned */}
+                      <div 
+                        className="text-left"
+                        style={{ 
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '15px',
+                          lineHeight: '170%',
+                          color: '#414141'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: instructions }}
+                      />
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                      <p className="text-gray-600">Loading instructions...</p>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -1,7 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
-import { api } from "./api"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -227,12 +226,46 @@ export function useProvideAuth(): AuthContextType {
                 console.warn('⚠️ Token verification returned non-success, but keeping session')
               }
             } catch (verifyError: any) {
-              if (verifyError?.status === 401 || verifyError?.response?.status === 401) {
-                console.warn('⚠️ Token expired or invalid (401), clearing session')
+              // Only clear session if it's a real 401 auth failure, not network errors
+              const is401 = verifyError?.status === 401 || verifyError?.response?.status === 401
+              const errorMessage = verifyError?.message || ''
+              const isAuthFailure = is401 && (
+                errorMessage.toLowerCase().includes('expired') ||
+                errorMessage.toLowerCase().includes('invalid token') ||
+                errorMessage.toLowerCase().includes('authentication failed')
+              )
+              
+              if (isAuthFailure) {
+                // Try to refresh token before clearing session
+                const refreshToken = safeGetItem('supabase_refresh_token')
+                if (refreshToken && refreshToken.length > 10) {
+                  try {
+                    console.log('🔄 Attempting token refresh in refreshAuth...')
+                    const { api } = await import('./api')
+                    const refreshResult: any = await api.refreshToken()
+                    
+                    if (refreshResult.status === 'success' && refreshResult.access_token) {
+                      console.log('✅ Token refreshed successfully in refreshAuth')
+                      safeSetItem('access_token', refreshResult.access_token)
+                      if (refreshResult.refresh_token) {
+                        safeSetItem('supabase_refresh_token', refreshResult.refresh_token)
+                      }
+                      // Update state with new token
+                      setToken(() => refreshResult.access_token)
+                      return
+                    }
+                  } catch (refreshError) {
+                    console.warn('⚠️ Token refresh failed in refreshAuth:', refreshError)
+                  }
+                }
+                
+                // Only clear if refresh also failed
+                console.warn('⚠️ Token expired/invalid and refresh failed, clearing session')
                 clearSession()
                 return
               } else {
-                console.warn('⚠️ Token verification failed (non-401), keeping session:', verifyError?.message)
+                // Network errors or other issues - keep session
+                console.warn('⚠️ Token verification failed (non-auth error), keeping session:', verifyError?.message)
               }
             }
           } else if (skipVerification) {

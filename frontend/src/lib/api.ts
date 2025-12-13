@@ -1,4 +1,4 @@
-import { useAuth, safeGetItem, safeRemoveItem } from './utils'
+import { useAuth, safeGetItem, safeRemoveItem, safeSetItem } from './utils'
 import { APP_CONFIG } from '@/lib/config'
 
 // API base URL
@@ -26,6 +26,14 @@ export interface APIResponse<T = any> {
   status: 'success' | 'error'
   message?: string
   data?: T
+}
+
+// Refresh token response type
+export interface RefreshTokenResponse extends APIResponse {
+  access_token?: string
+  refresh_token?: string
+  user_id?: string
+  user_data?: any
 }
 
 // Auth response shapes from backend
@@ -143,71 +151,76 @@ class APIService {
         data = await response.text()
       }
 
-      // Handle HTTP errors
+        // Handle HTTP errors
       if (!response.ok) {
         // Handle 401 Unauthorized
         if (response.status === 401) {
           // Don't automatically redirect for login/register requests - let them handle their own errors
-          if (endpoint === '/login' || endpoint === '/register' || suppressAuthRedirect) {
-            // For login/register, just throw the error with the backend message
+          if (endpoint === '/login' || endpoint === '/register' || suppressAuthRedirect || endpoint === '/refresh-token') {
+            // For login/register/refresh-token, just throw the error with the backend message
             const errorMessage = data?.message || 'Authentication failed'
             throw new APIError(errorMessage, 401, data)
           }
 
-          // For other requests, handle as expired/invalid session
-          // Branded overlay to avoid login flash
-          try {
-            const existing = document.getElementById('page-transition-overlay')
-            if (!existing) {
-              const overlay = document.createElement('div')
-              overlay.id = 'page-transition-overlay'
-              overlay.style.position = 'fixed'
-              overlay.style.inset = '0'
-              overlay.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)'
-              overlay.style.opacity = '0'
-              overlay.style.transition = 'opacity 150ms ease'
-              overlay.style.zIndex = '9999'
-              overlay.style.display = 'flex'
-              overlay.style.alignItems = 'center'
-              overlay.style.justifyContent = 'center'
-
-              const container = document.createElement('div')
-              container.style.display = 'flex'
-              container.style.flexDirection = 'column'
-              container.style.alignItems = 'center'
-              container.style.gap = '12px'
-
-              const spinner = document.createElement('div')
-              spinner.style.width = '44px'
-              spinner.style.height = '44px'
-              spinner.style.border = '4px solid rgba(0,0,0,0.08)'
-              spinner.style.borderTop = '4px solid #f97316'
-              spinner.style.borderRadius = '50%'
-              try { spinner.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 800, iterations: Infinity }) } catch { }
-
-              const label = document.createElement('div')
-              label.textContent = 'Loading...'
-              label.style.fontSize = '14px'
-              label.style.color = '#4b5563'
-              label.style.fontWeight = '600'
-
-              container.appendChild(spinner)
-              container.appendChild(label)
-              overlay.appendChild(container)
-              document.body.appendChild(overlay)
-              requestAnimationFrame(() => { overlay.style.opacity = '1' })
+          // Try to refresh token before clearing session
+          const refreshToken = safeGetItem('supabase_refresh_token')
+          if (refreshToken && refreshToken.length > 10) {
+            try {
+              console.log('🔄 Attempting token refresh after 401...')
+              const refreshResult = await this.refreshToken() as RefreshTokenResponse
+              
+              if (refreshResult.status === 'success' && refreshResult.access_token) {
+                console.log('✅ Token refreshed successfully')
+                // Update stored token
+                safeSetItem('access_token', refreshResult.access_token)
+                if (refreshResult.refresh_token) {
+                  safeSetItem('supabase_refresh_token', refreshResult.refresh_token)
+                }
+                
+                // Retry the original request with new token
+                const retryHeaders = { ...headers }
+                retryHeaders['Authorization'] = `Bearer ${refreshResult.access_token}`
+                
+                const retryConfig: RequestInit = {
+                  method,
+                  headers: retryHeaders,
+                  signal: controller.signal
+                }
+                ;(retryConfig as any).credentials = 'include'
+                
+                if (body) {
+                  retryConfig.body = typeof body === 'string' ? body : JSON.stringify(body)
+                }
+                
+                const retryResponse = await fetch(fullUrl, retryConfig)
+                const retryContentType = retryResponse.headers.get('content-type')
+                const retryData = retryContentType?.includes('application/json') 
+                  ? await retryResponse.json() 
+                  : await retryResponse.text()
+                
+                if (retryResponse.ok) {
+                  return retryData
+                }
+                // If retry also fails, fall through to error handling
+              }
+            } catch (refreshError) {
+              console.warn('⚠️ Token refresh failed:', refreshError)
+              // Fall through to logout logic
             }
-          } catch { }
+          }
+
           // Use the already-read data variable - don't try to read response body again
-          // Only logout if the error explicitly says token expired/invalid
           const errorMessage = typeof data === 'string' ? data : (data?.message || '')
           const errorMessageLower = errorMessage.toLowerCase()
           
           // Only logout on explicit auth failures, not on temporary network issues
+          // Be more conservative - only logout if error message explicitly indicates auth failure
           if (errorMessageLower.includes('expired') || 
               errorMessageLower.includes('invalid token') ||
-              errorMessageLower.includes('authentication failed')) {
-            // Real auth failure - clear session
+              errorMessageLower.includes('authentication failed') ||
+              errorMessageLower.includes('unauthorized')) {
+            // Real auth failure - clear session only after refresh attempt failed
+            console.warn('⚠️ Authentication failed, clearing session')
             safeRemoveItem('access_token')
             safeRemoveItem('user_data')
             safeRemoveItem('supabase_refresh_token')
@@ -215,7 +228,7 @@ class APIService {
             safeRemoveItem('supabase_user_id')
             setTimeout(() => window.location.replace('/landing'), 200)
           }
-          // Throw error but don't logout for other 401s (might be temporary)
+          // Throw error but don't logout for other 401s (might be temporary network issues)
           throw new APIError(errorMessage || 'Authentication required. Please try again.', 401, data)
         }
 
@@ -377,6 +390,15 @@ class APIService {
   // Feedback methods
   async saveFeedback(feedbackText: string): Promise<APIResponse> {
     return this.post('/feedback', { feedback_text: feedbackText })
+  }
+
+  // Token refresh method
+  async refreshToken(): Promise<RefreshTokenResponse> {
+    const refreshToken = safeGetItem('supabase_refresh_token')
+    if (!refreshToken) {
+      throw new APIError('No refresh token available', 401)
+    }
+    return this.post<RefreshTokenResponse>('/refresh-token', { refresh_token: refreshToken }, { skipAuth: true })
   }
 
   // Profile methods

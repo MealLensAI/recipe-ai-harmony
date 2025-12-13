@@ -147,7 +147,7 @@ const AIResponsePage: FC = () => {
   const [selectedMealName, setSelectedMealName] = useState("")
   const [selectedMealIngredients, setSelectedMealIngredients] = useState<string[]>([])
   
-  const { user, token, isAuthenticated, loading } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const { settings: sicknessSettings, isHealthProfileComplete } = useSicknessSettings()
 
   if (loading) {
@@ -336,7 +336,7 @@ const AIResponsePage: FC = () => {
     return false
   }
 
-  const getMealImage = (mealName: string, index: number): string => {
+  const getMealImage = (_mealName: string, index: number): string => {
     // Use Unsplash food images as placeholders
     const foodImages = [
       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
@@ -353,34 +353,103 @@ const AIResponsePage: FC = () => {
     const mealName = meal.food_suggestions?.[0] || "Health Meal"
     setSelectedMealName(mealName)
     setSelectedMealIngredients(meal.ingredients_used || [])
+    
+    // Open modal immediately so user sees it loading
     setShowCookingModal(true)
     
-    // Save to history
+    // Fetch instructions and resources, then save to history with complete data
     try {
+      const sicknessInfo = sicknessSettings.sicknessType ? {
+        sicknessType: sicknessSettings.sicknessType
+      } : null
+
+      // 1. Get cooking instructions
+      const requestBody: any = {
+        food_name: mealName,
+        ingredients: meal.ingredients_used || []
+      }
+
+      if (sicknessInfo) {
+        requestBody.sickness = sicknessInfo.sicknessType
+      }
+
+      const endpoint = sicknessInfo 
+        ? `${APP_CONFIG.api.ai_api_url}/sick_meal_plan_instructions` 
+        : `${APP_CONFIG.api.ai_api_url}/meal_plan_instructions`
+
+      const instrRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!instrRes.ok) {
+        throw new Error(`Failed to fetch instructions: ${instrRes.status}`)
+      }
+
+      const instrData = await instrRes.json()
+      let instructions = instrData.instructions || ''
+
+      // 2. Get resources (YouTube and Google)
+      const formData = new FormData()
+      formData.append('food_choice_index', mealName)
+      
+      const resRes = await fetch(`${APP_CONFIG.api.ai_api_url}/resources`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!resRes.ok) {
+        throw new Error(`Failed to fetch resources: ${resRes.status}`)
+      }
+
+      const resData = await resRes.json()
+      
+      // Extract YouTube and Google resources
+      const youtubeResults = (resData.YoutubeSearch || []).flat()
+      const googleResults = (resData.GoogleSearch || []).flat()
+      
+      // Get first YouTube link if available
+      const youtubeLink = youtubeResults.length > 0 ? youtubeResults[0].link : ""
+      
+      // Get first Google link if available
+      const googleLink = googleResults.length > 0 ? googleResults[0].link : ""
+      
+      // Create resources JSON with full data
+      const resourcesJson = JSON.stringify({
+        YoutubeSearch: youtubeResults,
+        GoogleSearch: googleResults
+      })
+
+      // 3. Save to history with complete data
       const analysisId = `ingredient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       const historyData = {
         recipe_type: "ingredient_detection",
         suggestion: mealName,
-        instructions: "",
+        instructions: instructions,
         ingredients: JSON.stringify(meal.ingredients_used || []),
         detected_foods: JSON.stringify(detectedIngredients.map(i => i.name)),
         analysis_id: analysisId,
-        youtube_link: "",
-        google_link: "",
-        resources_link: "{}"
+        youtube_link: youtubeLink,
+        google_link: googleLink,
+        resources_link: resourcesJson
       }
       
-      console.log("[AIResponse] Saving ingredient detection to history:", historyData)
+      console.log("[AIResponse] Saving ingredient detection to history with complete data:", {
+        ...historyData,
+        resources_link: "..." // Don't log full resources JSON
+      })
+      
       const saveResult = await api.saveDetectionHistory(historyData)
       
       if (saveResult.status === 'success') {
-        console.log("[AIResponse] ✅ Ingredient detection saved to history successfully")
+        console.log("[AIResponse] ✅ Ingredient detection saved to history successfully with resources")
       } else {
         console.warn("[AIResponse] ⚠️ Failed to save to history:", saveResult.message)
       }
     } catch (historyError) {
-      console.error("[AIResponse] Error saving to history:", historyError)
-      // Don't show error to user, history saving is non-critical
+      console.error("[AIResponse] Error fetching resources or saving to history:", historyError)
+      // Modal is already open, it will handle loading its own content
     }
   }
 

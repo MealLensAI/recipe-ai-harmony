@@ -2,9 +2,37 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronDown, ArrowRight, Trash2, Play } from "lucide-react"
+import { ChevronDown, ArrowRight, Trash2 } from "lucide-react"
 import { useAuth, safeGetItem, safeRemoveItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
+
+const getSourceText = (recipeType: string) => {
+  switch (recipeType) {
+    case "food_detection":
+      return "Food Detect"
+    case "ingredient_detection":
+      return "Ingredient Detect"
+    case "health_meal":
+      return "Health Meal"
+    case "meal_plan":
+      return "Meal Plan"
+    default:
+      return "Detection"
+  }
+}
+
+const getItemName = (item: SharedRecipe) => {
+  if (item.suggestion) return item.suggestion
+  try {
+    if (item.detected_foods) {
+      const foods = JSON.parse(item.detected_foods)
+      if (Array.isArray(foods) && foods.length > 0) {
+        return foods[0] + (foods.length > 1 ? ` (+${foods.length - 1})` : '')
+      }
+    }
+  } catch {}
+  return "Unknown"
+}
 
 interface SharedRecipe {
   id: string
@@ -63,21 +91,6 @@ const setCachedHistory = (history: SharedRecipe[], userId?: string) => {
     console.error('Error caching history:', error);
   }
 };
-
-const getSourceText = (recipeType: string) => {
-  switch (recipeType) {
-    case "food_detection":
-      return "Food Detect"
-    case "ingredient_detection":
-      return "Ingredient Detect"
-    case "health_meal":
-      return "Health Meal"
-    case "meal_plan":
-      return "Meal Plan"
-    default:
-      return "Detection"
-  }
-}
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
@@ -170,14 +183,26 @@ export function HistoryPage() {
       }
 
       try {
+        console.log('🔄 Fetching settings history...')
         const result = await api.getUserSettingsHistory('health_profile', 50)
+        console.log('📦 Settings history API response:', result)
+        
         if ((result as any).status === 'success') {
-          const historyData = (result as any).history || []
-          setSettingsHistory(historyData)
+          // Try multiple possible response structures
+          const historyData = (result as any).history || 
+                              (result as any).data?.history || 
+                              (result as any).data || 
+                              []
           console.log('✅ Settings history loaded:', historyData.length, 'records')
+          console.log('📋 Settings history data:', historyData)
+          setSettingsHistory(Array.isArray(historyData) ? historyData : [])
+        } else {
+          console.warn('⚠️ Settings history API returned non-success:', result)
+          setSettingsHistory([])
         }
       } catch (err) {
-        console.error("Error fetching settings history:", err)
+        console.error("❌ Error fetching settings history:", err)
+        setSettingsHistory([])
       }
     }
 
@@ -219,19 +244,6 @@ export function HistoryPage() {
     if (activeFilter === "ingredient_detection") return item.recipe_type === "ingredient_detection"
     return false // health_history shows settings history, not detection history
   })
-
-  const getItemName = (item: SharedRecipe) => {
-    if (item.suggestion) return item.suggestion
-    try {
-      if (item.detected_foods) {
-        const foods = JSON.parse(item.detected_foods)
-        if (Array.isArray(foods) && foods.length > 0) {
-          return foods[0] + (foods.length > 1 ? ` (+${foods.length - 1})` : '')
-        }
-      }
-    } catch {}
-    return "Unknown"
-  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -591,26 +603,76 @@ export function HistoryPage() {
                         </div>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <button
-                          onClick={() => {
-                            // Show details in a modal or expandable section
-                            const details = record.settings_data || {};
-                            const detailsText = Object.entries(details)
-                              .filter(([key]) => !/^\d+$/.test(key))
-                              .map(([key, value]) => `${formatFieldName(key)}: ${value}`)
-                              .join('\n');
-                            alert(detailsText || 'No details available');
-                          }}
-                          className="flex items-center gap-1.5 text-[#1A76E3] font-medium hover:underline"
-                          style={{ 
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontSize: '16px',
-                            fontWeight: 400
-                          }}
-                        >
-                          <Play className="w-3 h-3 fill-[#1A76E3]" />
-                          View details
-                        </button>
+                        <details className="cursor-pointer" onToggle={(e) => {
+                          const target = e.target as HTMLDetailsElement;
+                          const icon = target.querySelector('svg');
+                          if (icon) {
+                            if (target.open) {
+                              icon.classList.add('rotate-90');
+                            } else {
+                              icon.classList.remove('rotate-90');
+                            }
+                          }
+                        }}>
+                          <summary className="text-[#1A76E3] hover:text-blue-800 text-sm font-medium flex items-center gap-1.5 list-none cursor-pointer">
+                            <ChevronDown className="h-4 w-4 text-[#1A76E3] transition-transform" />
+                            View details
+                          </summary>
+                          <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-2">
+                            {(() => {
+                              const details = record.settings_data || {};
+                              const meaningfulData = Object.entries(details)
+                                .filter(([key]) => !/^\d+$/.test(key) && key !== 'id' && details[key] !== null && details[key] !== undefined && details[key] !== '')
+                                .map(([key, value]: [string, any]) => {
+                                  const fieldNameMap: Record<string, string> = {
+                                    'hasSickness': 'Has Health Condition',
+                                    'sicknessType': 'Condition Type',
+                                    'age': 'Age',
+                                    'gender': 'Gender',
+                                    'height': 'Height (cm)',
+                                    'weight': 'Weight (kg)',
+                                    'waist': 'Waist Circumference (cm)',
+                                    'activityLevel': 'Activity Level',
+                                    'goal': 'Health Goal',
+                                    'location': 'Location'
+                                  };
+
+                                  const formattedKey = fieldNameMap[key] || key
+                                    .replace(/([A-Z])/g, ' $1')
+                                    .replace(/^./, str => str.toUpperCase())
+                                    .trim();
+
+                                  let formattedValue = String(value);
+                                  if (typeof value === 'boolean') {
+                                    formattedValue = value ? 'Yes' : 'No';
+                                  } else if (key === 'gender') {
+                                    formattedValue = String(value).charAt(0).toUpperCase() + String(value).slice(1);
+                                  } else if (key === 'activityLevel' || key === 'goal') {
+                                    formattedValue = String(value)
+                                      .split('_')
+                                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                      .join(' ');
+                                  }
+
+                                  return [formattedKey, formattedValue];
+                                });
+
+                              return meaningfulData.length > 0 ? (
+                                meaningfulData.map((entry, idx: number) => {
+                                  const [key, value] = entry;
+                                  return (
+                                    <div key={idx} className="flex justify-between gap-4">
+                                      <span className="font-medium text-gray-700">{key}:</span>
+                                      <span className="text-gray-600 text-right">{value}</span>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-gray-500 italic">No saved data</p>
+                              );
+                            })()}
+                          </div>
+                        </details>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <button
