@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronDown, ArrowRight } from "lucide-react"
+import { ChevronDown, ArrowRight, Trash2, Play } from "lucide-react"
 import { useAuth, safeGetItem, safeRemoveItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
 
@@ -88,6 +88,18 @@ const formatDate = (dateString: string) => {
   })
 }
 
+const formatDateTime = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
 export function HistoryPage() {
   const navigate = useNavigate()
   
@@ -101,6 +113,7 @@ export function HistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<string>("ingredient_detection")
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { api } = useAPI()
 
@@ -170,6 +183,31 @@ export function HistoryPage() {
 
     fetchSettingsHistory().catch(console.error)
   }, [activeFilter, isAuthenticated, authLoading, api])
+
+  const handleDeleteHistory = async (recordId: string) => {
+    if (!window.confirm('Are you sure you want to delete this settings history entry? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingId(recordId)
+    try {
+      const result = await api.deleteSettingsHistory(recordId)
+      if ((result as any).status === 'success') {
+        setSettingsHistory(prev => prev.filter(record => record.id !== recordId))
+      } else {
+        alert((result as any).message || 'Failed to delete history entry')
+      }
+    } catch (err) {
+      console.error("Error deleting settings history:", err)
+      if (err instanceof APIError) {
+        alert(err.message)
+      } else {
+        alert('Failed to delete history entry. Please try again.')
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   if (!isAuthenticated && !authLoading) {
     navigate('/login')
@@ -297,62 +335,125 @@ export function HistoryPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-[#F7F7F7] border-b border-[#E7E7E7]">
-                  <th 
-                    className="text-left"
-                    style={{ 
-                      padding: '10px 12px',
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '16px',
-                      fontWeight: 400,
-                      lineHeight: '130%',
-                      letterSpacing: '3%',
-                      color: '#414141'
-                    }}
-                  >
-                    Name
-                  </th>
-                  <th 
-                    className="text-left"
-                    style={{ 
-                      padding: '10px 12px',
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '16px',
-                      fontWeight: 400,
-                      lineHeight: '130%',
-                      letterSpacing: '3%',
-                      color: '#414141'
-                    }}
-                  >
-                    Source
-                  </th>
-                  <th 
-                    className="text-left"
-                    style={{ 
-                      padding: '10px 12px',
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '16px',
-                      fontWeight: 400,
-                      lineHeight: '130%',
-                      letterSpacing: '3%',
-                      color: '#414141'
-                    }}
-                  >
-                    Date
-                  </th>
-                  <th 
-                    className="text-left"
-                    style={{ 
-                      padding: '10px 12px',
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '16px',
-                      fontWeight: 400,
-                      lineHeight: '130%',
-                      letterSpacing: '3%',
-                      color: '#414141'
-                    }}
-                  >
-                    Action
-                  </th>
+                  {activeFilter === "health_history" ? (
+                    <>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        DATE & TIME
+                      </th>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        CHANGES MADE
+                      </th>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        DETAILS
+                      </th>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        ACTIONS
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        Name
+                      </th>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        Source
+                      </th>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        Date
+                      </th>
+                      <th 
+                        className="text-left"
+                        style={{ 
+                          padding: '10px 12px',
+                          fontFamily: "'Work Sans', sans-serif",
+                          fontSize: '16px',
+                          fontWeight: 400,
+                          lineHeight: '130%',
+                          letterSpacing: '3%',
+                          color: '#414141'
+                        }}
+                      >
+                        Action
+                      </th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -433,7 +534,8 @@ export function HistoryPage() {
                       'weight': 'Weight',
                       'waist': 'Waist Circumference',
                       'activityLevel': 'Activity Level',
-                      'goal': 'Health Goal'
+                      'goal': 'Health Goal',
+                      'location': 'Location'
                     };
                     const cleanField = fieldName.replace(' (removed)', '');
                     return fieldMap[cleanField] || cleanField.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
@@ -448,10 +550,6 @@ export function HistoryPage() {
                       })
                     : [];
 
-                  const fieldsText = meaningfulFields.length > 0 
-                    ? meaningfulFields.map((f: string) => formatFieldName(f)).join(', ')
-                    : 'Settings updated';
-
                   return (
                     <tr 
                       key={record.id || index} 
@@ -459,21 +557,6 @@ export function HistoryPage() {
                     >
                       <td style={{ padding: '10px 12px' }}>
                         <span 
-                          className="text-gray-800"
-                          style={{ 
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontSize: '16px',
-                            fontWeight: 400,
-                            lineHeight: '130%',
-                            letterSpacing: '3%',
-                            color: '#414141'
-                          }}
-                        >
-                          {fieldsText}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 12px' }}>
-                        <span 
                           className="text-gray-600"
                           style={{ 
                             fontFamily: "'Work Sans', sans-serif",
@@ -483,37 +566,64 @@ export function HistoryPage() {
                             letterSpacing: '3%'
                           }}
                         >
-                          Health Information
+                          {formatDateTime(record.created_at)}
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
-                        <span 
-                          className="text-gray-600"
-                          style={{ 
-                            fontFamily: "'Work Sans', sans-serif",
-                            fontSize: '16px',
-                            fontWeight: 400,
-                            lineHeight: '130%',
-                            letterSpacing: '3%'
-                          }}
-                        >
-                          {formatDate(record.created_at)}
-                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {meaningfulFields.length > 0 ? (
+                            meaningfulFields.map((field: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium"
+                                style={{
+                                  backgroundColor: '#FFF4E6',
+                                  color: '#FF8C00',
+                                  border: '1px solid #FFE5CC'
+                                }}
+                              >
+                                {formatFieldName(field)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-gray-500 italic">Settings updated</span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
                         <button
-                          onClick={() => navigate('/settings')}
-                          className="flex items-center gap-2 text-[#1A76E3] font-medium hover:underline"
+                          onClick={() => {
+                            // Show details in a modal or expandable section
+                            const details = record.settings_data || {};
+                            const detailsText = Object.entries(details)
+                              .filter(([key]) => !/^\d+$/.test(key))
+                              .map(([key, value]) => `${formatFieldName(key)}: ${value}`)
+                              .join('\n');
+                            alert(detailsText || 'No details available');
+                          }}
+                          className="flex items-center gap-1.5 text-[#1A76E3] font-medium hover:underline"
                           style={{ 
                             fontFamily: "'Work Sans', sans-serif",
                             fontSize: '16px',
-                            fontWeight: 400,
-                            lineHeight: '130%',
-                            letterSpacing: '3%'
+                            fontWeight: 400
                           }}
                         >
-                          View Details
-                          <ArrowRight className="w-4 h-4" />
+                          <Play className="w-3 h-3 fill-[#1A76E3]" />
+                          View details
+                        </button>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <button
+                          onClick={() => handleDeleteHistory(record.id)}
+                          disabled={deletingId === record.id}
+                          className="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
+                          title="Delete this entry"
+                        >
+                          {deletingId === record.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       </td>
                     </tr>
