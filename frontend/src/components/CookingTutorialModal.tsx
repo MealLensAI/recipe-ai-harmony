@@ -62,7 +62,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       <div className="fixed top-0 right-0 bottom-0 left-64 bg-white z-50 overflow-hidden flex flex-col">
         
         {/* Top Header - Diet Planner with Profile */}
-        <header className="bg-white border-b border-gray-100 px-8 py-5">
+        <header className="bg-white border-b border-gray-200 px-8 py-5">
           <div className="flex items-center justify-between">
             <h1 
               className="text-[32px] font-medium tracking-[0.03em] leading-[130%]" 
@@ -84,17 +84,14 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           </div>
         </header>
 
-        {/* Blue accent line under header */}
-        <div className="h-[3px] bg-gradient-to-r from-blue-400 to-blue-500" />
-
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto bg-white px-10 py-8">
+        {/* Main Content Area - no blue line */}
+        <div className="flex-1 overflow-y-auto bg-white px-8 py-6">
           
           {/* Back button and Recipe Name Row */}
           <div className="flex items-center gap-4 mb-6">
             <button
               onClick={onClose}
-              className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 bg-white"
+              className="flex items-center gap-2 px-4 py-2.5 text-gray-400 hover:bg-gray-50 rounded-full transition-colors border border-gray-200 bg-white"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="font-medium text-[14px]">Back</span>
@@ -110,42 +107,42 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           {/* Gray Divider */}
           <div className="border-b border-gray-200 mb-6" />
 
-          {/* Section Title - Work Sans 20px Medium #595959 */}
+          {/* Section Title - Left aligned */}
           <h3 
-            className="text-[20px] font-medium tracking-[0.03em] leading-[130%] mb-4" 
+            className="text-[18px] font-medium tracking-[0.03em] leading-[130%] mb-4" 
             style={{ fontFamily: "'Work Sans', sans-serif", color: '#595959' }}
           >
             Cooking instructions
           </h3>
 
-          {/* Tabs Container - Width: 539px Hug, Height: 41px Hug, Left: 39px, Gap: 16px */}
-          <div className="inline-flex items-center h-[41px] gap-4 mb-8">
+          {/* Tabs Container - Gray border around all tabs */}
+          <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-full p-1 mb-8">
             <button
               onClick={() => setActiveTab('recipe')}
-              className={`px-5 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+              className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
                 activeTab === 'recipe'
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border border-[#1A76E3]'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-400 hover:text-gray-600 border border-transparent'
               }`}
             >
               Recipe
             </button>
             <button
               onClick={() => setActiveTab('videos')}
-              className={`px-5 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+              className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
                 activeTab === 'videos'
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border border-[#1A76E3]'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-400 hover:text-gray-600 border border-transparent'
               }`}
             >
               Video Tutorials
             </button>
             <button
               onClick={() => setActiveTab('articles')}
-              className={`px-5 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+              className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
                 activeTab === 'articles'
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border border-[#1A76E3]'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-white text-[#1A76E3] border border-[#1A76E3]'
+                  : 'text-gray-400 hover:text-gray-600 border border-transparent'
               }`}
             >
               Recommended Articles
@@ -199,7 +196,6 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   ) : youtubeVideos.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                       {youtubeVideos.map((video, index) => (
-                        /* Card - Width: Fill (511px), Height: 57px, Radius: 15px, Border: 1px #E7E7E7, Background: white */
                         <div 
                           key={index} 
                           className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
@@ -256,7 +252,6 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   ) : webResources.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                       {webResources.map((resource, index) => (
-                        /* Card - Width: Fill (511px), Height: 57px, Radius: 15px, Border: 1px #E7E7E7, Background: white */
                         <div 
                           key={index} 
                           className="bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
@@ -268,7 +263,6 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                               className="w-full h-[160px] object-cover"
                               onError={handleImageError}
                             />
-                            {/* Domain Badge */}
                             <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 text-[12px] text-gray-600">
                               <Globe className="w-3 h-3" />
                               <span>{extractDomain(resource.url)}</span>
