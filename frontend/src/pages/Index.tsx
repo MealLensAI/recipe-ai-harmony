@@ -925,8 +925,7 @@ const Index = () => {
                   onClick={() => setShowProfileDropdown(false)}
                 />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
-                  <a href="/settings" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
-                  <a href="/history" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">History</a>
+                  <a href="/profile" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
                 </div>
               </>
             )}

@@ -18,7 +18,7 @@ interface AuthContextType {
   token: string | null
   loading: boolean
   isAuthenticated: boolean
-  refreshAuth: () => Promise<void>
+  refreshAuth: (skipVerification?: boolean) => Promise<void>
   signOut: () => Promise<void>
   clearSession: () => void
 }

@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { ChevronDown, ArrowRight, Trash2 } from "lucide-react"
-import { useAuth, safeGetItem, safeRemoveItem } from "@/lib/utils"
+import { useAuth, safeGetItem } from "@/lib/utils"
 import { useAPI, APIError } from "@/lib/api"
+import { getCachedHistory, getCachedSettingsHistory, SharedRecipe } from "@/lib/historyPreloader"
 
 const getSourceText = (recipeType: string) => {
   switch (recipeType) {
@@ -34,50 +35,11 @@ const getItemName = (item: SharedRecipe) => {
   return "Unknown"
 }
 
-interface SharedRecipe {
-  id: string
-  recipe_type: "food_detection" | "ingredient_detection" | "health_meal" | "meal_plan"
-  detected_foods?: string
-  instructions?: string
-  resources?: string
-  suggestion?: string
-  ingredients?: string
-  created_at: string
-  youtube_link?: string
-  google_link?: string
-  resources_link?: string
-}
+// SharedRecipe type is now imported from historyPreloader
 
-// LocalStorage cache keys
+// LocalStorage cache keys (for backward compatibility)
 const HISTORY_CACHE_KEY = 'meallensai_history_cache'
 const HISTORY_CACHE_TIMESTAMP_KEY = 'meallensai_history_cache_timestamp'
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-const getCachedHistory = (userId?: string): SharedRecipe[] | null => {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
-    
-    const cacheKey = userId ? `${HISTORY_CACHE_KEY}_${userId}` : HISTORY_CACHE_KEY;
-    const timestampKey = userId ? `${HISTORY_CACHE_TIMESTAMP_KEY}_${userId}` : HISTORY_CACHE_TIMESTAMP_KEY;
-    
-    const cached = window.localStorage.getItem(cacheKey);
-    const timestamp = window.localStorage.getItem(timestampKey);
-    
-    if (!cached || !timestamp) return null;
-    
-    const cacheAge = Date.now() - parseInt(timestamp, 10);
-    if (cacheAge > CACHE_DURATION) {
-      safeRemoveItem(cacheKey);
-      safeRemoveItem(timestampKey);
-      return null;
-    }
-    
-    return JSON.parse(cached);
-  } catch (error) {
-    console.error('Error reading cached history:', error);
-    return null;
-  }
-};
 
 const setCachedHistory = (history: SharedRecipe[], userId?: string) => {
   try {
@@ -119,11 +81,15 @@ export function HistoryPage() {
   const userData = safeGetItem('user_data');
   const userId = userData ? JSON.parse(userData)?.uid : undefined;
   
+  // Get cached data immediately (even if stale) to prevent empty screen
   const cachedHistory = getCachedHistory(userId);
+  const cachedSettingsHistory = getCachedSettingsHistory(userId);
   
   const [history, setHistory] = useState<SharedRecipe[]>(cachedHistory || [])
-  const [settingsHistory, setSettingsHistory] = useState<any[]>([])
+  const [settingsHistory, setSettingsHistory] = useState<any[]>(cachedSettingsHistory || [])
   const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false)
   const [activeFilter, setActiveFilter] = useState<string>("ingredient_detection")
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -134,6 +100,12 @@ export function HistoryPage() {
     const fetchHistory = async () => {
       if (authLoading || !isAuthenticated) {
         return
+      }
+
+      // If we have cached data, show it immediately and fetch fresh data in background
+      // Only show loading if we have no cached data
+      if (!cachedHistory || cachedHistory.length === 0) {
+        setIsLoading(true)
       }
 
       try {
@@ -155,31 +127,41 @@ export function HistoryPage() {
 
           setHistory(historyData)
           setCachedHistory(historyData, userId)
+          setError(null)
         } else {
-          if (!cachedHistory) {
+          // Only set error if we don't have cached data to show
+          if (!cachedHistory || cachedHistory.length === 0) {
             setError(result.message || 'Failed to load history.')
           }
         }
       } catch (err) {
         console.error("Error fetching history:", err)
-        if (!cachedHistory) {
+        // Only set error if we don't have cached data to show
+        if (!cachedHistory || cachedHistory.length === 0) {
           if (err instanceof APIError) {
             setError(err.message)
           } else {
             setError("Failed to load history. Please try again later.")
           }
         }
+      } finally {
+        setIsLoading(false)
       }
     }
     
     fetchHistory().catch(console.error)
-  }, [isAuthenticated, authLoading, api, userId, cachedHistory])
+  }, [isAuthenticated, authLoading, api, userId])
 
   // Fetch settings history when health_history tab is active
   useEffect(() => {
     const fetchSettingsHistory = async () => {
       if (activeFilter !== "health_history" || !isAuthenticated || authLoading) {
         return
+      }
+
+      // If we have cached data, show it immediately and fetch fresh data in background
+      if (!cachedSettingsHistory || cachedSettingsHistory.length === 0) {
+        setIsLoadingSettings(true)
       }
 
       try {
@@ -198,11 +180,19 @@ export function HistoryPage() {
           setSettingsHistory(Array.isArray(historyData) ? historyData : [])
         } else {
           console.warn('⚠️ Settings history API returned non-success:', result)
-          setSettingsHistory([])
+          // Only clear if we don't have cached data
+          if (!cachedSettingsHistory || cachedSettingsHistory.length === 0) {
+            setSettingsHistory([])
+          }
         }
       } catch (err) {
         console.error("❌ Error fetching settings history:", err)
-        setSettingsHistory([])
+        // Only clear if we don't have cached data
+        if (!cachedSettingsHistory || cachedSettingsHistory.length === 0) {
+          setSettingsHistory([])
+        }
+      } finally {
+        setIsLoadingSettings(false)
       }
     }
 
@@ -283,8 +273,7 @@ export function HistoryPage() {
                   onClick={() => setShowProfileDropdown(false)}
                 />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
-                  <a href="/settings" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Settings</a>
-                  <a href="/planner" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Diet Planner</a>
+                  <a href="/profile" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
                 </div>
               </>
             )}
@@ -329,8 +318,8 @@ export function HistoryPage() {
           </div>
         )}
 
-        {/* Empty State */}
-        {!error && ((activeFilter === "ingredient_detection" && filteredHistory.length === 0) || (activeFilter === "health_history" && settingsHistory.length === 0)) && (
+        {/* Loading State - Only show if no cached data */}
+        {!error && !isLoading && !isLoadingSettings && ((activeFilter === "ingredient_detection" && filteredHistory.length === 0 && !cachedHistory) || (activeFilter === "health_history" && settingsHistory.length === 0 && !cachedSettingsHistory)) && (
           <div className="text-center py-20">
             <p className="text-gray-500 text-lg">No history found</p>
             <p className="text-gray-400 mt-2">

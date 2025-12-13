@@ -1,20 +1,22 @@
 "use client"
 
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Eye, EyeOff, Mail } from 'lucide-react'
+import { Eye, EyeOff, Mail, ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { api } from '@/lib/api'
+import { useAuth } from '@/lib/utils'
 
 const Profile: React.FC = () => {
     const { toast } = useToast()
+    const { user } = useAuth()
 
     // Email from API
     const [email, setEmail] = useState('')
-    const [profileLoading, setProfileLoading] = useState(true)
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false)
 
     // Form state
     const [currentPassword, setCurrentPassword] = useState('')
@@ -32,7 +34,7 @@ const Profile: React.FC = () => {
         const fetchProfile = async () => {
             try {
                 console.log('[Profile] Fetching user profile...')
-                const result = await api.getUserProfile()
+                const result: any = await api.getUserProfile()
                 console.log('[Profile] Profile result:', result)
                 
                 if (result.status === 'success' && result.profile) {
@@ -63,8 +65,6 @@ const Profile: React.FC = () => {
                 } catch (err) {
                     console.error('[Profile] Error reading from localStorage:', err)
                 }
-            } finally {
-                setProfileLoading(false)
             }
         }
 
@@ -114,15 +114,60 @@ const Profile: React.FC = () => {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-            <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold">Profile</h1>
-                    <p className="text-muted-foreground mt-2">Manage your account details
-                    </p>
+        <div className="min-h-screen bg-[#f8fafc]">
+            {/* Header - Matching other pages */}
+            <header 
+                className="px-8 h-[105px] flex items-center border-b"
+                style={{ 
+                    backgroundColor: '#F9FBFE',
+                    borderColor: '#F6FAFE',
+                    boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+                }}
+            >
+                <div className="flex items-center justify-between w-full">
+                    <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+                        Profile
+                    </h1>
+                    
+                    {/* Profile Dropdown */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+                        >
+                            <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
+                                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+                            </span>
+                            <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {showProfileDropdown && (
+                            <>
+                                <div 
+                                    className="fixed inset-0 z-40" 
+                                    onClick={() => setShowProfileDropdown(false)}
+                                />
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-[15px] shadow-lg border border-gray-200 py-3 z-50">
+                                    <a href="/profile" className="block px-5 py-2.5 text-[15px] text-gray-700 hover:bg-gray-50">Profile</a>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
+            </header>
 
-                <Card>
+            {/* Main Content */}
+            <div className="px-8 py-8">
+                <div className="max-w-4xl mx-auto space-y-6">
+                    {/* Subtitle */}
+                    <p className="text-gray-600 text-[16px]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+                        Manage your account details
+                    </p>
+
+                    <Card className="bg-white border border-[#E7E7E7] rounded-[15px] shadow-sm">
                     <CardHeader>
                         <CardTitle>Account</CardTitle>
                         <CardDescription>View your email and update your password.</CardDescription>
@@ -204,7 +249,8 @@ const Profile: React.FC = () => {
                             {changing ? 'Updating...' : 'Update Password'}
                         </Button>
                     </CardContent>
-                </Card>
+                    </Card>
+                </div>
             </div>
         </div>
     )

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { LogOut, CalendarDays, History, Scan, Menu, X, User, CreditCard } from "lucide-react"
+import { LogOut, CalendarDays, History, Scan, Menu, X, User, CreditCard, UserCircle } from "lucide-react"
 import Logo from "@/components/Logo"
 import { useAuth } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -67,6 +67,12 @@ const Sidebar = () => {
       label: "Payment", 
       path: "/payment",
       active: isActive("/payment")
+    },
+    { 
+      icon: UserCircle, 
+      label: "Profile", 
+      path: "/profile",
+      active: isActive("/profile")
     },
   ]
 
