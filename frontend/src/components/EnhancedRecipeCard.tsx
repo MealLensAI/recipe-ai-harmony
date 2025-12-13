@@ -123,19 +123,19 @@ const EnhancedRecipeCard: React.FC<EnhancedRecipeCardProps> = ({
                 {hasNutritionData && (
                     <div className="flex gap-3 mb-4">
                         {/* Protein */}
-                        <div className="w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
+                        <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
                             <div className="text-base">🍖</div>
                             <div className="text-sm font-bold text-gray-800">{protein}g</div>
                             <div className="text-xs text-gray-500">Protein</div>
                         </div>
                         {/* Carbs */}
-                        <div className="w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
+                        <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
                             <div className="text-base">🌾</div>
                             <div className="text-sm font-bold text-gray-800">{carbs}g</div>
                             <div className="text-xs text-gray-500">Carbs</div>
                         </div>
                         {/* Fats */}
-                        <div className="w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
+                        <div className="w-[69px] min-w-[69px] max-w-[69px] h-[75px] bg-[#FEF5EF] rounded-[10px] p-4 flex flex-col items-center justify-center gap-[2px] border border-[#FDE8DC]">
                             <div className="text-base">💧</div>
                             <div className="text-sm font-bold text-gray-800">{fat}g</div>
                             <div className="text-xs text-gray-500">Fats</div>
