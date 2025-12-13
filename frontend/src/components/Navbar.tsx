@@ -3,7 +3,7 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { LogOut, Utensils, Camera, User, Settings, ChevronDown, Building2 } from "lucide-react"
+import { LogOut, Utensils, User, Settings, ChevronDown, Building2 } from "lucide-react"
 import Logo from "@/components/Logo"
 import {
   DropdownMenu,
@@ -60,7 +60,7 @@ const Navbar = () => {
           <div className="flex items-center space-x-2 sm:space-x-3">
             <Logo size="sm" />
             <div>
-              <p className="text-xs text-gray-500 hidden sm:block">End cooking burnout</p>
+              <p className="text-xs text-gray-500 hidden sm:block">AI Health Nutrition</p>
               <p className="text-xs text-gray-500 hidden sm:block">Better Health From Your Food.</p>
             </div>
           </div>
@@ -75,28 +75,17 @@ const Navbar = () => {
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
-              Meal Planner
+              Health Meal Planner
             </Button>
             <Button
               variant="ghost"
-              onClick={() => navigate("/ai-kitchen")}
-              className={`transition-colors ${isActive("/ai-kitchen")
+              onClick={() => navigate("/health-meals")}
+              className={`transition-colors ${isActive("/health-meals")
                 ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
-              Ingredients Detector
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/detected")}
-              className={`transition-colors ${isActive("/detected")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-                }`}
-            >
-              <Camera className="h-4 w-4 mr-2" />
-              Detect Food
+              Generate Health Meals
             </Button>
             <Button
               variant="ghost"
@@ -168,7 +157,7 @@ const Navbar = () => {
 
         {/* Mobile Navigation */}
         <div className="md:hidden border-t border-gray-100 py-2">
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-3 gap-1">
 
             <Button
               variant="ghost"
@@ -184,26 +173,16 @@ const Navbar = () => {
 
             <Button
               variant="ghost"
-              onClick={() => navigate("/ai-kitchen")}
-              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/ai-kitchen")
+              onClick={() => navigate("/health-meals")}
+              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/health-meals")
                 ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
                 : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
                 }`}
             >
               <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="leading-tight">Kitchen</span>
+              <span className="leading-tight">Meals</span>
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/detected")}
-              className={`flex flex-col items-center justify-center h-14 text-[10px] sm:text-xs space-y-0.5 sm:space-y-1 transition-colors px-1 ${isActive("/detected")
-                ? "text-orange-500 bg-orange-50 border border-orange-200 font-semibold"
-                : "text-gray-700 hover:text-orange-500 hover:bg-orange-50"
-                }`}
-            >
-              <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="leading-tight">Detect</span>
-            </Button>
+
             <Button
               variant="ghost"
               onClick={() => navigate("/history")}
