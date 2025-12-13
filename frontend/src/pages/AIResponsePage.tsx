@@ -512,14 +512,15 @@ const AIResponsePage: FC = () => {
                             </div>
                             <div>
                               <p className="font-medium text-gray-800 text-[15px]">{ingredient.name}</p>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <span className="text-sm">
-                                  {ingredient.isWarning ? '⚠️' : '💡'}
-                                </span>
-                                <p className={`text-[13px] ${ingredient.isWarning ? 'text-red-500' : 'text-green-500'}`}>
-                                  {ingredient.healthInfo}
-                                </p>
-                              </div>
+                              {/* Only show warning text for risky ingredients */}
+                              {ingredient.isWarning && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-sm">⚠️</span>
+                                  <p className="text-[13px] text-red-500">
+                                    {ingredient.healthInfo}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
