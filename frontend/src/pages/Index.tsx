@@ -891,20 +891,20 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-8 py-5">
+      <header className="bg-white border-b border-gray-100 px-8 py-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">Diet Planner</h1>
+          <h1 className="text-[28px] font-bold text-gray-800 tracking-tight">Diet Planner</h1>
           
           {/* Profile Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 px-5 py-2 rounded-[28px] border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
             >
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm border-2 border-blue-200">
+              <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
-              <span className="text-[15px] font-medium text-gray-700 hidden sm:block">
+              <span className="text-[15px] font-medium text-gray-600 hidden sm:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
               <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
@@ -937,24 +937,24 @@ const Index = () => {
       {/* Main Content Area */}
       <div className="px-8 py-6">
         {/* Top Bar: Tabs and Create Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-gray-200">
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-gray-100">
+          <div className="flex gap-3">
             <button
               onClick={() => setShowPlanManager(false)}
-              className={`px-6 py-3 rounded-xl text-[15px] font-semibold transition-all duration-200 border-2 ${
+              className={`px-7 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200 border ${
                 !showPlanManager
-                  ? 'border-blue-500 text-blue-600 bg-white'
-                  : 'border-gray-200 text-gray-500 bg-white hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-500 bg-white'
+                  : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'
               }`}
             >
               Active Plan
             </button>
             <button
               onClick={() => setShowPlanManager(true)}
-              className={`px-6 py-3 rounded-xl text-[15px] font-semibold transition-all duration-200 border-2 ${
+              className={`px-7 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200 border ${
                 showPlanManager
-                  ? 'border-blue-500 text-blue-600 bg-white'
-                  : 'border-gray-200 text-gray-500 bg-white hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-500 bg-white'
+                  : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300'
               }`}
             >
               Saved Plans
@@ -963,7 +963,7 @@ const Index = () => {
 
           <button
             onClick={handleNewPlan}
-            className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl text-[15px] font-semibold transition-all duration-200 shadow-sm"
+            className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-[15px] font-semibold transition-all duration-200"
           >
             Create New Plan
             <Plus className="w-4 h-4" />
@@ -971,23 +971,23 @@ const Index = () => {
         </div>
 
         {/* Date Range and Day Tabs */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-6 py-6">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-8 py-6">
           <div className="flex items-center">
-            <span className="text-[17px] font-bold text-gray-900">
+            <span className="text-[17px] font-bold text-gray-800">
               {formatDateRange()}
             </span>
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex bg-white border border-gray-200 rounded-full p-1 shadow-sm">
+            <div className="inline-flex bg-gray-50 border border-gray-200 rounded-[28px] p-1">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`px-5 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`px-6 py-2.5 rounded-[22px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
                     selectedDay === day
-                      ? 'bg-gray-100 text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      ? 'bg-white text-gray-800 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-600'
                   }`}
                 >
                   {day}
