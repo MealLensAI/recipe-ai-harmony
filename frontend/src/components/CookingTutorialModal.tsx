@@ -109,14 +109,15 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
           {/* Section Title - Left aligned */}
           <h3 
-            className="text-[18px] font-medium tracking-[0.03em] leading-[130%] mb-4" 
+            className="text-[20px] font-medium tracking-[0.03em] leading-[130%] mb-4 text-left" 
             style={{ fontFamily: "'Work Sans', sans-serif", color: '#595959' }}
           >
             Cooking instructions
           </h3>
 
-          {/* Tabs Container - Gray border around all tabs */}
-          <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-full p-1 mb-8">
+          {/* Tabs Container - Gray border around all tabs, left aligned */}
+          <div className="flex justify-start mb-8">
+            <div className="inline-flex items-center bg-[#F8F9FA] border border-[#E7E7E7] rounded-full p-1">
             <button
               onClick={() => setActiveTab('recipe')}
               className={`px-6 py-2.5 rounded-full text-[14px] font-medium transition-all duration-200 ${
@@ -147,6 +148,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             >
               Recommended Articles
             </button>
+            </div>
           </div>
 
           {/* Loading State */}
