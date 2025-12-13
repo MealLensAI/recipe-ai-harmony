@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useAuth, safeGetItem } from "@/lib/utils"
 import { useAPI } from "@/lib/api"
-import CookingTutorialModal from "@/components/CookingTutorialModal"
+import HistoryDetailView from "@/components/HistoryDetailView"
 
 interface HistoryDetail {
   id: string
@@ -221,13 +221,12 @@ const HistoryDetailPage = () => {
   };
 
   return (
-    <CookingTutorialModal
-      isOpen={true}
-      onClose={() => navigate('/history')}
+    <HistoryDetailView
       recipeName={getRecipeName()}
       ingredients={getIngredients()}
-      preloadedInstructions={historyDetail.instructions}
-      preloadedResources={getResourcesLink()}
+      instructions={historyDetail.instructions || ''}
+      resources={getResourcesLink()}
+      onClose={() => navigate('/history')}
     />
   )
 }
