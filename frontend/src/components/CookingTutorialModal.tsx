@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Play, Globe } from 'lucide-react';
+import { ArrowLeft, Play, Globe, ChevronDown } from 'lucide-react';
 import { useTutorialContent } from '../hooks/useTutorialContent';
+import { useAuth } from '@/lib/utils';
 
 interface CookingTutorialModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
   const [activeTab, setActiveTab] = useState<'recipe' | 'videos' | 'articles'>('recipe');
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const { instructions, youtubeVideos, webResources, loading, loadingResources, generateContent } = useTutorialContent();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen && recipeName) {
@@ -49,7 +51,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50">
       {/* Dark overlay for background */}
       <div 
         className="fixed inset-0 bg-black/40 z-40"
@@ -58,9 +60,35 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       
       {/* Content Panel - positioned to respect sidebar */}
       <div className="fixed top-0 right-0 bottom-0 left-64 bg-white z-50 overflow-hidden flex flex-col">
-        {/* Header with Back button and recipe name */}
-        <div className="bg-white px-8 py-5 border-b border-gray-200">
-          <div className="flex items-center gap-4">
+        
+        {/* Top Header - Diet Planner with Profile */}
+        <header className="bg-white border-b border-gray-100 px-8 py-5">
+          <div className="flex items-center justify-between">
+            <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+              Diet Planner
+            </h1>
+            
+            {/* Profile Button */}
+            <button className="flex items-center h-[48px] gap-3 px-4 rounded-[15px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors">
+              <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+                {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <span className="text-[15px] font-medium text-gray-600 hidden sm:block">
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
+              </span>
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            </button>
+          </div>
+        </header>
+
+        {/* Blue accent line under header */}
+        <div className="h-[3px] bg-gradient-to-r from-blue-400 to-blue-500" />
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto bg-white px-8 py-6">
+          
+          {/* Back button and Recipe Name Row */}
+          <div className="flex items-center gap-4 mb-6">
             <button
               onClick={onClose}
               className="flex items-center gap-2 px-4 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 bg-white"
@@ -68,21 +96,18 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               <ArrowLeft className="w-4 h-4" />
               <span className="font-medium text-[14px]">Back</span>
             </button>
-            <h1 className="text-[22px] font-semibold text-[#2A2A2A]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+            <h2 className="text-[22px] font-semibold text-[#2A2A2A]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
               {recipeName}
-            </h1>
+            </h2>
           </div>
-        </div>
 
-        {/* Divider line - blue accent */}
-        <div className="h-[3px] bg-gradient-to-r from-blue-400 to-blue-500" />
+          {/* Divider */}
+          <div className="border-b border-gray-200 mb-6" />
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto bg-white px-8 py-6">
           {/* Section Title */}
-          <h2 className="text-[18px] font-semibold text-[#2A2A2A] mb-5" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+          <h3 className="text-[18px] font-semibold text-[#2A2A2A] mb-5" style={{ fontFamily: "'Work Sans', sans-serif" }}>
             Cooking instructions
-          </h2>
+          </h3>
 
           {/* Tabs Container */}
           <div className="inline-flex items-center bg-white border border-[#E7E7E7] rounded-[12px] p-1 mb-6">
