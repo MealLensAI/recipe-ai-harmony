@@ -64,8 +64,13 @@ const Sidebar = () => {
       <div className="h-[76px] flex items-center px-6">
         <Logo size="md" />
       </div>
-      {/* Border line - same width as nav buttons (with px-4 padding = 16px each side) */}
-      <div className="mx-4 border-b border-[#E7E7E7]" />
+      {/* Border line - gradient fade at edges, Width: 250px, Border: 1px, Linear Gradient #E7E7E7 fading to 0% */}
+      <div 
+        className="mx-4 h-[1px]" 
+        style={{ 
+          background: 'linear-gradient(90deg, rgba(231,231,231,0) 0%, rgba(231,231,231,1) 20%, rgba(231,231,231,1) 80%, rgba(231,231,231,0) 100%)' 
+        }} 
+      />
 
       {/* Navigation Items */}
       <nav className="flex-1 px-4 py-8 space-y-2">
