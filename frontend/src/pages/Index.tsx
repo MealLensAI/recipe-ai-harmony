@@ -890,9 +890,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-8 py-5">
-        <div className="flex items-center justify-between">
+      {/* Header - aligned with sidebar logo height */}
+      <header className="bg-white border-b border-gray-100 px-8 h-[76px] flex items-center">
+        <div className="flex items-center justify-between w-full">
           <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>Diet Planner</h1>
           
           {/* Profile Dropdown */}

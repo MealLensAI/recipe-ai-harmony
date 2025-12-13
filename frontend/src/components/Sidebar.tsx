@@ -61,7 +61,7 @@ const Sidebar = () => {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-6 py-8 border-b border-gray-100">
+      <div className="px-6 h-[76px] flex items-center border-b border-gray-100">
         <Logo size="md" />
       </div>
 
