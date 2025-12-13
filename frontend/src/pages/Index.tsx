@@ -893,7 +893,7 @@ const Index = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-100 px-8 py-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold text-gray-800 tracking-tight">Diet Planner</h1>
+          <h1 className="text-[32px] font-medium text-[#2A2A2A] tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>Diet Planner</h1>
           
           {/* Profile Dropdown */}
           <div className="relative">
