@@ -897,9 +897,9 @@ const Index = () => {
           
           {/* Profile Dropdown */}
           <div className="relative">
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center gap-3 px-4 py-2 rounded-[15px] border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+<button
+            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center h-[71px] gap-[17px] px-4 rounded-[20px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
               <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
@@ -956,7 +956,8 @@ const Index = () => {
 
           <button
             onClick={handleNewPlan}
-            className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg py-2 text-[15px] font-semibold transition-all duration-200"
+            className="flex items-center justify-center w-[201px] h-[48px] gap-[10px] bg-[#1A76E3] hover:bg-[#1565C0] text-white rounded-[15px] border border-[#1356A5] text-[15px] font-semibold transition-all duration-200"
+            style={{ boxShadow: '4px 4px 4px rgba(72, 146, 234, 0.3)' }}
           >
             Create New Plan
             <Plus className="w-4 h-4" />
@@ -972,14 +973,14 @@ const Index = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto">
-            <div className="inline-flex items-center bg-[#f8f9fa] border border-gray-200 rounded-[15px] p-1">
+            <div className="inline-flex items-center h-[57px] bg-[#F7F7F7] border border-[#E7E7E7] rounded-[15px] p-[10px] gap-[10px]">
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                 <button
                   key={day}
                   onClick={() => setSelectedDay(day)}
-                  className={`px-5 py-2.5 rounded-[12px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
+                  className={`w-[110px] h-[41px] rounded-[10px] text-[14px] font-medium transition-all duration-200 whitespace-nowrap ${
                     selectedDay === day
-                      ? 'bg-white text-gray-800 border border-gray-200'
+                      ? 'bg-white text-gray-800 border border-[#E7E7E7]'
                       : 'text-gray-400 hover:text-gray-500'
                   }`}
                 >
