@@ -892,7 +892,7 @@ const Index = () => {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header - aligned with sidebar logo height (123px) */}
       <header 
-        className="px-8 h-[123px] flex items-center border-b"
+        className="px-8 h-[105px] flex items-center border-b"
         style={{ 
           backgroundColor: '#F9FBFE',
           borderColor: '#F6FAFE',
@@ -906,15 +906,15 @@ const Index = () => {
           <div className="relative">
 <button
             onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="flex items-center h-[48px] gap-3 px-4 rounded-[15px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
+              className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors"
             >
-              <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
-              <span className="text-[15px] font-medium text-gray-600 hidden sm:block">
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
-              <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
             </button>
             
             {/* Dropdown Menu */}

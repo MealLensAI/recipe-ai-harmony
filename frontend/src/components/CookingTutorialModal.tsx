@@ -61,9 +61,9 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       {/* Content Panel - positioned to respect sidebar */}
       <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 overflow-hidden flex flex-col">
         
-        {/* Top Header - Diet Planner with Profile - aligned with sidebar logo height (123px) */}
+        {/* Top Header - Diet Planner with Profile - aligned with sidebar logo height (105px) */}
         <header 
-          className="px-8 h-[123px] flex items-center border-b"
+          className="px-8 h-[105px] flex items-center border-b"
           style={{ 
             backgroundColor: '#F9FBFE',
             borderColor: '#F6FAFE',
@@ -79,14 +79,14 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
             </h1>
             
             {/* Profile Button */}
-            <button className="flex items-center h-[48px] gap-3 px-4 rounded-[15px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors">
-              <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
+            <button className="flex items-center h-[56px] gap-3 px-5 rounded-[18px] border border-[#E7E7E7] bg-white hover:bg-gray-50 transition-colors">
+              <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 font-semibold text-sm border border-blue-100">
                 {(user?.displayName || user?.email?.split('@')[0] || 'U').substring(0, 2).toUpperCase()}
               </div>
-              <span className="text-[15px] font-medium text-gray-600 hidden sm:block">
+              <span className="text-[16px] font-medium text-gray-600 hidden sm:block">
                 {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </span>
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+              <ChevronDown className="h-5 w-5 text-gray-400" />
             </button>
           </div>
         </header>

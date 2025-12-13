@@ -60,9 +60,9 @@ const Sidebar = () => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo - Height: 123px, Background: #F9FBFE, Border: 1px bottom #F6FAFE, Shadow */}
+      {/* Logo - Height: 105px, Background: #F9FBFE, Border: 1px bottom #F6FAFE, Shadow */}
       <div 
-        className="h-[123px] flex items-center px-6 border-b"
+        className="h-[105px] flex items-center px-6 border-b"
         style={{ 
           backgroundColor: '#F9FBFE',
           borderColor: '#F6FAFE',
