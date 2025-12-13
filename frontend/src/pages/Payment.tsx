@@ -785,13 +785,13 @@ const Payment: React.FC = () => {
 
         <div className="flex items-center justify-center gap-2 mb-4">
           <button
-            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'monthly' ? 'bg-[#FF6B6B] text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'monthly' ? 'bg-blue-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             onClick={() => setBilling('monthly')}
           >
             Monthly
           </button>
           <button
-            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'yearly' ? 'bg-[#FF6B6B] text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`px-6 py-2 rounded-full font-semibold transition-colors ${billing === 'yearly' ? 'bg-blue-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             onClick={() => setBilling('yearly')}
           >
             Yearly
@@ -799,7 +799,7 @@ const Payment: React.FC = () => {
         </div>
 
         {billing === 'yearly' && (
-          <div className="text-[#FF6B6B] text-sm font-medium bg-yellow-50 px-4 py-2 rounded-full inline-block">
+          <div className="text-blue-500 text-sm font-medium bg-yellow-50 px-4 py-2 rounded-full inline-block">
             Save 20% with annual billing!
           </div>
         )}
@@ -813,7 +813,7 @@ const Payment: React.FC = () => {
               className={`flex-1 flex flex-col justify-between items-center p-8 bg-white shadow-xl rounded-2xl border border-gray-200 relative transform transition-all duration-300 hover:scale-105 hover:shadow-2xl ${plan.highlight ? 'ring-2 ring-yellow-400 shadow-2xl' : ''}`}
             >
               {plan.highlight && (
-                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-blue-500 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg">
                   Most Popular
                 </div>
               )}
@@ -822,7 +822,7 @@ const Payment: React.FC = () => {
                 <div className="mb-4">{plan.icon}</div>
                 <div className="text-3xl font-bold text-gray-900 mb-2">{plan.label}</div>
                 <div className="text-gray-500 text-sm mb-4">Billed {plan.duration}</div>
-                <div className="text-4xl font-bold text-[#FF6B6B] mb-2">
+                <div className="text-4xl font-bold text-blue-500 mb-2">
                   ${plan.price.toLocaleString()}
                 </div>
               </div>
@@ -841,7 +841,7 @@ const Payment: React.FC = () => {
               </ul>
 
               <Button
-                className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white hover:from-[#ff5252] hover:to-[#ff7a3a] text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
                 onClick={() => openPaymentModal(plan)}
               >
                 Select Plan
@@ -856,7 +856,7 @@ const Payment: React.FC = () => {
               <div className="mb-4">{YEARLY_PLAN.icon}</div>
               <div className="text-3xl font-bold text-gray-900 mb-2">{YEARLY_PLAN.label}</div>
               <div className="text-gray-500 text-sm mb-4">Billed {YEARLY_PLAN.duration}</div>
-              <div className="text-4xl font-bold text-[#FF6B6B] mb-2">
+              <div className="text-4xl font-bold text-blue-500 mb-2">
                 ${YEARLY_PLAN.price.toLocaleString()}
               </div>
             </div>
@@ -875,7 +875,7 @@ const Payment: React.FC = () => {
             </ul>
 
             <Button
-              className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white hover:from-[#ff5252] hover:to-[#ff7a3a] text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-4 mt-auto shadow-lg transform transition-all duration-200 hover:scale-105"
               onClick={() => openPaymentModal(YEARLY_PLAN)}
             >
               Select Plan
@@ -887,7 +887,7 @@ const Payment: React.FC = () => {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center text-[#FF6B6B]">
+            <DialogTitle className="text-2xl font-bold text-center text-blue-500">
               Complete Your Payment
             </DialogTitle>
           </DialogHeader>
@@ -897,7 +897,7 @@ const Payment: React.FC = () => {
               <label className="block text-sm font-semibold mb-2 text-gray-700">Your Name</label>
               <input
                 type="text"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:ring-2 focus:ring-[#FF6B6B] focus:outline-none transition-all duration-200"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your full name"
@@ -909,7 +909,7 @@ const Payment: React.FC = () => {
               <label className="block text-sm font-semibold mb-2 text-gray-700">Email Address</label>
               <input
                 type="email"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:ring-2 focus:ring-[#FF6B6B] focus:outline-none transition-all duration-200"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
@@ -921,7 +921,7 @@ const Payment: React.FC = () => {
               <div className="text-lg font-semibold text-gray-800 mb-2">
                 Selected Plan:
               </div>
-              <div className="text-xl font-bold text-[#FF6B6B]">
+              <div className="text-xl font-bold text-blue-500">
                 {selectedPlan?.label}
               </div>
               <div className="text-sm text-gray-600 mt-1">
@@ -932,7 +932,7 @@ const Payment: React.FC = () => {
 
           <DialogFooter>
             <Button
-              className="w-full bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] text-white hover:from-[#ff5252] hover:to-[#ff7a3a] text-lg font-semibold rounded-lg py-3 shadow-lg transform transition-all duration-200 hover:scale-105"
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 text-lg font-semibold rounded-lg py-3 shadow-lg transform transition-all duration-200 hover:scale-105"
               onClick={processPayment}
             >
               Pay with Paystack

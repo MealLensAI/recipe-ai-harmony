@@ -157,7 +157,7 @@ const Index = () => {
           <h2 className="text-2xl font-bold text-[#2D3436]">Manage Meal Plans</h2>
           <button
             onClick={() => setShowPlanManager(false)}
-            className="text-[#1e293b] hover:text-[#FF6B6B] transition-colors"
+            className="text-[#1e293b] hover:text-blue-500 transition-colors"
           >
             ✕
           </button>
@@ -1095,7 +1095,7 @@ const Index = () => {
               <h2 className="text-2xl font-bold text-[#2D3436]">Create Your Meal Plan</h2>
               <button
                 onClick={() => setShowInputModal(false)}
-                className="text-[#1e293b] hover:text-[#FF6B6B] transition-colors"
+                className="text-[#1e293b] hover:text-blue-500 transition-colors"
               >
                 ✕
               </button>
@@ -1134,7 +1134,7 @@ const Index = () => {
                 </div>
                 <button
                   onClick={() => setIsAutoGenerateEnabled(!isAutoGenerateEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-[#FF6B6B]' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isAutoGenerateEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
@@ -1190,8 +1190,8 @@ const Index = () => {
                 <button
                   onClick={() => setInputType('ingredient_list')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'ingredient_list'
-                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'}`}
+                    ? 'border-blue-500 bg-blue-500 text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-blue-400'}`}
                 >
                   <div className="flex items-center justify-center">
                     <List className="w-6 h-6 mr-4" />
@@ -1205,8 +1205,8 @@ const Index = () => {
                 <button
                   onClick={() => setInputType('image')}
                   className={`p-6 rounded-xl border-2 transition-all ${inputType === 'image'
-                    ? 'border-[#FF6B6B] bg-[#FF6B6B] text-white'
-                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-[#FF8E53]'}`}
+                    ? 'border-blue-500 bg-blue-500 text-white'
+                    : 'border-[#e2e8f0] bg-white text-[#2D3436] hover:border-blue-400'}`}
                 >
                   <div className="flex items-center justify-center">
                     <Camera className="w-6 h-6 mr-4" />
@@ -1267,7 +1267,7 @@ const Index = () => {
                       <select
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                         disabled={isLoading}
                       >
                         <option value="">Select a country</option>
@@ -1285,7 +1285,7 @@ const Index = () => {
                         value={budget}
                         onChange={(e) => setBudget(e.target.value)}
                         placeholder="e.g., 15000"
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-[#FF6B6B] focus:outline-none"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                         disabled={isLoading}
                       />
                       <p className="text-sm text-[#1e293b] mt-1">Your budget for the entire week</p>
@@ -1335,21 +1335,21 @@ const Index = () => {
                     value={ingredientList}
                     onChange={(e) => setIngredientList(e.target.value)}
                     placeholder="e.g., tomatoes, onions, beef, rice, bell peppers, garlic, olive oil..."
-                    className="w-full h-32 p-4 border-2 border-[#e2e8f0] rounded-xl focus:border-[#FF6B6B] focus:outline-none transition-colors resize-none"
+                    className="w-full h-32 p-4 border-2 border-[#e2e8f0] rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
                     disabled={isLoading}
                   />
                 </div>
               ) : inputType === 'image' ? (
                 <div>
                   <label className="block text-lg font-semibold text-[#2D3436] mb-3">Upload an image of your ingredients</label>
-                  <div className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center hover:border-[#FF6B6B] transition-colors">
+                  <div className="border-2 border-dashed border-[#e2e8f0] rounded-xl p-8 text-center hover:border-blue-500 transition-colors">
                     {imagePreview ? (
                       <div className="space-y-4">
                         <img src={imagePreview} alt="Preview" className="max-w-full h-48 object-cover mx-auto rounded-lg" />
                         <button
                           type="button"
                           onClick={() => { setSelectedImage(null); setImagePreview(null); }}
-                          className="text-[#FF6B6B] hover:text-[#FF8E53]"
+                          className="text-blue-500 hover:text-blue-600"
                         >
                           Choose different image
                         </button>
@@ -1371,7 +1371,7 @@ const Index = () => {
                         />
                         <label
                           htmlFor="file-upload"
-                          className="inline-block px-6 py-3 bg-[#FF6B6B] text-white rounded-lg hover:bg-[#FF8E53] transition-colors cursor-pointer"
+                          className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
                         >
                           Select Image
                         </label>
@@ -1384,7 +1384,7 @@ const Index = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-4 bg-[#FF6B6B] text-white font-bold text-lg rounded-xl hover:bg-[#FF8E53] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full py-4 bg-blue-500 text-white font-bold text-lg rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {isLoading ? (
                   <>
