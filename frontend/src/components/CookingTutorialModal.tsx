@@ -50,7 +50,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-hidden">
-      {/* Header */}
+      {/* Header - same as Diet Planner */}
       <header className="bg-white border-b border-gray-100 px-8 py-5">
         <div className="flex items-center gap-4">
           <button
@@ -73,33 +73,38 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           Cooking instructions
         </h2>
 
-        {/* Tabs */}
-        <div className="inline-flex items-center bg-[#F7F7F7] border border-[#E7E7E7] rounded-[12px] p-1 mb-8">
+        {/* Tabs Container - Width: Fill (511px), Height: 57px, Radius: 15px, Border: 1px, Color: white, Border: #E7E7E7 */}
+        <div 
+          className="inline-flex items-center h-[57px] bg-white border border-[#E7E7E7] rounded-[15px] p-[10px] gap-[10px] mb-6"
+        >
+          {/* Recipe Tab - Width: 124px, Height: 41px (Hug), Radius: 10px, Border: 2px when active, Padding: 10px, Gap: 10px, Color: #F6FAFE when active, Border: #1A76E3 when active */}
           <button
             onClick={() => setActiveTab('recipe')}
-            className={`px-6 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+            className={`w-[124px] h-[41px] rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
               activeTab === 'recipe'
-                ? 'bg-white text-blue-600 border border-[#E7E7E7]'
+                ? 'bg-[#F6FAFE] text-[#1A76E3] border-2 border-[#1A76E3]'
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
             Recipe
           </button>
+          {/* Video Tutorials Tab - Width: 149px, Height: 41px (Hug), Radius: 10px, Border: 2px, Padding: 10px, Gap: 10px, Color: #F6FAFE, Border: #1A76E3 */}
           <button
             onClick={() => setActiveTab('videos')}
-            className={`px-6 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+            className={`w-[149px] h-[41px] rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
               activeTab === 'videos'
-                ? 'bg-white text-blue-600 border border-[#E7E7E7]'
+                ? 'bg-[#F6FAFE] text-[#1A76E3] border-2 border-[#1A76E3]'
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
             Video Tutorials
           </button>
+          {/* Recommended Articles Tab - Width: 220px, Height: 41px (Hug), Radius: 10px, Border: 2px, Padding: 10px, Gap: 10px */}
           <button
             onClick={() => setActiveTab('articles')}
-            className={`px-6 py-2.5 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+            className={`w-[220px] h-[41px] rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
               activeTab === 'articles'
-                ? 'bg-white text-blue-600 border border-[#E7E7E7]'
+                ? 'bg-[#F6FAFE] text-[#1A76E3] border-2 border-[#1A76E3]'
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
@@ -115,27 +120,39 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           </div>
         ) : (
           <>
-            {/* Recipe Tab */}
+            {/* Recipe Tab Content */}
             {activeTab === 'recipe' && instructions && (
-              <div className="max-w-4xl">
-                {/* Health Tip */}
-                <div className="flex items-start gap-2 text-green-600 mb-6">
+              <div className="w-[511px]" style={{ gap: '12px' }}>
+                {/* Health Tip - Width: 707px, Height: 28px, Gap: 12px, Font: Work Sans 16px Regular, Color: #34C759 */}
+                <div 
+                  className="flex items-center gap-3 mb-6"
+                  style={{ height: '28px' }}
+                >
                   <span className="text-lg">💡</span>
-                  <p className="text-[15px] font-medium">
+                  <p 
+                    className="text-[16px] leading-[130%] tracking-[0.03em]"
+                    style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
+                  >
                     Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
                   </p>
                 </div>
 
-                {/* Recipe Content */}
+                {/* Recipe Content - Font: Work Sans 16px, "Ingredients" is 500 weight, content is 400 weight, Color: #414141 */}
                 <div 
-                  className="prose prose-lg max-w-none text-gray-800"
-                  style={{ lineHeight: '1.8' }}
+                  className="prose prose-lg max-w-none"
+                  style={{ 
+                    fontFamily: "'Work Sans', sans-serif",
+                    fontSize: '16px',
+                    lineHeight: '130%',
+                    letterSpacing: '0.03em',
+                    color: '#414141'
+                  }}
                   dangerouslySetInnerHTML={{ __html: instructions }}
                 />
               </div>
             )}
 
-            {/* Videos Tab */}
+            {/* Videos Tab Content */}
             {activeTab === 'videos' && (
               <div>
                 {loadingResources ? (
@@ -144,38 +161,45 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                     <p className="text-gray-600">Loading video tutorials...</p>
                   </div>
                 ) : youtubeVideos.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  /* Video Cards Container - Width: 280px per card, Height: Hug (323px), Top/Left: 18px, Gap: 20px */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-[18px] pl-[18px]">
                     {youtubeVideos.map((video, index) => (
+                      /* Video Card - Width: 316px, Height: 359px, Radius: 15px, Border: 1px, Color: white, Border: #E7E7E7 */
                       <div 
                         key={index} 
-                        className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+                        className="w-[280px] bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
                       >
                         {/* Video Thumbnail */}
                         <div className="relative">
                           <img 
                             src={video.thumbnail}
                             alt={video.title}
-                            className="w-full h-48 object-cover"
+                            className="w-full h-[180px] object-cover"
                             onError={handleImageError}
                           />
-                          {/* Play Button Overlay */}
+                          {/* Play Button Overlay - Red circle with play icon */}
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
+                            <div 
+                              className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-red-700 transition-colors"
                               onClick={() => video.videoId && setSelectedVideo(video.videoId)}
                             >
-                              <Play className="w-6 h-6 text-white ml-1" fill="white" />
+                              <Play className="w-5 h-5 text-white ml-0.5" fill="white" />
                             </div>
                           </div>
                         </div>
 
-                        {/* Video Info */}
-                        <div className="p-5">
-                          <h4 className="font-semibold text-gray-900 text-[15px] mb-4 line-clamp-2 leading-snug">
+                        {/* Video Info - Padding matches card specs */}
+                        <div className="p-4">
+                          <h4 
+                            className="font-medium text-[15px] mb-4 line-clamp-2 leading-snug"
+                            style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                          >
                             {video.title}
                           </h4>
+                          {/* Watch Tutorial Button - Width: Fill (280px), Height: 48px, Radius: 15px, Border: 1.5px, Padding: 10px, Gap: 10px, Color: #F6FAFE, Border: #1A76E3 */}
                           <button
                             onClick={() => video.videoId && setSelectedVideo(video.videoId)}
-                            className="w-full py-3 rounded-xl text-[14px] font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200"
+                            className="w-full h-[48px] rounded-[15px] text-[14px] font-semibold bg-[#F6FAFE] text-[#1A76E3] border-[1.5px] border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
                           >
                             Watch Tutorial
                           </button>
@@ -191,7 +215,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               </div>
             )}
 
-            {/* Articles Tab */}
+            {/* Articles Tab Content */}
             {activeTab === 'articles' && (
               <div>
                 {loadingResources ? (
@@ -200,21 +224,23 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                     <p className="text-gray-600">Loading articles...</p>
                   </div>
                 ) : webResources.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  /* Article Cards Container */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-[18px] pl-[18px]">
                     {webResources.map((resource, index) => (
+                      /* Article Card - Width: 316px, Height: 359px, Radius: 15px, Border: 1px, Color: white, Border: #E7E7E7 */
                       <div 
                         key={index} 
-                        className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+                        className="w-[280px] bg-white rounded-[15px] border border-[#E7E7E7] overflow-hidden"
                       >
                         {/* Article Image */}
                         <div className="relative">
                           <img 
                             src={resource.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=250&fit=crop'}
                             alt={resource.title}
-                            className="w-full h-48 object-cover"
+                            className="w-full h-[180px] object-cover"
                             onError={handleImageError}
                           />
-                          {/* Domain Badge */}
+                          {/* Domain Badge - Bottom right corner with globe icon */}
                           <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm text-gray-600">
                             <Globe className="w-3.5 h-3.5" />
                             <span>{extractDomain(resource.url)}</span>
@@ -222,15 +248,19 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                         </div>
 
                         {/* Article Info */}
-                        <div className="p-5">
-                          <h4 className="font-semibold text-gray-900 text-[15px] mb-4 line-clamp-2 leading-snug">
+                        <div className="p-4">
+                          <h4 
+                            className="font-medium text-[15px] mb-4 line-clamp-2 leading-snug"
+                            style={{ fontFamily: "'Work Sans', sans-serif", color: '#414141' }}
+                          >
                             {resource.title}
                           </h4>
+                          {/* Read Article Button - Same style as Watch Tutorial */}
                           <a
                             href={resource.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block w-full py-3 rounded-xl text-[14px] font-semibold border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white transition-all duration-200 text-center"
+                            className="flex items-center justify-center w-full h-[48px] rounded-[15px] text-[14px] font-semibold bg-[#F6FAFE] text-[#1A76E3] border-[1.5px] border-[#1A76E3] hover:bg-[#1A76E3] hover:text-white transition-all duration-200"
                           >
                             Read Article
                           </a>
