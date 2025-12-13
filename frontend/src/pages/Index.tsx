@@ -966,7 +966,7 @@ const Index = () => {
         {/* Date Range and Day Tabs */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-10 py-6">
           <div className="flex items-center">
-            <span className="text-[17px] font-bold text-gray-900">
+            <span className="text-[20px] font-medium text-black tracking-[0.03em] leading-[130%]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
               {formatDateRange()}
             </span>
           </div>
