@@ -190,6 +190,21 @@ const HistoryDetailPage = () => {
     return []
   }
 
+  // Debug logging
+  useEffect(() => {
+    if (historyDetail) {
+      console.log('[HistoryDetailPage] Data ready:', {
+        hasHistoryDetail: !!historyDetail,
+        hasInstructions: !!historyDetail.instructions,
+        hasResources: !!historyDetail.resources_link,
+        instructionsLength: historyDetail.instructions?.length || 0,
+        resourcesLength: historyDetail.resources_link?.length || 0,
+        recipeName: historyDetail.suggestion || 'N/A',
+        recipeType: historyDetail.recipe_type
+      });
+    }
+  }, [historyDetail]);
+
   // Parse resources and pass to CookingTutorialModal
   // The modal will handle displaying instructions, videos, and articles
   // We need to modify CookingTutorialModal to accept pre-loaded data

@@ -97,6 +97,25 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
   const youtubeVideos = formattedYoutubeVideos.length > 0 ? formattedYoutubeVideos : fetchedYoutubeVideos;
   const webResources = formattedWebResources.length > 0 ? formattedWebResources : fetchedWebResources;
 
+  // Determine if we should show loading - NEVER show loading if we have preloaded data
+  const isActuallyLoading = hasPreloadedData ? false : (loading || loadingResources);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[CookingTutorialModal] State:', {
+      hasPreloadedData,
+      hasInstructions: !!preloadedInstructions,
+      hasResources: !!preloadedResources,
+      shouldFetch,
+      isActuallyLoading,
+      loading,
+      loadingResources,
+      instructionsLength: instructions?.length || 0,
+      youtubeVideosCount: youtubeVideos.length,
+      webResourcesCount: webResources.length
+    });
+  }, [hasPreloadedData, preloadedInstructions, preloadedResources, shouldFetch, isActuallyLoading, loading, loadingResources, instructions, youtubeVideos, webResources]);
+
   useEffect(() => {
     // Only fetch if we don't have preloaded data
     if (isOpen && recipeName && shouldFetch && !hasPreloadedData) {
@@ -233,7 +252,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           </div>
 
           {/* Loading State - only show if we're actually fetching */}
-          {(loading && shouldFetch && !hasPreloadedData) ? (
+          {isActuallyLoading ? (
             <div className="flex flex-col items-center justify-center py-20">
               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-gray-600">Loading content...</p>
@@ -241,7 +260,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
           ) : (
             <>
               {/* Recipe Tab Content */}
-              {activeTab === 'recipe' && instructions && (
+              {activeTab === 'recipe' && (
                 <div>
                   {/* Health Tip */}
                   <div className="flex items-start gap-2 mb-5">
@@ -255,23 +274,27 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
                   </div>
 
                   {/* Recipe Content - left aligned */}
-                  <div 
-                    className="text-left"
-                    style={{ 
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '15px',
-                      lineHeight: '170%',
-                      color: '#414141'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: instructions }}
-                  />
+                  {instructions ? (
+                    <div 
+                      className="text-left"
+                      style={{ 
+                        fontFamily: "'Work Sans', sans-serif",
+                        fontSize: '15px',
+                        lineHeight: '170%',
+                        color: '#414141'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: instructions }}
+                    />
+                  ) : hasPreloadedData ? (
+                    <p className="text-gray-500 text-left">No instructions available for this recipe.</p>
+                  ) : null}
                 </div>
               )}
 
               {/* Videos Tab Content */}
               {activeTab === 'videos' && (
                 <div>
-                  {(loadingResources && shouldFetch && !hasPreloadedData) ? (
+                  {isActuallyLoading ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading video tutorials...</p>
@@ -327,7 +350,7 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
               {/* Articles Tab Content */}
               {activeTab === 'articles' && (
                 <div>
-                  {(loadingResources && shouldFetch && !hasPreloadedData) ? (
+                  {isActuallyLoading ? (
                     <div className="flex flex-col items-center justify-center py-20">
                       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                       <p className="text-gray-600">Loading articles...</p>
