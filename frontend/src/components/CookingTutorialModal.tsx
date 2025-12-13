@@ -61,8 +61,15 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       {/* Content Panel - positioned to respect sidebar */}
       <div className="fixed top-0 right-0 bottom-0 left-[250px] bg-white z-50 overflow-hidden flex flex-col">
         
-        {/* Top Header - Diet Planner with Profile - aligned with sidebar logo height */}
-        <header className="bg-white border-b border-gray-200 px-8 h-[76px] flex items-center">
+        {/* Top Header - Diet Planner with Profile - aligned with sidebar logo height (123px) */}
+        <header 
+          className="px-8 h-[123px] flex items-center border-b"
+          style={{ 
+            backgroundColor: '#F9FBFE',
+            borderColor: '#F6FAFE',
+            boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+          }}
+        >
           <div className="flex items-center justify-between w-full">
             <h1 
               className="text-[32px] font-medium tracking-[0.03em] leading-[130%]" 

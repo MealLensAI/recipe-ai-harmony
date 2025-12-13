@@ -60,11 +60,18 @@ const Sidebar = () => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo - with border line matching nav button width */}
-      <div className="h-[76px] flex items-center px-6">
-        <Logo size="md" />
+      {/* Logo - Height: 123px, Background: #F9FBFE, Border: 1px bottom #F6FAFE, Shadow */}
+      <div 
+        className="h-[123px] flex items-center px-6 border-b"
+        style={{ 
+          backgroundColor: '#F9FBFE',
+          borderColor: '#F6FAFE',
+          boxShadow: '0px 2px 2px rgba(227, 227, 227, 0.25)'
+        }}
+      >
+        <Logo size="lg" />
       </div>
-      {/* Border line - gradient fade at edges, Width: 250px, Border: 1px, Linear Gradient #E7E7E7 fading to 0% */}
+      {/* Border line - gradient fade at edges */}
       <div 
         className="mx-4 h-[1px]" 
         style={{ 
