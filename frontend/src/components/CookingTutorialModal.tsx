@@ -57,103 +57,106 @@ const CookingTutorialModal: React.FC<CookingTutorialModalProps> = ({
       />
       
       {/* Content Panel - positioned to respect sidebar */}
-      <div className="fixed top-0 right-0 bottom-0 left-64 bg-white z-50 overflow-hidden flex flex-col">
+      <div className="fixed top-0 right-0 bottom-0 left-64 bg-[#f8f9fa] z-50 overflow-hidden flex flex-col">
         {/* Header with Back button and recipe name */}
-        <div className="flex items-center gap-4 px-8 py-5 border-b border-gray-100">
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="font-medium">Back</span>
-          </button>
-          <h1 className="text-[24px] font-semibold text-[#2A2A2A]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
-            {recipeName}
-          </h1>
+        <div className="bg-white px-8 py-5 border-b border-gray-200">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-4 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200 bg-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-medium text-[14px]">Back</span>
+            </button>
+            <h1 className="text-[22px] font-semibold text-[#2A2A2A]" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+              {recipeName}
+            </h1>
+          </div>
         </div>
 
-        {/* Divider line */}
-        <div className="border-b border-gray-200" />
+        {/* Divider line - blue accent */}
+        <div className="h-[3px] bg-gradient-to-r from-blue-400 to-blue-500" />
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto px-8 py-6">
-          {/* Section Title */}
-          <h2 className="text-[18px] font-semibold text-[#2A2A2A] mb-4" style={{ fontFamily: "'Work Sans', sans-serif" }}>
-            Cooking instructions
-          </h2>
+        <div className="flex-1 overflow-y-auto bg-white">
+          <div className="px-8 py-6">
+            {/* Section Title */}
+            <h2 className="text-[18px] font-semibold text-[#2A2A2A] mb-5" style={{ fontFamily: "'Work Sans', sans-serif" }}>
+              Cooking instructions
+            </h2>
 
-          {/* Tabs Container */}
-          <div className="inline-flex items-center bg-white border border-[#E7E7E7] rounded-[15px] p-1 mb-6">
-            {/* Recipe Tab */}
-            <button
-              onClick={() => setActiveTab('recipe')}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
-                activeTab === 'recipe'
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-2 border-[#1A76E3]'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Recipe
-            </button>
-            {/* Video Tutorials Tab */}
-            <button
-              onClick={() => setActiveTab('videos')}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
-                activeTab === 'videos'
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-2 border-[#1A76E3]'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Video Tutorials
-            </button>
-            {/* Recommended Articles Tab */}
-            <button
-              onClick={() => setActiveTab('articles')}
-              className={`px-6 py-2.5 rounded-[10px] text-[14px] font-medium transition-all duration-200 ${
-                activeTab === 'articles'
-                  ? 'bg-[#F6FAFE] text-[#1A76E3] border-2 border-[#1A76E3]'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              Recommended Articles
-            </button>
-          </div>
-
-          {/* Loading State */}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-600">Loading content...</p>
+            {/* Tabs Container */}
+            <div className="inline-flex items-center bg-white border border-[#E7E7E7] rounded-[12px] p-1 mb-6">
+              {/* Recipe Tab */}
+              <button
+                onClick={() => setActiveTab('recipe')}
+                className={`px-5 py-2 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+                  activeTab === 'recipe'
+                    ? 'bg-[#F6FAFE] text-[#1A76E3] border border-[#1A76E3]'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Recipe
+              </button>
+              {/* Video Tutorials Tab */}
+              <button
+                onClick={() => setActiveTab('videos')}
+                className={`px-5 py-2 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+                  activeTab === 'videos'
+                    ? 'bg-[#F6FAFE] text-[#1A76E3] border border-[#1A76E3]'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Video Tutorials
+              </button>
+              {/* Recommended Articles Tab */}
+              <button
+                onClick={() => setActiveTab('articles')}
+                className={`px-5 py-2 rounded-[8px] text-[14px] font-medium transition-all duration-200 ${
+                  activeTab === 'articles'
+                    ? 'bg-[#F6FAFE] text-[#1A76E3] border border-[#1A76E3]'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Recommended Articles
+              </button>
             </div>
-          ) : (
-            <>
-              {/* Recipe Tab Content */}
-              {activeTab === 'recipe' && instructions && (
-                <div className="max-w-4xl">
-                  {/* Health Tip */}
-                  <div className="flex items-center gap-3 mb-6">
-                    <span className="text-lg">💡</span>
-                    <p 
-                      className="text-[16px] leading-[130%] tracking-[0.03em]"
-                      style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
-                    >
-                      Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
-                    </p>
-                  </div>
 
-                  {/* Recipe Content */}
-                  <div 
-                    className="prose prose-lg max-w-none"
-                    style={{ 
-                      fontFamily: "'Work Sans', sans-serif",
-                      fontSize: '16px',
-                      lineHeight: '160%',
-                      color: '#414141'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: instructions }}
-                  />
-                </div>
-              )}
+            {/* Loading State */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-gray-600">Loading content...</p>
+              </div>
+            ) : (
+              <>
+                {/* Recipe Tab Content */}
+                {activeTab === 'recipe' && instructions && (
+                  <div>
+                    {/* Health Tip */}
+                    <div className="flex items-start gap-2 mb-5">
+                      <span className="text-base">💡</span>
+                      <p 
+                        className="text-[15px] leading-[140%]"
+                        style={{ fontFamily: "'Work Sans', sans-serif", color: '#34C759' }}
+                      >
+                        Health Tip: Provides fiber and Phytonutrients to support digestion and immunity
+                      </p>
+                    </div>
+
+                    {/* Recipe Content - left aligned */}
+                    <div 
+                      className="text-left"
+                      style={{ 
+                        fontFamily: "'Work Sans', sans-serif",
+                        fontSize: '15px',
+                        lineHeight: '170%',
+                        color: '#414141'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: instructions }}
+                    />
+                  </div>
+                )}
 
               {/* Videos Tab Content */}
               {activeTab === 'videos' && (
