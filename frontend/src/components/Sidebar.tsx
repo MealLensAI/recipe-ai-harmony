@@ -60,12 +60,12 @@ const Sidebar = () => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo - with full width border */}
+      {/* Logo - with border line matching nav button width */}
       <div className="h-[76px] flex items-center px-6">
         <Logo size="md" />
       </div>
-      {/* Full width border line - Width: 250px, Border: 1px #E7E7E7 */}
-      <div className="w-full border-b border-[#E7E7E7]" />
+      {/* Border line - same width as nav buttons (with px-4 padding = 16px each side) */}
+      <div className="mx-4 border-b border-[#E7E7E7]" />
 
       {/* Navigation Items */}
       <nav className="flex-1 px-4 py-8 space-y-2">
